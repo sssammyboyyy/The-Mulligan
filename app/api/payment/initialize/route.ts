@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { generateReferralCode } from "@/lib/upsells"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,35 @@ export async function POST(request: NextRequest) {
     // Create booking in database
     const supabase = await createClient()
 
+    // Check if first-time user
+    let isFirstBooking = true
+    if (guest_email) {
+      const { data: existingBookings } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('guest_email', guest_email)
+        .eq('status', 'confirmed')
+        .limit(1)
+      
+      isFirstBooking = !existingBookings || existingBookings.length === 0
+    }
+
+    // Determine verification status and notes
+    const studentVerified = user_type === 'student'
+    const ageVerified = user_type === 'junior' || user_type === 'senior'
+    
+    let verificationNotes = null
+    if (user_type === 'student') {
+      verificationNotes = 'Student ID verification required at check-in'
+    } else if (user_type === 'junior') {
+      verificationNotes = 'Age verified as under 18'
+    } else if (user_type === 'senior') {
+      verificationNotes = 'Age verified as 60+'
+    }
+
+    // Check if referral offer was selected
+    const hasReferralOffer = upsells && upsells.some((u: any) => u.category === 'referral_offer')
+
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
@@ -38,13 +68,30 @@ export async function POST(request: NextRequest) {
         guest_name,
         guest_email,
         guest_phone,
+        is_first_booking: isFirstBooking,
+        student_verified: studentVerified,
+        age_verified: ageVerified,
+        verification_notes: verificationNotes,
+        referral_code: hasReferralOffer && isFirstBooking ? null : null, // Will be generated after booking confirmed
       })
       .select()
       .single()
 
     if (bookingError) {
-      console.error("[v0] Booking creation error:", bookingError)
+      console.error("Booking creation error:", bookingError)
       return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+    }
+
+    // Generate referral code if first-time user and referral offer selected
+    let referralCode = null
+    if (hasReferralOffer && isFirstBooking && booking.id) {
+      referralCode = generateReferralCode(booking.id)
+      
+      // Update booking with referral code
+      await supabase
+        .from('bookings')
+        .update({ referral_code: referralCode })
+        .eq('id', booking.id)
     }
 
     // Add upsells if any
@@ -85,7 +132,7 @@ export async function POST(request: NextRequest) {
     const paystackData = await paystackResponse.json()
 
     if (!paystackData.status) {
-      console.error("[v0] Paystack initialization error:", paystackData)
+      console.error("Paystack initialization error:", paystackData)
       return NextResponse.json({ error: "Failed to initialize payment" }, { status: 500 })
     }
 
@@ -98,7 +145,7 @@ export async function POST(request: NextRequest) {
       reference: booking.id,
     })
   } catch (error) {
-    console.error("[v0] Payment initialization error:", error)
+    console.error("Payment initialization error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
