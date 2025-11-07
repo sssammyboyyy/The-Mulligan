@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,11 +11,14 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-primary-foreground" />
+          <div className="flex items-center gap-3">
+            <Image src="/mulligan-logo.jpg" alt="The Mulligan Logo" width={50} height={50} className="object-contain" />
+            <div className="flex flex-col">
+              <span className="font-serif text-xl font-bold text-foreground leading-tight">The Mulligan</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                The Simulator Never Judges!
+              </span>
             </div>
-            <span className="font-serif text-xl font-bold text-foreground">Elite Golf Sim</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link
@@ -48,9 +52,8 @@ export default function HomePage() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <Badge className="mb-4 bg-secondary text-secondary-foreground border-0">Premium Golf Experience</Badge>
-            <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6 text-balance">
-              Master Your Game on World-Class Simulators
-            </h1>
+            <h1 className="font-serif text-4xl md:text-6xl font-bold mb-4 text-balance">The Mulligan</h1>
+            <p className="text-2xl md:text-3xl font-serif mb-6 text-secondary">The Simulator never Judges!</p>
             <p className="text-lg md:text-xl mb-8 text-primary-foreground/90 leading-relaxed">
               Book your session in seconds. Play legendary courses. Perfect your swing with cutting-edge technology.
             </p>
@@ -89,9 +92,7 @@ export default function HomePage() {
       <section id="features" className="py-16 md:py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 text-foreground">
-              Why Choose Elite Golf Sim
-            </h2>
+            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 text-foreground">Why Choose The Mulligan</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Experience the perfect blend of technology, comfort, and championship-level facilities
             </p>
@@ -287,8 +288,10 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 md:py-24 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 text-center">
+      <section className="relative py-16 md:py-24 bg-primary text-primary-foreground overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/simulator-cta-bg.png')] bg-cover bg-center opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/80 to-primary/60" />
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4">Ready to Tee Off?</h2>
           <p className="text-lg mb-8 text-primary-foreground/90 max-w-2xl mx-auto">
             Book your session now and experience the future of golf. Instant confirmation, flexible cancellation.
@@ -303,13 +306,22 @@ export default function HomePage() {
       <footer className="border-t border-border py-8 bg-card">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-primary-foreground" />
+            <div className="flex items-center gap-3">
+              <Image
+                src="/mulligan-logo.jpg"
+                alt="The Mulligan Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <div className="flex flex-col">
+                <span className="font-serif text-lg font-bold text-foreground leading-tight">The Mulligan</span>
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                  The Simulator Never Judges!
+                </span>
               </div>
-              <span className="font-serif text-lg font-bold text-foreground">Elite Golf Sim</span>
             </div>
-            <p className="text-sm text-muted-foreground">© 2025 Elite Golf Sim. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground">© 2025 The Mulligan. All rights reserved.</p>
           </div>
         </div>
       </footer>

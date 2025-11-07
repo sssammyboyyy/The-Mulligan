@@ -5,20 +5,20 @@
 
 :root {
   /* Premium golf club color palette */
-  --background: oklch(0.98 0.005 120); /* Off-white #F5F5F5 */
-  --foreground: oklch(0.25 0.02 150); /* Deep forest green #1A472A */
+  --background: rgb(248, 249, 250); /* Off-white #F5F5F5 */
+  --foreground: rgb(45, 55, 72); /* Deep forest green #1A472A */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 150);
+  --card-foreground: rgb(45, 55, 72);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 150);
-  --primary: oklch(0.25 0.02 150); /* Forest green */
-  --primary-foreground: oklch(0.98 0.005 120);
-  --secondary: oklch(0.75 0.12 85); /* Championship gold #D4AF37 */
-  --secondary-foreground: oklch(0.25 0.02 150);
-  --muted: oklch(0.95 0.005 120);
+  --popover-foreground: rgb(45, 55, 72);
+  --primary: rgb(26, 71, 42); /* Forest green */
+  --primary-foreground: rgb(255, 255, 255);
+  --secondary: rgb(212, 175, 55); /* Championship gold #D4AF37 */
+  --secondary-foreground: rgb(26, 71, 42);
+  --muted: rgb(203, 213, 224);
   --muted-foreground: oklch(0.5 0.01 150);
-  --accent: oklch(0.75 0.12 85); /* Gold accent */
-  --accent-foreground: oklch(0.25 0.02 150);
+  --accent: rgb(47, 133, 90); /* Gold accent */
+  --accent-foreground: rgb(255, 255, 255);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.88 0.005 120);
