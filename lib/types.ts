@@ -2,6 +2,8 @@ export type UserType = "adult" | "student" | "junior" | "senior"
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed"
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded"
 export type DayType = "weekday" | "weekend" | "holiday"
+export type SessionType = "famous-course" | "quickplay"
+export type FamousCourseOption = "4-ball" | "3-ball" | null
 
 export interface Booking {
   id: string
@@ -11,6 +13,8 @@ export interface Booking {
   end_time: string
   duration_hours: number
   player_count: number
+  session_type: SessionType
+  famous_course_option?: string
   user_type: UserType
   base_price: number
   total_price: number
@@ -20,6 +24,9 @@ export interface Booking {
   guest_name?: string
   guest_email?: string
   guest_phone?: string
+  accept_whatsapp: boolean
+  enter_competition: boolean
+  coupon_code?: string
   special_requests?: string
   created_at: string
   updated_at: string

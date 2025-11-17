@@ -1,115 +1,180 @@
-# Elite Golf Sim - Premium Golf Simulator Booking System
+# Elite Golf Sim - Vanderbijlpark Golf Simulator Booking Platform
 
-A high-converting, mobile-first booking website for golf simulator businesses with dynamic pricing, strategic upsells, and payment processing.
+Vanderbijlpark's premier indoor golf simulator experience featuring Augusta National, skills challenges, and real-time bay availability.
 
-## Features
+## 🏌️ Features
 
 ### Customer-Facing
-- **Real-time Booking System**: Live availability calendar with instant confirmation
-- **Dynamic Pricing**: Peak/off-peak pricing based on time and day type
-- **User Type Discounts**: Special rates for students (20%), juniors (30%), and seniors (25%)
-- **Strategic Upsells**: Conditional offers based on booking details (time extensions, food bundles, equipment)
-- **Competition Entry**: Monthly longest drive and closest to pin challenges
-- **Payment Processing**: Secure payments via Paystack (South African payment gateway)
-- **Email Notifications**: Automated booking confirmations and reminders
+- **Real-Time Bay Availability**: Live status display showing available bays with color indicators
+- **Augusta National 18 Holes**: Premium experience for 3-4 players (R480/R600)
+- **Quick Play Sessions**: Solo (R250) and duo (R360) sessions on all courses
+- **Walk-In Friendly**: Pay at Yoco terminal on-site at SW5 Vanderbijlpark
+- **Monthly Competitions**: Longest Drive (R2000 voucher), Hole-in-One, and Closest to Pin challenges
+- **POPIA Compliant**: WhatsApp opt-in for booking confirmations
+- **Mobile-First Design**: Optimized for "golf simulator near me" searches
+- **Secure Payments**: Yoco payment processing with cards, Apple Pay, and Google Pay
 
 ### Admin Dashboard
+- **Walk-In Bookings**: Password-protected admin page for on-site bookings
 - **Booking Management**: View, search, filter, and cancel bookings
-- **Availability Control**: Manage time slots and set holidays
-- **Revenue Reports**: Daily, weekly, and monthly revenue breakdowns
-- **Competition Management**: Track entries and view leaderboards
-- **Export Functionality**: Download booking and revenue data
+- **Availability Control**: Manage time slots and bay status
+- **Revenue Reports**: Track daily, weekly, and monthly revenue
+- **Competition Management**: Monitor entries and leaderboards
 
-## Tech Stack
+## 🚀 Cloudflare Pages Deployment
 
-- **Framework**: Next.js 15 (App Router)
-- **Database**: Supabase (PostgreSQL with Row Level Security)
-- **Payment**: Paystack (South African payment gateway)
-- **Styling**: Tailwind CSS v4 with custom golf club theme
-- **UI Components**: shadcn/ui
-- **Authentication**: Supabase Auth (for admin access)
-
-## Getting Started
+This project is configured for deployment on Cloudflare Pages using `@cloudflare/next-on-pages`.
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- Supabase account and project
-- Paystack account (for payment processing)
+- Node.js 22+
+- pnpm package manager
+- Cloudflare account
+- Supabase account
+- Yoco account (South African payment gateway)
 
-### Environment Variables
+### Setup
 
-Create a `.env.local` file in the root directory with the following variables:
-
+1. **Install dependencies:**
 \`\`\`bash
-# Supabase (automatically provided by v0 integration)
+pnpm install
+\`\`\`
+
+2. **Run database migrations:**
+Execute the SQL scripts in the `scripts/` folder in order:
+- `001_create_tables.sql` - Creates database tables
+- `002_enable_rls.sql` - Enables Row Level Security
+- `003_seed_data.sql` - Seeds initial data
+- `004_create_functions.sql` - Creates database functions
+
+Run these directly in v0 or in your Supabase SQL editor.
+
+3. **Configure environment variables** (in Cloudflare dashboard or locally):
+\`\`\`bash
+# Supabase
+SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Paystack Payment Gateway
-PAYSTACK_SECRET_KEY=your_paystack_secret_key
-NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
+# Yoco Payment Gateway
+YOCO_SECRET_KEY=sk_test_your_secret_key
 
 # App URL (for payment callbacks)
-NEXT_PUBLIC_APP_URL=http://localhost:3000  # Change to your production URL
+NEXT_PUBLIC_SITE_URL=https://your-site.pages.dev
 \`\`\`
 
-### Installation
-
-1. **Install dependencies**:
+4. **Build for Cloudflare:**
 \`\`\`bash
-npm install
+pnpm build
 \`\`\`
 
-2. **Run database migrations**:
-The SQL scripts in the `scripts/` folder need to be executed in order:
-- `001_create_tables.sql` - Creates all database tables
-- `002_enable_rls.sql` - Enables Row Level Security
-- `003_seed_data.sql` - Seeds initial data (pricing, availability, upsells)
-- `004_create_functions.sql` - Creates database functions and triggers
-
-You can run these directly in v0 or in your Supabase SQL editor.
-
-3. **Start the development server**:
+5. **Deploy to Cloudflare Pages:**
 \`\`\`bash
-npm run dev
+pnpm pages:deploy
 \`\`\`
 
-4. **Open your browser**:
-Navigate to `http://localhost:3000`
+For detailed deployment instructions, see [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md).
 
-## Project Structure
+## 💳 Payment Integration
+
+- **Processor**: Yoco (South African payment gateway)
+- **Methods**: All major cards, Apple Pay, Google Pay
+- **Compliance**: PCI-DSS compliant hosted checkout
+- **Features**: Instant settlements, no setup fees, competitive rates
+
+### Yoco Test Cards
+- **Success**: 4111 1111 1111 1111 (CVV: 123, any future date)
+- **Declined**: 4000 0000 0000 0002
+
+## 📍 Location & Hours
+
+**Elite Golf Sim**  
+SW5 Vanderbijlpark, Gauteng, South Africa
+
+**Operating Hours:**  
+Monday - Saturday: 9AM - 8PM  
+Sunday: Closed
+
+**Walk-ins Welcome:** Pay via Yoco card terminal on-site
+
+## 🔍 SEO & Keywords
+
+**Primary Keywords:**
+- "golf simulator near me Vanderbijlpark"
+- "indoor golf simulator near me Gauteng"
+
+**Features:**
+- Augusta National course simulation
+- Real-time 3-bay availability display
+- Walk-in welcome with on-site payment
+- Mobile-optimized booking (320px+)
+- Schema markup for LocalBusiness and SportsActivityLocation
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Runtime**: Cloudflare Workers (Edge Runtime)
+- **Database**: Supabase (PostgreSQL with RLS)
+- **Payments**: Yoco payment gateway
+- **Styling**: Tailwind CSS v4 + shadcn/ui
+- **Deployment**: Cloudflare Pages with OpenNext
+- **Node Version**: 22+
+
+## 📱 Mobile Optimization
+
+- **Breakpoint**: 320px minimum width
+- **Above-the-fold**: Real-time bay status on mobile
+- **Simplified Flow**: 2-step booking for quick conversions
+- **Local Search**: Optimized for "near me" searches
+- **Click Actions**: Direct maps and payment integration
+
+## 🏆 Competition Features
+
+**Included with Every Booking:**
+- **Longest Drive Challenge**: Win R2000 Pro Shop voucher monthly
+- **Hole-in-One Challenge**: Instant prizes on designated holes
+- **Closest to Pin**: Free 2-hour session for monthly winner
+
+## 💰 Pricing Structure (December Launch)
+
+### Augusta National 18 Holes
+- **3 Players**: R480 (2-hour minimum required)
+- **4 Players**: R600 (3-hour minimum required)
+- *Note: Full time block required, no overtime permitted*
+
+### Quick Play Sessions
+- **Solo**: R250 (1-hour minimum)
+- **Duo**: R360 (1-hour minimum)
+- *All courses and skills challenges included*
+
+## 🗂️ Project Structure
 
 \`\`\`
 ├── app/
-│   ├── page.tsx                    # Landing page
+│   ├── page.tsx                    # Homepage with SEO optimization
+│   ├── layout.tsx                  # Layout with schema markup
 │   ├── booking/
-│   │   ├── page.tsx               # Booking flow
-│   │   ├── confirm/page.tsx       # Booking confirmation & upsells
+│   │   ├── page.tsx               # 2-step booking flow
+│   │   ├── confirm/page.tsx       # POPIA-compliant confirmation
 │   │   └── success/page.tsx       # Payment success
 │   ├── admin/
-│   │   └── page.tsx               # Admin dashboard
-│   ├── auth/
-│   │   └── login/page.tsx         # Admin login
+│   │   └── page.tsx               # Walk-in booking admin
 │   └── api/
+│       ├── bays/status/route.ts   # Real-time bay availability
 │       └── payment/
-│           ├── initialize/route.ts # Initialize Paystack payment
-│           └── verify/route.ts     # Verify payment & confirm booking
+│           ├── initialize/route.ts # Yoco payment init
+│           └── verify/route.ts     # Payment verification
 ├── components/
-│   ├── booking-flow.tsx           # Multi-step booking component
-│   ├── booking-confirmation.tsx   # Confirmation with upsells
-│   ├── admin-dashboard.tsx        # Admin dashboard layout
-│   └── admin/
-│       ├── bookings-table.tsx     # Bookings management
-│       ├── availability-manager.tsx # Availability control
-│       ├── revenue-reports.tsx    # Revenue analytics
-│       └── competitions-manager.tsx # Competition management
+│   ├── bay-status-display.tsx     # Live 3-bay status widget
+│   ├── booking-flow.tsx           # Session type + booking flow
+│   ├── booking-confirmation.tsx   # POPIA checkboxes + payment
+│   └── admin-dashboard.tsx        # Admin interface
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts              # Browser Supabase client
 │   │   ├── server.ts              # Server Supabase client
 │   │   └── middleware.ts          # Auth middleware
-│   ├── email.ts                   # Email notification utilities
 │   └── types.ts                   # TypeScript types
 └── scripts/
     ├── 001_create_tables.sql      # Database schema
@@ -118,98 +183,63 @@ Navigate to `http://localhost:3000`
     └── 004_create_functions.sql   # Database functions
 \`\`\`
 
-## Configuration
+## 🔑 Admin Access
 
-### Pricing Rules
+**Walk-In Bookings:**
+1. Navigate to `/admin`
+2. Enter password protection
+3. Create walk-in booking (bypasses payment)
+4. Generate printable receipt with QR code
 
-Pricing is configured in the database (`pricing_rules` table). Default rates:
+**Booking Management:**
+- View all bookings in real-time
+- Manage bay availability
+- Export revenue reports
+- Track competition entries
 
-- **Adult**: R350-R600/hour (depending on peak times)
-- **Student**: 20% discount (R280-R480/hour)
-- **Junior**: 30% discount (R245-R420/hour)
-- **Senior**: 25% discount (R262-R450/hour)
+## 🌐 Cloudflare Advantages
 
-Peak times:
-- Weekdays: 16:00-21:00
-- Weekends: 10:00-21:00
-- Holidays: All day
+- **Global Edge Network**: Sub-100ms response times
+- **Zero Cold Starts**: Always-on edge runtime
+- **DDoS Protection**: Enterprise-grade security
+- **Unlimited Bandwidth**: No egress charges
+- **Cost Effective**: More affordable than Vercel
 
-### Upsells
+## 🚦 Launch Checklist
 
-Strategic upsells are configured in the `upsells` table with trigger conditions:
-- Time extensions for bookings < 2 hours
-- Social upgrades for solo bookings
-- Food bundles for group bookings (2+ players)
-- Equipment rentals, lessons, and memberships
+- [x] Augusta National only (no St. Andrews)
+- [x] Real-time bay availability display
+- [x] Walk-in payment messaging
+- [x] POPIA-compliant WhatsApp opt-ins
+- [x] December pricing structure
+- [x] Operating hours in header + footer
+- [x] SEO optimization for "near me" searches
+- [x] Mobile-first responsive design
+- [x] Yoco webhook endpoints configured
+- [x] Schema markup for local search
+- [ ] Custom domain setup
+- [ ] Production Yoco keys
+- [ ] n8n automation webhook testing
 
-### Booking Rules
+## 📈 Performance Targets
 
-- Minimum advance notice: 15 minutes
-- Maximum session length: 4 hours
-- Maximum future booking: 30 days
-- Free cancellation: Up to 2 hours before session
+- **Lighthouse Performance**: >90
+- **Lighthouse Accessibility**: >95
+- **Mobile Booking Time**: <60 seconds
+- **Page Load Time**: <2 seconds
+- **Bay Status Refresh**: 30 seconds
 
-## Paystack Integration
+## 🆘 Support
 
-This system uses Paystack for payment processing, which is ideal for South African businesses.
+**Deployment Issues:** See [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md)
 
-### Setup Paystack
+**Technical Support:**
+- Database: Check Supabase dashboard and RLS policies
+- Payments: Verify Yoco keys and webhook configuration
+- Environment: Confirm all variables in Cloudflare dashboard
 
-1. Create a Paystack account at [paystack.com](https://paystack.com)
-2. Get your API keys from the Paystack dashboard
-3. Add keys to your `.env.local` file
-4. Test with Paystack test cards before going live
+**Production Launch:** Ensure all environment variables are updated from test to production values.
 
-### Test Cards
-
-Use these test cards in development:
-- **Success**: 4084 0840 8408 4081 (any CVV, any future date)
-- **Insufficient Funds**: 5060 6666 6666 6666 4963
-
-## Email Notifications
-
-Email notifications are prepared but require integration with an email service provider.
-
-### Recommended Email Services
-
-- **Resend** (recommended for Next.js)
-- **SendGrid**
-- **Postmark**
-- **AWS SES**
-
-Update `lib/email.ts` with your chosen provider's API.
-
-## Admin Access
-
-To create an admin user:
-
-1. Sign up via Supabase Auth (or use Supabase dashboard)
-2. Navigate to `/auth/login`
-3. Use your credentials to access `/admin`
-
-## Deployment
-
-### Deploy to Vercel
-
-1. Push your code to GitHub
-2. Import project in Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Post-Deployment
-
-1. Update `NEXT_PUBLIC_APP_URL` to your production URL
-2. Update Paystack webhook URL in Paystack dashboard
-3. Test the complete booking flow
-4. Set up email service integration
-
-## Support
-
-For issues or questions:
-- Check the documentation in each component
-- Review the database schema in `scripts/`
-- Consult Supabase and Paystack documentation
-
-## License
+## 📄 License
 
 © 2025 Elite Golf Sim. All rights reserved.

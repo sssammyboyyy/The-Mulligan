@@ -4,40 +4,40 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Premium golf club color palette */
-  --background: rgb(248, 249, 250); /* Off-white #F5F5F5 */
-  --foreground: rgb(45, 55, 72); /* Deep forest green #1A472A */
+  /* Updated to premium golf palette with deep greens, charcoal, and gold accents */
+  --background: rgb(250, 250, 248); /* Warm off-white */
+  --foreground: rgb(31, 41, 36); /* Charcoal-black */
   --card: oklch(1 0 0);
-  --card-foreground: rgb(45, 55, 72);
+  --card-foreground: rgb(31, 41, 36);
   --popover: oklch(1 0 0);
-  --popover-foreground: rgb(45, 55, 72);
-  --primary: rgb(26, 71, 42); /* Forest green */
+  --popover-foreground: rgb(31, 41, 36);
+  --primary: rgb(20, 59, 41); /* Deep forest green #143B29 */
   --primary-foreground: rgb(255, 255, 255);
-  --secondary: rgb(212, 175, 55); /* Championship gold #D4AF37 */
-  --secondary-foreground: rgb(26, 71, 42);
-  --muted: rgb(203, 213, 224);
-  --muted-foreground: oklch(0.5 0.01 150);
-  --accent: rgb(47, 133, 90); /* Gold accent */
+  --secondary: rgb(184, 134, 66); /* Copper/gold #B88642 */
+  --secondary-foreground: rgb(255, 255, 255);
+  --muted: rgb(235, 235, 230);
+  --muted-foreground: rgb(100, 110, 105);
+  --accent: rgb(184, 134, 66); /* Gold accent */
   --accent-foreground: rgb(255, 255, 255);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.88 0.005 120);
-  --input: oklch(0.88 0.005 120);
-  --ring: oklch(0.75 0.12 85);
+  --border: oklch(0.9 0.005 120);
+  --input: oklch(0.9 0.005 120);
+  --ring: rgb(20, 59, 41);
   --chart-1: oklch(0.25 0.02 150);
   --chart-2: oklch(0.75 0.12 85);
   --chart-3: oklch(0.5 0.08 140);
   --chart-4: oklch(0.65 0.1 100);
   --chart-5: oklch(0.85 0.08 90);
   --radius: 0.5rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.985 0 0); /* Retained from existing */
+  --sidebar-foreground: oklch(0.145 0 0); /* Retained from existing */
+  --sidebar-primary: oklch(0.205 0 0); /* Retained from existing */
+  --sidebar-primary-foreground: oklch(0.985 0 0); /* Retained from existing */
+  --sidebar-accent: oklch(0.97 0 0); /* Retained from existing */
+  --sidebar-accent-foreground: oklch(0.205 0 0); /* Retained from existing */
+  --sidebar-border: oklch(0.922 0 0); /* Retained from existing */
+  --sidebar-ring: oklch(0.708 0 0); /* Retained from existing */
 }
 
 .dark {
@@ -76,8 +76,9 @@
 }
 
 @theme inline {
-  --font-sans: "Poppins", "Poppins Fallback", system-ui, sans-serif;
-  --font-serif: "Playfair Display", "Playfair Display Fallback", serif;
+  /* Premium typography: serif headlines + clean sans body */
+  --font-sans: "Inter", "Inter Fallback", system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Playfair Display Fallback", Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -106,14 +107,14 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar: var(--sidebar); /* Retained from existing */
+  --color-sidebar-foreground: var(--sidebar-foreground); /* Retained from existing */
+  --color-sidebar-primary: var(--sidebar-primary); /* Retained from existing */
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground); /* Retained from existing */
+  --color-sidebar-accent: var(--sidebar-accent); /* Retained from existing */
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground); /* Retained from existing */
+  --color-sidebar-border: var(--sidebar-border); /* Retained from existing */
+  --color-sidebar-ring: var(--sidebar-ring); /* Retained from existing */
 }
 
 @layer base {
@@ -121,6 +122,21 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
+}
+
+/* Added subtle animations for premium feel */
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
 }

@@ -1,11 +1,15 @@
 {
-  "name": "my-v0-project",
+  "name": "mulligan-golf-booking",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "next build",
+    "deploy": "npm run pages:build && npm run pages:deploy",
     "dev": "next dev",
     "lint": "eslint .",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:deploy": "wrangler pages deploy .vercel/output/static",
+    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-date=2024-01-01",
     "start": "next start"
   },
   "dependencies": {
@@ -38,8 +42,7 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "@supabase/ssr": "latest",
-    "@supabase/supabase-js": "latest",
-    "@vercel/analytics": "latest",
+    "@supabase/supabase-js": "2.80.0",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -63,6 +66,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^19",
@@ -70,6 +74,10 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.47.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Poppins, Playfair_Display } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { Poppins, Playfair_Display } from 'next/font/google'
 import "./globals.css"
 
 const poppins = Poppins({
@@ -17,9 +16,17 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: "Premium Golf Simulator | Book Your Session",
-  description: "Experience world-class golf simulation. Book your session online with instant confirmation.",
-  generator: "v0.app",
+  title: "Elite Golf Sim | Indoor Golf Simulator Near Me Vanderbijlpark | Augusta National",
+  description:
+    "Vanderbijlpark's premier indoor golf simulator. Play Augusta National, skills challenges & more. Book your bay in 60 seconds. Walk-ins welcome Mon-Sat 9AM-8PM. SW5 Vanderbijlpark, Gauteng.",
+  keywords:
+    "golf simulator near me, indoor golf simulator near me, golf simulator Vanderbijlpark, indoor golf Gauteng, Augusta National simulator",
+  openGraph: {
+    title: "Elite Golf Sim Vanderbijlpark | World-Class Golf Simulator",
+    description: "Experience Augusta National & premium golf simulation in Vanderbijlpark. Book online or walk in.",
+    type: "website",
+  },
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -29,10 +36,40 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${poppins.variable} ${playfair.variable}`}>
-      <body className={`font-sans antialiased`}>
-        {children}
-        <Analytics />
-      </body>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": ["LocalBusiness", "SportsActivityLocation"],
+              name: "Elite Golf Sim",
+              description:
+                "Vanderbijlpark's premier indoor golf simulator facility featuring Augusta National and skills challenges",
+              address: {
+                "@type": "PostalAddress",
+                streetAddress: "38A Chopin St, Vanderbijlpark S. W. 5",
+                addressLocality: "Vanderbijlpark",
+                postalCode: "1911",
+                addressRegion: "Gauteng",
+                addressCountry: "ZA",
+              },
+              openingHoursSpecification: [
+                {
+                  "@type": "OpeningHoursSpecification",
+                  dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                  opens: "09:00",
+                  closes: "20:00",
+                },
+              ],
+              priceRange: "R250-R600",
+              telephone: "+27-XX-XXX-XXXX",
+              url: "https://your-actual-domain.com",
+            }),
+          }}
+        />
+      </head>
+      <body className={`font-sans antialiased`}>{children}</body>
     </html>
   )
 }
