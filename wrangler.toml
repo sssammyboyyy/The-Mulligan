@@ -1,15 +1,16 @@
 name = "deploymulligan"
-compatibility_date = "2024-11-20"
+# Use a recent compatibility date (keep this up-to-date if you edit later)
+compatibility_date = "2025-11-20"
 
 [build]
-command = "npm run build && npx @cloudflare/next-on-pages"
+# Use OpenNext's CLI to build (transforms Next build for Cloudflare Workers)
+command = "npx opennextjs-cloudflare build"
 
-[site]
-bucket = ".vercel/output/static"
+# Optional: if you rely on local dev preview with wrangler, OpenNext may generate a wrangler config at build time.
+# Do NOT use `site.bucket` here because this config targets Workers (not Pages / static site).
 
-# These variables should be set in the Cloudflare Dashboard for production security,
-# but defining them here ensures Cloudflare knows they exist and allows for local development overrides.
-# DO NOT commit actual secrets here. Use empty strings or placeholders.
+# -- DO NOT STORE PRODUCTION SECRETS IN THIS FILE --
+# Keep placeholders or empty strings only in repo; add real secrets via Cloudflare dashboard or GitHub Secrets.
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = ""
 NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
