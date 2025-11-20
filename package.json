@@ -4,13 +4,9 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "build:cloudflare": "next build && npx @cloudflare/next-on-pages --skip-vercel-specifics",
-    "deploy": "npm run build:cloudflare && wrangler pages deploy .vercel/output/static --branch=main",
+    "deploy": "npm run build && npx @cloudflare/next-on-pages && wrangler pages deploy --branch=main",
     "dev": "next dev",
     "lint": "eslint .",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "pages:deploy": "wrangler pages deploy .vercel/output/static",
-    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-date=2024-01-01",
     "start": "next start"
   },
   "dependencies": {
