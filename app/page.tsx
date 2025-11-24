@@ -1,10 +1,9 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, ArrowRight, Star } from "lucide-react"
-import { BayStatusDisplay } from "@/components/bay-status-display"
+import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, Star, Check } from "lucide-react"
 
 export default function HomePage() {
   return (
@@ -101,69 +100,78 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="special-offer" className="py-16 md:py-24 bg-gradient-to-br from-secondary/10 to-background">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <Card className="border-2 border-secondary shadow-2xl overflow-hidden">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="relative h-64 md:h-auto">
-                  <Image
-                    src="/aerial-view-of-augusta-national-golf-course.jpg"
-                    alt="Augusta National Famous Course"
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute top-4 left-4">
-                    <Badge className="bg-secondary text-secondary-foreground border-0 text-sm px-3 py-1">
-                      <Sparkles className="w-4 h-4 mr-1" />
-                      Famous Course Special
-                    </Badge>
+      <section id="special-offer" className="py-12 sm:py-16 md:py-20 bg-secondary/5">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8 sm:mb-12">
+              <div className="inline-block px-4 py-2 bg-secondary/10 rounded-full mb-4">
+                <span className="text-secondary font-semibold text-sm sm:text-base">Special Offer</span>
+              </div>
+              <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4">
+                4-Ball Famous Course Special
+              </h2>
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4">
+                Experience world-renowned courses with your group. Perfect for competitive play and memorable sessions.
+              </p>
+            </div>
+
+            <Card className="border-2 border-secondary/20 shadow-xl bg-card hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="text-center pb-4 sm:pb-6 pt-6 sm:pt-8 px-4 sm:px-6">
+                <CardTitle className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 sm:mb-3">
+                  R100 per person/hour
+                </CardTitle>
+                <CardDescription className="text-base sm:text-lg text-muted-foreground">
+                  Play iconic courses like Augusta National, Pebble Beach, and St Andrews
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-6 sm:pb-8">
+                <div className="grid gap-3 sm:gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-secondary/20 flex items-center justify-center mt-0.5">
+                      <Check className="w-3 h-3 sm:w-4 sm:h-4 text-secondary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm sm:text-base">4 Players Required</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Minimum booking of 4 players</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-secondary/20 flex items-center justify-center mt-0.5">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-secondary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm sm:text-base">Minimum 3 Hours</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                        Extended play for full 18-hole rounds
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-secondary/20 flex items-center justify-center mt-0.5">
+                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-secondary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm sm:text-base">World-Famous Courses</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                        Augusta, Pebble Beach, St Andrews & more
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <CardContent className="p-8 md:p-10 flex flex-col justify-center">
-                  <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 text-foreground">
-                    18-Hole Famous Course
-                    <br />
-                    <span className="text-secondary">4-Ball Special</span>
-                  </h2>
-                  <p className="text-muted-foreground text-lg mb-6 leading-relaxed">
-                    Experience Pro Tee's legendary courses including Augusta National with our exclusive group rate.
-                  </p>
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-secondary mt-1 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-foreground text-lg">R100 per person / hour</p>
-                        <p className="text-sm text-muted-foreground">4 players required • 3-hour minimum</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-secondary mt-1 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-foreground">Deposit: R400 (balance in-store)</p>
-                        <p className="text-sm text-muted-foreground">Total: R1,200 for 3 hours • Pay R800 on arrival</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-secondary mt-1 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-foreground">GS Pro Software Included</p>
-                        <p className="text-sm text-muted-foreground">Industry-leading simulation with 400+ courses</p>
-                      </div>
-                    </div>
-                  </div>
+
+                <div className="pt-2 sm:pt-4">
                   <Button
                     asChild
                     size="lg"
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/90 w-full md:w-auto"
+                    className="w-full bg-secondary hover:bg-secondary/90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] h-12 sm:h-14 text-base sm:text-lg mobile-touch-target"
                   >
-                    <Link href="/booking">
-                      Book 4-Ball Special
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Link>
+                    <Link href="/booking">Book 4-Ball Special</Link>
                   </Button>
-                </CardContent>
-              </div>
+                  <p className="text-center text-xs sm:text-sm text-muted-foreground mt-3 sm:mt-4">
+                    Total: R1,200 for 3 hours (R400 deposit, R800 in-store)
+                  </p>
+                </div>
+              </CardContent>
             </Card>
           </div>
         </div>
@@ -264,128 +272,79 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="pricing" className="py-16 md:py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 text-foreground">Transparent Pricing</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Choose the experience that suits your game
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-12">
-            {/* Famous Course Pricing */}
-            <Card className="border-2 border-secondary shadow-lg">
-              <CardContent className="pt-6">
-                <div className="text-center mb-6">
-                  <Badge className="mb-3 bg-secondary text-secondary-foreground border-0">Famous Courses</Badge>
-                  <h3 className="font-serif text-2xl font-bold text-foreground mb-2">18-Hole Experience</h3>
-                  <p className="text-sm text-muted-foreground">Augusta National & other legendary courses</p>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-secondary/10 rounded-lg border border-secondary/20">
-                    <div>
-                      <p className="font-semibold text-foreground">4-Ball Special</p>
-                      <p className="text-xs text-muted-foreground">R100/person/hour • 3-hour minimum</p>
-                    </div>
-                    <p className="font-serif text-2xl font-bold text-secondary">R1,200</p>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-semibold text-foreground">3-Ball</p>
-                      <p className="text-xs text-muted-foreground">R120/person/hour • 2-hour minimum</p>
-                    </div>
-                    <p className="font-serif text-2xl font-bold text-foreground">R720</p>
-                  </div>
-                  <div className="mt-4 p-3 bg-secondary/5 border border-secondary/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      <strong>4-Ball:</strong> R400 deposit online, R800 balance in-store
-                      <br />
-                      <strong>3-Ball:</strong> R300 deposit online, R420 balance in-store
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Play Pricing */}
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="text-center mb-6">
-                  <Badge className="mb-3 bg-primary/10 text-primary border-0">Quick Play</Badge>
-                  <h3 className="font-serif text-2xl font-bold text-foreground mb-2">Skills & Challenges</h3>
-                  <p className="text-sm text-muted-foreground">Practice range, nearest-pin, all courses</p>
-                </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-sm text-muted-foreground mb-1">1 Player</p>
-                      <p className="font-serif text-xl font-bold text-foreground">R250</p>
-                      <p className="text-xs text-muted-foreground">per hour</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-sm text-muted-foreground mb-1">2 Players</p>
-                      <p className="font-serif text-xl font-bold text-foreground">R360</p>
-                      <p className="text-xs text-muted-foreground">per hour</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-sm text-muted-foreground mb-1">3 Players</p>
-                      <p className="font-serif text-xl font-bold text-foreground">R480</p>
-                      <p className="text-xs text-muted-foreground">per hour</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-sm text-muted-foreground mb-1">4 Players</p>
-                      <p className="font-serif text-xl font-bold text-foreground">R600</p>
-                      <p className="text-xs text-muted-foreground">per hour</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="max-w-5xl mx-auto">
-            <h3 className="font-serif text-2xl font-bold text-center mb-8 text-foreground">
-              Pro Tee Challenges & Practice Modes
-            </h3>
-            <div className="grid md:grid-cols-4 gap-4">
-              {[
-                { name: "Nearest to Pin", icon: Target },
-                { name: "Hole-in-One", icon: Trophy },
-                { name: "Practice Range", icon: Sparkles },
-                { name: "Skills Challenge", icon: CheckCircle2 },
-              ].map((mode) => (
-                <Card key={mode.name} className="border-border">
-                  <CardContent className="pt-4 pb-4 text-center">
-                    <mode.icon className="w-8 h-8 text-primary mx-auto mb-2" />
-                    <p className="font-medium text-foreground text-sm">{mode.name}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <p className="text-center text-muted-foreground mt-6 text-sm">
-              All challenges included with Quick Play sessions • No minimum booking times
+      <section id="pricing" className="py-12 sm:py-16 md:py-20 bg-background">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4">
+              Quick Play Sessions
+            </h2>
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
+              Perfect for practice rounds and casual play
             </p>
           </div>
 
-          <div className="text-center mt-10">
-            <Button
-              asChild
-              size="lg"
-              className="bg-secondary text-secondary-foreground hover:bg-secondary/90 h-14 px-8"
-            >
-              <Link href="/booking">Book Your Session Now</Link>
-            </Button>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-6xl mx-auto">
+            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
+                <CardTitle className="text-xl sm:text-2xl font-bold text-center">1 Player</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
+                <div>
+                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R250</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
+                  Solo practice or focused training
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
+                <CardTitle className="text-xl sm:text-2xl font-bold text-center">2 Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
+                <div>
+                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R360</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
+                  Pair up and challenge each other
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
+                <CardTitle className="text-xl sm:text-2xl font-bold text-center">3 Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
+                <div>
+                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R480</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
+                  Small group play for camaraderie
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
+                <CardTitle className="text-xl sm:text-2xl font-bold text-center">4 Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
+                <div>
+                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R600</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
+                  Full group play for ultimate fun
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
 
-      <section className="py-8 md:py-12 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <BayStatusDisplay />
-        </div>
-      </section>
-
-      <section id="competitions" className="py-12 md:py-20 bg-muted/30 shadow-md shadow-xl shadow-xl shadow-xl shadow-none shadow-xs shadow-sm shadow-md shadow-xl shadow-xl shadow-xl shadow-xl shadow-md shadow shadow shadow-xl">
+      <section id="competitions" className="py-12 md:py-20 bg-muted/30 shadow-md">
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 text-foreground">
@@ -403,7 +362,7 @@ export default function HomePage() {
                     <Trophy className="w-7 h-7 text-secondary" />
                   </div>
                   <h3 className="font-semibold text-xl mb-2 text-foreground">Longest Drive Challenge</h3>
-                  <p className="text-muted-foreground leading-relaxed"><br></p>
+                  <p className="text-muted-foreground leading-relaxed"></p>
                 </div>
               </CardContent>
             </Card>
@@ -414,8 +373,11 @@ export default function HomePage() {
                     <Star className="w-7 h-7 text-secondary" />
                   </div>
                   <h3 className="font-semibold text-xl mb-2 text-foreground">Hole-in-One Challenge</h3>
-                  <p className="text-muted-fore         </CardContent>
-<br>ard className="border-border">
+                  <p className="text-muted-foreground leading-relaxed"></p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border">
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-14 h-14 rounded-lg bg-secondary/20 flex items-center justify-center mb-4">
@@ -427,7 +389,9 @@ export default function HomePage() {
               </CardContent>
             </Card>
           </div>
-          <div className="text-cen<br>           src="/images/footerimage.jpeg"
+          <div className="text-center">
+            <Image
+              src="/images/footerimage.jpeg"
               alt="indoor golf simulator Vanderbijlpark"
               width={800}
               height={400}
