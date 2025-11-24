@@ -121,7 +121,7 @@ export default function HomePage() {
                   R100 per person/hour
                 </CardTitle>
                 <CardDescription className="text-base sm:text-lg text-muted-foreground">
-                  Play iconic courses like Augusta National, Pebble Beach, and St Andrews
+                  Play iconic courses like Augusta National, Pebble Beach, and Pine Valley  
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-6 sm:pb-8">
