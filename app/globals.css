@@ -155,3 +155,192 @@
     scroll-behavior: smooth;
   }
 }
+
+/* Icon Enhancement System - 10x More Visually Stunning */
+@keyframes iconFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes iconPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+@keyframes iconRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes iconShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes iconGlowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(184, 134, 66, 0.3), 0 0 40px rgba(184, 134, 66, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(184, 134, 66, 0.5), 0 0 60px rgba(184, 134, 66, 0.2);
+  }
+}
+
+/* Premium Icon Container Styles */
+.icon-container-primary {
+  position: relative;
+  background: linear-gradient(135deg, rgb(20, 59, 41) 0%, rgb(28, 75, 52) 100%);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(20, 59, 41, 0.2), 0 0 20px rgba(20, 59, 41, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.icon-container-primary::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: iconShimmer 3s infinite;
+}
+
+.icon-container-primary:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(20, 59, 41, 0.3), 0 0 30px rgba(20, 59, 41, 0.2);
+}
+
+.icon-container-secondary {
+  position: relative;
+  background: linear-gradient(135deg, rgb(184, 134, 66) 0%, rgb(204, 154, 86) 100%);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(184, 134, 66, 0.2), 0 0 20px rgba(184, 134, 66, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  animation: iconGlowPulse 3s ease-in-out infinite;
+}
+
+.icon-container-secondary::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: rotate(45deg);
+  animation: iconShimmer 3s infinite;
+}
+
+.icon-container-secondary:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(184, 134, 66, 0.4), 0 0 40px rgba(184, 134, 66, 0.3);
+}
+
+.icon-container-accent {
+  position: relative;
+  background: linear-gradient(135deg, rgba(184, 134, 66, 0.15) 0%, rgba(204, 154, 86, 0.25) 100%);
+  border: 2px solid rgba(184, 134, 66, 0.3);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 8px 25px rgba(184, 134, 66, 0.1), inset 0 0 20px rgba(184, 134, 66, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.icon-container-accent:hover {
+  transform: translateY(-4px) scale(1.05);
+  background: linear-gradient(135deg, rgba(184, 134, 66, 0.25) 0%, rgba(204, 154, 86, 0.35) 100%);
+  border-color: rgba(184, 134, 66, 0.5);
+  box-shadow: 0 12px 35px rgba(184, 134, 66, 0.2), inset 0 0 30px rgba(184, 134, 66, 0.1);
+}
+
+/* Enhanced Icon Styles */
+.icon-enhanced {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon-enhanced:hover {
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+  animation: iconFloat 2s ease-in-out infinite;
+}
+
+.icon-trophy-enhanced {
+  filter: drop-shadow(0 4px 12px rgba(184, 134, 66, 0.4));
+}
+
+.icon-sparkle-enhanced {
+  animation: iconPulse 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(184, 134, 66, 0.6));
+}
+
+/* Small icon containers for inline use */
+.icon-badge-primary {
+  background: linear-gradient(135deg, rgba(20, 59, 41, 0.1) 0%, rgba(28, 75, 52, 0.2) 100%);
+  border-radius: 9999px;
+  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(20, 59, 41, 0.15), inset 0 0 10px rgba(20, 59, 41, 0.05);
+  transition: all 0.3s ease;
+}
+
+.icon-badge-primary:hover {
+  background: linear-gradient(135deg, rgba(20, 59, 41, 0.2) 0%, rgba(28, 75, 52, 0.3) 100%);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(20, 59, 41, 0.25), inset 0 0 15px rgba(20, 59, 41, 0.08);
+}
+
+.icon-badge-secondary {
+  background: linear-gradient(135deg, rgba(184, 134, 66, 0.15) 0%, rgba(204, 154, 86, 0.25) 100%);
+  border-radius: 9999px;
+  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(184, 134, 66, 0.2), inset 0 0 10px rgba(184, 134, 66, 0.08);
+  transition: all 0.3s ease;
+}
+
+.icon-badge-secondary:hover {
+  background: linear-gradient(135deg, rgba(184, 134, 66, 0.25) 0%, rgba(204, 154, 86, 0.35) 100%);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(184, 134, 66, 0.3), inset 0 0 15px rgba(184, 134, 66, 0.12);
+}
+
+/* Responsive icon sizing */
+@media (max-width: 640px) {
+  .icon-container-primary,
+  .icon-container-secondary,
+  .icon-container-accent {
+    padding: 0.875rem;
+  }
+}
