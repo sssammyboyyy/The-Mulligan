@@ -4,7 +4,25 @@ compatibility_date = "2025-11-20"
 [build]
 command = "pnpm dlx @opennextjs/cloudflare build"
 
+[vars]name = "deploymulligan"
+compatibility_date = "2025-11-20"
+compatibility_flags = ["nodejs_compat"]
+
+main = ".open-next/worker/index.mjs"
+
+assets = { directory = ".open-next/assets" }
+
+routes = [
+  { pattern = "mulligan.za.com/*", custom_domain = true }
+]
+
 [vars]
+NEXT_PUBLIC_SUPABASE_URL = ""
+NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
+N8N_WEBHOOK_URL = ""
+YOCO_SECRET_KEY = ""
+NEXT_PUBLIC_APP_URL = ""
+
 NEXT_PUBLIC_SUPABASE_URL = ""
 NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
 N8N_WEBHOOK_URL = ""
