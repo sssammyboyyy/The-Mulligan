@@ -23,11 +23,34 @@ export async function POST(request: NextRequest) {
       coupon_code,
     } = body
 
-    console.log("[v0] Creating booking with data:", { booking_date, start_time, guest_name, session_type })
+    console.log("[v0] Creating booking with data:", { booking_date, start_time, guest_name, session_type, coupon_code })
 
-    // Create booking in database
     const supabase = await createClient()
 
+    // --- LOGIC: VALIDATE COUPON SERVER-SIDE ---
+    let finalPrice = total_price;
+
+    if (coupon_code) {
+      const { data: couponData } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", coupon_code)
+        .eq("is_active", true)
+        .single();
+
+      // Check if coupon exists and gives 100% discount
+      if (couponData && couponData.discount_percent === 100) {
+        console.log(`[v0] Valid Admin Coupon applied: ${coupon_code}. Setting price to 0.`);
+        finalPrice = 0;
+      }
+    }
+    // ---------------------------------------------
+
+    // Determine Status based on our verified Final Price
+    const initialStatus = finalPrice === 0 ? "confirmed" : "pending";
+    const initialPaymentStatus = finalPrice === 0 ? "completed" : "pending";
+
+    // Create booking in database
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
@@ -36,13 +59,13 @@ export async function POST(request: NextRequest) {
         end_time: calculateEndTime(start_time, duration_hours),
         duration_hours,
         player_count,
-        user_type: "adult",
+        user_type: "guest", // Defaulting to guest as confirmed earlier
         session_type,
         famous_course_option,
         base_price,
-        total_price,
-        status: total_price === 0 ? "confirmed" : "pending",
-        payment_status: total_price === 0 ? "completed" : "pending",
+        total_price: finalPrice, // Use the verified price
+        status: initialStatus,
+        payment_status: initialPaymentStatus,
         guest_name,
         guest_email,
         guest_phone,
@@ -60,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Booking created successfully:", booking.id)
 
+    // --- WEBHOOK LOGIC ---
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     if (webhookUrl) {
       const webhookPayload = {
@@ -75,37 +99,30 @@ export async function POST(request: NextRequest) {
         session_type,
         famous_course_option,
         base_price,
-        total_price,
-        payment_status: total_price === 0 ? "completed" : "pending",
+        total_price: finalPrice,
+        payment_status: initialPaymentStatus,
         accept_whatsapp,
         enter_competition,
         coupon_code,
         created_at: new Date().toISOString(),
       }
 
-      console.log("[v0] Sending webhook to n8n:", webhookUrl)
-
+      // Fire and forget webhook
       try {
-        const webhookResponse = await fetch(webhookUrl, {
+         fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(webhookPayload),
-        })
-
-        if (webhookResponse.ok) {
-          console.log("[v0] n8n webhook sent successfully")
-        } else {
-          console.error("[v0] n8n webhook failed:", await webhookResponse.text())
-        }
+        }).catch(err => console.error("Webhook failed", err));
       } catch (webhookError) {
         console.error("[v0] n8n webhook error:", webhookError)
       }
-    } else {
-      console.log("[v0] N8N_WEBHOOK_URL not configured, skipping webhook")
     }
 
-    // If total is 0 (100% coupon discount), return free booking confirmation
-    if (total_price === 0) {
+    // --- CHECKOUT LOGIC ---
+
+    // If verified total is 0 (100% coupon discount), return free booking confirmation immediately
+    if (finalPrice === 0) {
       return NextResponse.json({
         free_booking: true,
         booking_id: booking.id,
@@ -113,19 +130,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Determine Deposit Amount for Yoco
     const getDepositAmount = () => {
       if (session_type === "famous-course") {
         if (famous_course_option === "4-ball") return 400
         if (famous_course_option === "3-ball") return 300
       }
-      return total_price
+      return finalPrice
     }
 
     const depositAmount = getDepositAmount()
-
     console.log("[v0] Initializing Yoco payment for R", depositAmount)
 
-    // Normal payment flow with Yoco (deposit for famous courses)
+    // Normal payment flow with Yoco
     const yocoResponse = await fetch("https://payments.yoco.com/api/checkouts", {
       method: "POST",
       headers: {
@@ -133,7 +150,7 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: Math.round(depositAmount * 100), // Yoco expects amount in cents
+        amount: Math.round(depositAmount * 100), // Yoco expects cents
         currency: "ZAR",
         cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://themulligan.co.za"}/booking?cancelled=true`,
         successUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://themulligan.co.za"}/api/payment/verify?reference=${booking.id}`,
@@ -144,10 +161,10 @@ export async function POST(request: NextRequest) {
           guestPhone: guest_phone,
           bookingDate: booking_date,
           startTime: start_time,
-          playerCount: player_count.toString(),
+          playerCount: player_count?.toString() || "0",
           sessionType: session_type,
           depositAmount: depositAmount.toString(),
-          totalAmount: total_price.toString(),
+          totalAmount: finalPrice.toString(),
         },
       }),
     })
@@ -159,10 +176,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to initialize payment" }, { status: 500 })
     }
 
-    console.log("[v0] Yoco payment initialized:", yocoData.id)
-
-    // Update booking with payment reference
-    await supabase.from("bookings").update({ payment_reference: yocoData.id }).eq("id", booking.id)
+    // Update booking with Yoco ID (using correct column name 'yoco_payment_id')
+    await supabase
+      .from("bookings")
+      .update({ yoco_payment_id: yocoData.id })
+      .eq("id", booking.id)
 
     return NextResponse.json({
       authorization_url: yocoData.redirectUrl,
@@ -176,6 +194,7 @@ export async function POST(request: NextRequest) {
 }
 
 function calculateEndTime(startTime: string, durationHours: number): string {
+  if (!startTime) return "";
   const [hours, minutes] = startTime.split(":").map(Number)
   const totalMinutes = hours * 60 + minutes + durationHours * 60
   const endHours = Math.floor(totalMinutes / 60) % 24
