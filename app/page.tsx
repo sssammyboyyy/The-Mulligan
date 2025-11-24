@@ -8,19 +8,22 @@ import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, Star, Che
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/40 bg-background sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
+      <header className="border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-0 z-50 shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo Section */}
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Logo Section - SIGNIFICANTLY LARGER */}
+            <Link href="/" className="flex items-center gap-3 sm:gap-4 flex-shrink-0 group">
               <Image
                 src="/images/upscalelogomulligan.jpeg"
                 alt="The Mulligan Logo"
-                width={60}
-                height={60}
-                className="object-contain w-12 h-12 sm:w-[60px] sm:h-[60px]"
+                width={90}
+                height={90}
+                className="object-contain w-16 h-16 sm:w-20 sm:h-20 lg:w-[90px] lg:h-[90px] transition-transform duration-300 group-hover:scale-105"
+                priority
               />
-              <span className="font-serif text-lg sm:text-xl lg:text-2xl font-bold text-foreground">The Mulligan</span>
+              <span className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
+                The Mulligan
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -66,37 +69,130 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="relative bg-primary text-primary-foreground py-20 md:py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/golf-simulator-bay-with-augusta-national-on-screen.jpg')] bg-cover bg-center opacity-20" />
-        {/* Subtle animated light effect */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/20 rounded-full blur-3xl animate-glow" />
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-balance leading-tight">
-              The Simulator Never Judges
+      <section className="relative bg-gradient-to-br from-primary via-primary/95 to-primary/80 text-primary-foreground py-24 md:py-40 lg:py-48 overflow-hidden">
+        {/* Enhanced background with multiple overlays for depth */}
+        <div className="absolute inset-0 bg-[url('/golf-simulator-bay-with-augusta-national-on-screen.jpg')] bg-cover bg-center opacity-30 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-transparent to-primary/60" />
+
+        {/* Dynamic animated elements */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-secondary/30 rounded-full blur-3xl animate-glow" />
+        <div
+          className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl animate-glow"
+          style={{ animationDelay: "1s" }}
+        />
+
+        {/* Decorative golf ball pattern */}
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
+          }}
+        />
+
+        <div className="container mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-5xl mx-auto text-center">
+            {/* Eye-catching badge */}
+            <div className="inline-flex items-center gap-2 bg-secondary/20 backdrop-blur-sm border border-secondary/40 rounded-full px-6 py-3 mb-8 animate-fade-in">
+              <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+              <span className="text-sm sm:text-base font-semibold tracking-wide">
+                VANDERBIJLPARK'S PREMIER SIMULATOR
+              </span>
+            </div>
+
+            {/* Massive, dramatic headline */}
+            <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold mb-6 text-balance leading-[1.1] tracking-tight">
+              The Simulator
+              <span
+                className="block text-secondary mt-2 text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
+                style={{
+                  textShadow: "0 0 40px rgba(184, 134, 66, 0.5)",
+                }}
+              >
+                Never Judges
+              </span>
             </h1>
-            <p className="text-lg md:text-2xl mb-8 text-primary-foreground/90 leading-relaxed max-w-2xl mx-auto">
-              Premium Pro Tee experience. Play Augusta National (and many more), compete in challenges, and refine your
-              game in Vanderbijlpark's finest simulator facility.
+
+            <p className="text-xl sm:text-2xl md:text-3xl mb-10 text-primary-foreground/95 leading-relaxed max-w-3xl mx-auto font-light">
+              Premium <span className="font-semibold text-secondary">Pro Tee</span> experience with{" "}
+              <span className="font-semibold">Augusta National</span> and 400+ world-class courses
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+            {/* Bold, eye-catching CTAs */}
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-12">
               <Button
                 asChild
                 size="lg"
-                className="bg-secondary text-secondary-foreground hover:bg-secondary/90 text-base h-14 px-8"
+                className="bg-secondary text-white hover:bg-secondary/90 text-lg h-16 px-10 rounded-full font-bold shadow-2xl hover:shadow-secondary/50 hover:scale-105 transition-all duration-300"
               >
-                <Link href="/booking">Book an Hour</Link>
+                <Link href="/booking">
+                  Book Your Session
+                  <span className="ml-2 text-2xl">→</span>
+                </Link>
               </Button>
               <Button
                 asChild
                 size="lg"
                 variant="outline"
-                className="bg-transparent border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary h-14 px-8"
+                className="bg-white/10 backdrop-blur-sm border-2 border-white text-white hover:bg-white hover:text-primary h-16 px-10 rounded-full font-bold shadow-xl hover:scale-105 transition-all duration-300"
               >
-                <Link href="#special-offer">4-Ball Special: R100/person</Link>
+                <Link href="#special-offer">
+                  4-Ball Special: R100/person
+                  <span className="ml-2 text-xl">⚡</span>
+                </Link>
               </Button>
             </div>
+
+            {/* Social proof / trust indicators */}
+            <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm sm:text-base text-primary-foreground/80">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-secondary" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span className="font-semibold">Premium Pro Tee Technology</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="font-semibold">Open Mon-Sat, 9AM-8PM</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <span className="font-semibold">Vanderbijlpark SW5</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Decorative bottom wave */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg
+            className="w-full h-16 sm:h-24 text-background"
+            viewBox="0 0 1440 120"
+            fill="currentColor"
+            preserveAspectRatio="none"
+          >
+            <path d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z" />
+          </svg>
         </div>
       </section>
 
@@ -121,7 +217,7 @@ export default function HomePage() {
                   R100 per person/hour
                 </CardTitle>
                 <CardDescription className="text-base sm:text-lg text-muted-foreground">
-                  Play iconic courses like Augusta National, Pebble Beach, and Pine Valley  
+                  Play iconic courses like Augusta National, Pebble Beach, and Pine Valley
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-6 sm:pb-8">

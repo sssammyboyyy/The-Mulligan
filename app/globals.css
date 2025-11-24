@@ -119,14 +119,10 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
-    outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent);
+    @apply border-border outline-ring/50;
   }
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
   }
 }
 
@@ -143,15 +139,6 @@
 
 .animate-glow {
   animation: glow 3s ease-in-out infinite;
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }
 
 /* Mobile-optimized touch target sizes */
