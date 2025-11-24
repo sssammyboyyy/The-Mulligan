@@ -1,30 +1,16 @@
 name = "deploymulligan"
-compatibility_date = "2025-11-20"
+main = ".open-next/worker.js"
+compatibility_date = "2025-11-24"
 
-[build]
-command = "pnpm dlx @opennextjs/cloudflare build"
+[assets]
+directory = ".open-next/assets"
 
-[vars]name = "deploymulligan"
-compatibility_date = "2025-11-20"
-compatibility_flags = ["nodejs_compat"]
-
-main = ".open-next/worker/index.mjs"
-
-assets = { directory = ".open-next/assets" }
-
-routes = [
-  { pattern = "mulligan.za.com/*", custom_domain = true }
-]
+[triggers]
+routes = ["https://themulligan.co.za/*"]
 
 [vars]
-NEXT_PUBLIC_SUPABASE_URL = ""
-NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
-N8N_WEBHOOK_URL = ""
-YOCO_SECRET_KEY = ""
-NEXT_PUBLIC_APP_URL = ""
+NEXT_PUBLIC_APP_URL = "https://themulligan.co.za"
+NEXT_PUBLIC_SUPABASE_URL = "your_url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "your_anon_key"
 
-NEXT_PUBLIC_SUPABASE_URL = ""
-NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
-N8N_WEBHOOK_URL = ""
-YOCO_SECRET_KEY = ""
-NEXT_PUBLIC_APP_URL = ""
+# Add secrets via `wrangler secret put`
