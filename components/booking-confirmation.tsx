@@ -102,38 +102,33 @@ export function BookingConfirmation() {
     }
 
     try {
-      if (couponApplied && totalPrice === 0) {
-        const response = await fetch("/api/payment/initialize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bookingData),
-        })
+      // Call API - Backend will determine if it's free (Admin Code) or Paid (Yoco)
+      const response = await fetch("/api/payment/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+      })
 
-        const data = await response.json()
+      const data = await response.json()
 
-        if (data.free_booking && data.booking_id) {
-          router.push(`/booking/success?reference=${data.booking_id}`)
-        } else {
-          throw new Error(data.error || "Failed to create booking")
-        }
-      } else {
-        const response = await fetch("/api/payment/initialize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bookingData),
-        })
-
-        const data = await response.json()
-
-        if (data.authorization_url) {
-          window.location.href = data.authorization_url
-        } else {
-          throw new Error(data.error || "Failed to initialize payment")
-        }
+      // CASE 1: Server says it's free (Admin Code used)
+      if (data.free_booking && data.booking_id) {
+        router.push(`/booking/success?reference=${data.booking_id}`)
+        return
       }
+
+      // CASE 2: Server provided a payment URL
+      if (data.authorization_url) {
+        window.location.href = data.authorization_url
+        return
+      }
+
+      // CASE 3: Something went wrong
+      throw new Error(data.error || "Failed to initialize booking")
+
     } catch (error) {
       console.error("Payment error:", error)
-      alert("Failed to process booking. Please try again.")
+      alert(error instanceof Error ? error.message : "Failed to process booking")
       setIsProcessing(false)
     }
   }
@@ -402,9 +397,7 @@ export function BookingConfirmation() {
                 >
                   {isProcessing
                     ? "Processing..."
-                    : couponApplied && totalPrice === 0
-                      ? "Confirm Booking"
-                      : "Proceed to Payment"}
+                    : "Confirm Booking"}
                 </Button>
                 {!couponApplied && (
                   <p className="text-xs text-muted-foreground text-center">
