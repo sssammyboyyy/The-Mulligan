@@ -13,7 +13,12 @@ import Link from "next/link"
 export function BookingConfirmation() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  
+  // State for processing and errors
   const [isProcessing, setIsProcessing] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null) // <--- ADDED THIS
+
+  // Form State
   const [guestName, setGuestName] = useState("")
   const [guestEmail, setGuestEmail] = useState("")
   const [guestPhone, setGuestPhone] = useState("")
@@ -41,7 +46,7 @@ export function BookingConfirmation() {
         basePrice = 150 * 4 * duration
       }
       if (famousCourseOption === "3-ball") {
-        basePrice = 160 * 3 * duration // R160/person for 3-ball
+        basePrice = 160 * 3 * duration
       }
     } else {
       if (players === 1) basePrice = 250 * duration
@@ -72,7 +77,7 @@ export function BookingConfirmation() {
   const getDepositAmount = () => {
     if (sessionType === "famous-course") {
       if (famousCourseOption === "4-ball") return 600
-      if (famousCourseOption === "3-ball") return 480 // R160 x 3 players deposit
+      if (famousCourseOption === "3-ball") return 480
     }
     return totalPrice
   }
@@ -104,11 +109,7 @@ export function BookingConfirmation() {
     }
   }
 
-// ... imports remain the same
-
-  // Add this inside the component to track specific errors
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
+  // --- UPDATED PAYMENT HANDLER ---
   const handlePayment = async () => {
     // 1. Validation
     if (!guestName || !guestEmail || !guestPhone || !acceptWhatsApp) {
@@ -158,7 +159,7 @@ export function BookingConfirmation() {
       }
 
       // 3. Handle Specific "Double Booking" Error (409 Conflict)
-      if (response.status === 409 || data.error?.includes("Slot already taken")) {
+      if (response.status === 409 || (data.error && data.error.includes("Slot already taken"))) {
         setErrorMessage("⚠️ Just missed it! Someone else booked this slot seconds ago. Please go back and choose another time.")
         setIsProcessing(false)
         return
@@ -389,6 +390,14 @@ export function BookingConfirmation() {
               </div>
             )}
           </div>
+
+          {/* ERROR MESSAGE DISPLAY (Added Here) */}
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 shadow-sm">
+              <span className="mt-0.5">🚫</span>
+              <p className="font-medium">{errorMessage}</p>
+            </div>
+          )}
 
           {/* Pay Button */}
           <Button
