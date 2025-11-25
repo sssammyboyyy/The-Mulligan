@@ -1,6 +1,10 @@
 export const runtime = "nodejs"
-import { createServerClient } from "@/lib/supabase/server"
+
+import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,14 +12,22 @@ export async function GET(request: NextRequest) {
     const dateParam = searchParams.get("date")
 
     if (!dateParam) {
-      return NextResponse.json({ error: "Date parameter is required" }, { status: 400 })
+      return NextResponse.json({ bookedSlots: [], error: "Date parameter is required" }, { status: 400 })
     }
 
-    // Parse the date
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[v0] Missing Supabase environment variables")
+      return NextResponse.json({ bookedSlots: [], error: "Server configuration error" }, { status: 500 })
+    }
+
+    // Parse and format the date
     const requestDate = new Date(dateParam)
+    if (isNaN(requestDate.getTime())) {
+      return NextResponse.json({ bookedSlots: [], error: "Invalid date format" }, { status: 400 })
+    }
     const formattedDate = requestDate.toISOString().split("T")[0]
 
-    const supabase = await createServerClient()
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     // Fetch all bookings for the specified date that are not cancelled
     const { data: bookings, error } = await supabase
@@ -25,26 +37,16 @@ export async function GET(request: NextRequest) {
       .neq("status", "cancelled")
 
     if (error) {
-      console.error("[v0] Supabase error:", error.message, error.code)
-      return NextResponse.json(
-        {
-          error: "Database error",
-          details: error.message,
-          bookedSlots: [],
-        },
-        { status: 500 },
-      )
+      console.error("[v0] Supabase query error:", error.message, error.code, error.details)
+      return NextResponse.json({
+        bookedSlots: [],
+        error: "Database query failed",
+        details: error.message,
+      })
     }
 
     // Convert bookings to time slot strings (HH:MM format)
-    const bookedSlots =
-      bookings
-        ?.map((booking) => {
-          // Extract just HH:MM from the time
-          const startTime = booking.start_time?.substring(0, 5) || ""
-          return startTime
-        })
-        .filter(Boolean) || []
+    const bookedSlots = (bookings || []).map((booking) => booking.start_time?.substring(0, 5) || "").filter(Boolean)
 
     return NextResponse.json({
       bookedSlots,
@@ -53,14 +55,11 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    console.error("[v0] Availability API error:", errorMessage)
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: errorMessage,
-        bookedSlots: [],
-      },
-      { status: 500 },
-    )
+    console.error("[v0] Availability API catch error:", errorMessage)
+    return NextResponse.json({
+      bookedSlots: [],
+      error: "Internal server error",
+      details: errorMessage,
+    })
   }
 }
