@@ -1,18 +1,4 @@
-name = "deploymulligan"
-main = ".open-next/worker.js"
-compatibility_date = "2025-11-24"
+name = "bestmulligan"
+compatibility_date = "2025-11-25"
 compatibility_flags = ["nodejs_compat"]
-
-# This serves your static files
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
-
-# Maps the worker to your domain
-[[routes]]
-pattern = "themulligan.org/*"
-custom_domain = true
-
-[[routes]]
-pattern = "www.themulligan.org/*"
-custom_domain = true
+pages_build_output_dir = ".vercel/output/static"
