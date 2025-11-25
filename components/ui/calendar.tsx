@@ -4,7 +4,6 @@ import type * as React from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -12,45 +11,62 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-4", className)}
+      className={cn("w-full", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row gap-4",
-        month: "space-y-4 w-full",
-        caption: "flex justify-center pt-1 relative items-center mb-4",
-        caption_label: "text-base font-semibold text-foreground",
-        nav: "flex items-center gap-1",
+        months: "flex flex-col w-full",
+        month: "w-full",
+        caption: "flex justify-between items-center px-2 py-3 mb-2",
+        caption_label: "text-lg font-semibold text-foreground tracking-tight",
+        nav: "flex items-center gap-2",
         nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-9 w-9 bg-transparent p-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors",
+          "inline-flex items-center justify-center rounded-full",
+          "h-10 w-10 sm:h-9 sm:w-9",
+          "bg-primary/10 hover:bg-primary/20",
+          "text-primary hover:text-primary",
+          "transition-all duration-200",
+          "active:scale-95",
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        nav_button_previous: "",
+        nav_button_next: "",
         table: "w-full border-collapse",
-        head_row: "flex w-full",
-        head_cell: "text-muted-foreground rounded-md w-full font-medium text-[0.8rem] py-2",
-        row: "flex w-full mt-1",
-        cell: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-primary/10 [&:has([aria-selected])]:rounded-md",
-          "first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
+        head_row: "flex w-full mb-2",
+        head_cell: cn(
+          "flex-1 text-center",
+          "text-xs font-semibold uppercase tracking-wider",
+          "text-muted-foreground/70",
+          "py-2",
         ),
+        row: "flex w-full",
+        cell: cn("flex-1 p-0.5 sm:p-1", "text-center text-sm", "relative", "[&:has([aria-selected])]:bg-transparent"),
         day: cn(
-          buttonVariants({ variant: "ghost" }),
-          "h-10 w-full p-0 font-normal hover:bg-primary/10 hover:text-primary transition-all duration-200 rounded-md",
+          "inline-flex items-center justify-center",
+          "w-full aspect-square",
+          "rounded-xl sm:rounded-lg",
+          "text-sm font-medium",
+          "transition-all duration-200",
+          "hover:bg-primary/10 hover:text-primary",
+          "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1",
+          "active:scale-95",
         ),
         day_range_start: "day-range-start",
         day_range_end: "day-range-end",
-        day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground shadow-md",
-        day_today: "bg-accent/20 text-accent-foreground font-semibold ring-1 ring-accent/50",
-        day_outside: "text-muted-foreground/50 opacity-50",
-        day_disabled: "text-muted-foreground/30 opacity-30 cursor-not-allowed",
+        day_selected: cn(
+          "bg-primary text-primary-foreground",
+          "hover:bg-primary hover:text-primary-foreground",
+          "focus:bg-primary focus:text-primary-foreground",
+          "shadow-lg shadow-primary/30",
+          "font-bold",
+        ),
+        day_today: cn("bg-secondary/20 text-secondary", "font-bold", "ring-2 ring-secondary/40 ring-inset"),
+        day_outside: "text-muted-foreground/40",
+        day_disabled: "text-muted-foreground/30 cursor-not-allowed hover:bg-transparent",
         day_range_middle: "aria-selected:bg-accent/20 aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}
       components={{
-        IconLeft: () => <ChevronLeftIcon className="h-4 w-4" />,
-        IconRight: () => <ChevronRightIcon className="h-4 w-4" />,
+        IconLeft: () => <ChevronLeftIcon className="h-5 w-5" />,
+        IconRight: () => <ChevronRightIcon className="h-5 w-5" />,
       }}
       {...props}
     />
