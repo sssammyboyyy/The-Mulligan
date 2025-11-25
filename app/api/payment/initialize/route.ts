@@ -79,3 +79,120 @@ export async function POST(request: NextRequest) {
         }
         // 100% DISCOUNT
         else if (couponData.discount_percent === 100) {
+          dbTotalPrice = 0
+          dbPaymentStatus = "completed"
+          dbStatus = "confirmed"
+          skipYoco = true
+        }
+      }
+    }
+
+    // Fallback: free price
+    if (total_price === 0 && !skipYoco) {
+      dbPaymentStatus = "completed"
+      dbStatus = "confirmed"
+      skipYoco = true
+    }
+
+    // 3. CRITICAL: Construct Timestamps for DB Constraint
+    // We must manually build the ISO string with SAST offset to be safe
+    const slotStartISO = createSASTTimestamp(booking_date, start_time);
+    const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours);
+    const endTimeText = calculateEndTimeText(start_time, duration_hours);
+
+    // 4. Insert Booking
+    // We insert BOTH the text columns (for your UI) AND the timestamps (for the lock)
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .insert({
+        booking_date,
+        start_time,
+        end_time: endTimeText,
+        slot_start: slotStartISO, // <--- THE LOCK KEY (Missing in your code)
+        slot_end: slotEndISO,     // <--- THE LOCK KEY (Missing in your code)
+        duration_hours,
+        player_count,
+        simulator_id, 
+        user_type: "guest",
+        session_type,
+        famous_course_option,
+        base_price,
+        total_price: dbTotalPrice,
+        status: dbStatus,
+        payment_status: dbPaymentStatus,
+        guest_name,
+        guest_email,
+        guest_phone,
+        accept_whatsapp,
+        enter_competition,
+        coupon_code: couponApplied,
+      })
+      .select()
+      .single()
+
+    if (bookingError) {
+      console.error("Booking Insert Error:", bookingError)
+      // Check for our custom constraint violation
+      if (bookingError.code === '23P01') { 
+        return NextResponse.json({ error: "Slot already taken (Double Booking prevented)" }, { status: 409 })
+      }
+      return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+    }
+
+    // 5. Return Early if Yoco is Skipped
+    if (skipYoco) {
+      return NextResponse.json({
+        free_booking: true,
+        booking_id: booking.id,
+        message: dbPaymentStatus === "paid_instore" ? "Walk-in Confirmed" : "Booking confirmed with coupon",
+      })
+    }
+
+    // 6. Deposit Logic
+    const getDepositAmount = () => {
+      if (session_type === "famous-course") {
+        if (famous_course_option === "4-ball") return 600
+        if (famous_course_option === "3-ball") return 450 
+      }
+      return dbTotalPrice
+    }
+    const depositAmount = getDepositAmount()
+
+    // 7. Dynamic Production URL (Cloudflare Context)
+    // Uses the Cloudflare Environment Variable you set in Step 4
+    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+
+    const yocoResponse = await fetch("https://payments.yoco.com/api/checkouts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.YOCO_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: Math.round(depositAmount * 100),
+        currency: "ZAR",
+        cancelUrl: `${appUrl}/booking?cancelled=true`,
+        successUrl: `${appUrl}/api/payment/verify?reference=${booking.id}`,
+        failureUrl: `${appUrl}/booking?error=payment_failed`,
+        metadata: {
+          bookingId: booking.id,
+        },
+      }),
+    })
+
+    const yocoData = await yocoResponse.json()
+
+    if (!yocoResponse.ok) {
+      console.error("Yoco Error:", yocoData)
+      return NextResponse.json({ error: "Payment initialization failed" }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      redirectUrl: yocoData.redirectUrl,
+      booking_id: booking.id,
+    })
+  } catch (error) {
+    console.error("Server Error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
