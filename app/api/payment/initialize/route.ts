@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
     // 5. Calculate Deposit/Charge Amount
     const getDepositAmount = () => {
       if (session_type === "famous-course") {
-        if (famous_course_option === "4-ball") return 600 // Updated from 400 to 600 (R150/person x 4)
-        if (famous_course_option === "3-ball") return 450 // Updated from 300 to 450 (R150/person x 3)
+        if (famous_course_option === "4-ball") return 600 // R150/person x 4 people
+        if (famous_course_option === "3-ball") return 450 // R150/person x 3 people
       }
       return dbTotalPrice
     }

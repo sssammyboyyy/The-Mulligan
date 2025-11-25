@@ -3,28 +3,37 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, Star, Check } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, Star, Check, Users } from "lucide-react"
 import BayStatusDisplay from "@/components/BayStatusDisplay"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/40 bg-background/95 backdrop-blur-sm sticky top-0 z-50 shadow-md">
-        <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-5">
+      <header className="border-b border-border/40 bg-background/98 backdrop-blur-md sticky top-0 z-50 shadow-lg">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo Section - SIGNIFICANTLY LARGER */}
+            {/* Logo Section - Seamlessly Integrated */}
             <Link href="/" className="flex items-center gap-3 sm:gap-4 flex-shrink-0 group">
-              <Image
-                src="/images/upscalelogomulligan.jpeg"
-                alt="The Mulligan Logo"
-                width={90}
-                height={90}
-                className="object-contain w-16 h-16 sm:w-20 sm:h-20 lg:w-[90px] lg:h-[90px] transition-transform duration-300 group-hover:scale-105"
-                priority
-              />
-              <span className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
-                The Mulligan
-              </span>
+              <div className="relative">
+                <div className="absolute inset-0 bg-secondary/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
+                <Image
+                  src="/images/upscalelogomulligan.jpeg"
+                  alt="The Mulligan Logo"
+                  width={90}
+                  height={90}
+                  className="relative object-contain w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full ring-2 ring-secondary/30 ring-offset-4 ring-offset-background transition-all duration-300 group-hover:ring-secondary/60 group-hover:scale-105 shadow-xl"
+                  priority
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight leading-none">
+                  The Mulligan
+                </span>
+                <span className="text-[10px] sm:text-xs text-secondary font-medium tracking-wider uppercase mt-0.5">
+                  Golf Simulator
+                </span>
+              </div>
             </Link>
 
             {/* Desktop Navigation */}
@@ -390,74 +399,118 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="pricing" className="py-12 sm:py-16 md:py-20 bg-background">
+      <section id="pricing" className="py-16 sm:py-20 md:py-24 bg-gradient-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4">
-              Quick Play Sessions
+          <div className="text-center mb-10 sm:mb-14">
+            <Badge className="mb-4 bg-secondary/10 text-secondary border-secondary/20 px-4 py-1 text-sm font-semibold">
+              Flexible Pricing
+            </Badge>
+            <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 sm:mb-6">
+              Play Your Way
             </h2>
-            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-              Perfect for practice rounds and casual play • Add club rental for R100
+            <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto px-4 leading-relaxed">
+              Per person, per hour pricing • Book from 1 to 1.5-hour slots • Add club rental for R100
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-6xl mx-auto">
-            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
-                <CardTitle className="text-xl sm:text-2xl font-bold text-center">1 Player</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
-                <div>
-                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R250</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-7 max-w-6xl mx-auto">
+            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
+                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
+                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
-                  Solo practice or focused training
+                <CardTitle className="text-2xl sm:text-3xl font-bold">1 Player</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
+                <div>
+                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R250</p>
+                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
+                </div>
+                <Separator className="my-3" />
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Perfect for focused solo practice and skill development
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
-                <CardTitle className="text-xl sm:text-2xl font-bold text-center">2 Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
-                <div>
-                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R360</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+
+            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
+                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
+                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
-                  Pair up and challenge each other
-                </p>
+                <CardTitle className="text-2xl sm:text-3xl font-bold">2 Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
+                <div>
+                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R180</p>
+                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
+                </div>
+                <Separator className="my-3" />
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-secondary">R360/hour total</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Great value for pairs and friendly competition
+                  </p>
+                </div>
               </CardContent>
             </Card>
-            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
-                <CardTitle className="text-xl sm:text-2xl font-bold text-center">3 Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
-                <div>
-                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R480</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+
+            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
+                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
+                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
-                  Small group play for camaraderie
-                </p>
+                <CardTitle className="text-2xl sm:text-3xl font-bold">3 Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
+                <div>
+                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R160</p>
+                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
+                </div>
+                <Separator className="my-3" />
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-secondary">R480/hour total</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Perfect for small group sessions and team play
+                  </p>
+                </div>
               </CardContent>
             </Card>
-            <Card className="border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-3 sm:pb-4 pt-5 sm:pt-6 px-4 sm:px-6">
-                <CardTitle className="text-xl sm:text-2xl font-bold text-center">4 Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-2 sm:space-y-3 px-4 sm:px-6 pb-5 sm:pb-6">
-                <div>
-                  <p className="text-3xl sm:text-4xl font-bold text-secondary">R600</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">per hour</p>
+
+            <Card className="border-2 border-secondary/40 hover:border-secondary transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br from-secondary/5 to-secondary/10 backdrop-blur-sm relative overflow-hidden">
+              <div className="absolute top-3 right-3">
+                <Badge className="bg-secondary text-white text-xs font-bold px-2 py-0.5">BEST VALUE</Badge>
+              </div>
+              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
+                <div className="icon-container-secondary w-14 h-14 mx-auto mb-4 flex items-center justify-center">
+                  <Users className="w-7 h-7 text-white icon-enhanced" />
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
-                  Full group play for ultimate fun
-                </p>
+                <CardTitle className="text-2xl sm:text-3xl font-bold">4+ Players</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
+                <div>
+                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R150</p>
+                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
+                </div>
+                <Separator className="my-3" />
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-secondary">R600/hour for 4 people</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Ultimate value for full groups and tournaments
+                  </p>
+                </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mt-10 text-center">
+            <Button
+              asChild
+              size="lg"
+              className="bg-secondary hover:bg-secondary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 px-8 py-6 text-lg"
+            >
+              <Link href="/booking">Book Your Session</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -605,33 +658,79 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-border py-12 bg-card">
+      <footer className="border-t border-border py-14 bg-gradient-to-b from-card to-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/images/upscalelogomulligan.jpeg"
-                alt="The Mulligan Logo"
-                width={70}
-                height={70}
-                className="object-contain"
-              />
-              <div className="flex flex-col">
-                <span className="font-serif text-xl font-bold text-foreground leading-tight">The Mulligan</span>
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  The Simulator Never Judges
-                </span>
+          <div className="grid md:grid-cols-3 gap-8 mb-10">
+            {/* Logo & Tagline */}
+            <div className="flex flex-col items-center md:items-start gap-4">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-secondary/20 rounded-full blur-md" />
+                  <Image
+                    src="/images/upscalelogomulligan.jpeg"
+                    alt="The Mulligan Logo"
+                    width={70}
+                    height={70}
+                    className="relative object-contain rounded-full ring-2 ring-secondary/30 shadow-lg"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-serif text-2xl font-bold text-foreground leading-none">The Mulligan</span>
+                  <span className="text-xs text-secondary font-medium tracking-wider uppercase mt-1">
+                    Golf Simulator
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground text-center md:text-left italic">
+                "The Simulator Never Judges"
+              </p>
+            </div>
+
+            {/* Operating Hours - Prominent Display */}
+            <div className="flex flex-col items-center">
+              <div className="icon-container-secondary w-16 h-16 flex items-center justify-center mb-4">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="font-serif text-xl font-bold text-foreground mb-3">Operating Hours</h3>
+              <div className="space-y-2 text-center">
+                <div className="flex items-center justify-center gap-3 px-4 py-2 bg-secondary/10 rounded-lg border border-secondary/20">
+                  <span className="text-sm font-semibold text-foreground min-w-[80px] text-left">Mon - Fri:</span>
+                  <span className="text-sm font-bold text-secondary">9AM - 8PM</span>
+                </div>
+                <div className="flex items-center justify-center gap-3 px-4 py-2 bg-secondary/10 rounded-lg border border-secondary/20">
+                  <span className="text-sm font-semibold text-foreground min-w-[80px] text-left">Saturday:</span>
+                  <span className="text-sm font-bold text-secondary">8AM - 8PM</span>
+                </div>
+                <div className="flex items-center justify-center gap-3 px-4 py-2 bg-secondary/10 rounded-lg border border-secondary/20">
+                  <span className="text-sm font-semibold text-foreground min-w-[80px] text-left">Sunday:</span>
+                  <span className="text-sm font-bold text-secondary">10AM - 4PM</span>
+                </div>
               </div>
             </div>
-            <div className="text-center md:text-right">
-              <p className="text-sm font-semibold text-foreground mb-1">Mon-Fri: 9AM - 8PM</p>
-              <p className="text-sm text-muted-foreground">38A Chopin St, Vanderbijlpark S. W. 5</p>
-              <p className="text-sm text-muted-foreground">Vanderbijlpark, 1911</p>
+
+            {/* Location */}
+            <div className="flex flex-col items-center md:items-end">
+              <div className="icon-container-accent w-16 h-16 flex items-center justify-center mb-4">
+                <MapPin className="w-8 h-8 text-secondary" />
+              </div>
+              <h3 className="font-serif text-xl font-bold text-foreground mb-3">Visit Us</h3>
+              <div className="text-center md:text-right space-y-1">
+                <p className="text-sm font-medium text-foreground">38A Chopin Street</p>
+                <p className="text-sm text-muted-foreground">Vanderbijlpark S. W. 5</p>
+                <p className="text-sm text-muted-foreground">Vanderbijlpark, 1911</p>
+                <p className="text-sm text-muted-foreground">Gauteng, South Africa</p>
+              </div>
             </div>
           </div>
-          <div className="text-center border-t border-border pt-6">
+
+          <Separator className="my-8" />
+
+          <div className="text-center space-y-3">
             <p className="text-sm text-muted-foreground">
-              © 2025 The Mulligan. Premium GS Pro golf simulation experience in Vanderbijlpark, Gauteng.
+              © 2025 The Mulligan Golf Simulator. Premium GS Pro simulation experience with 5,000+ courses.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              All major credit cards accepted • Secure payment by Yoco • POPIA Compliant
             </p>
           </div>
         </div>

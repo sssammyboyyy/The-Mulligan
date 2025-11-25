@@ -38,8 +38,8 @@ export function BookingConfirmation() {
 
   const getDepositAmount = () => {
     if (sessionType === "famous-course") {
-      if (famousOption === "4-ball") return 600 // Updated deposit for R150/person pricing
-      if (famousOption === "3-ball") return 450 // Updated deposit for R150/person pricing
+      if (famousOption === "4-ball") return 600 // R150/person x 4 = R600/hour deposit
+      if (famousOption === "3-ball") return 450 // R150/person x 3 = R450/hour deposit
     }
     return basePrice // For quick play, full amount is due
   }

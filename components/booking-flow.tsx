@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
@@ -44,13 +43,22 @@ export function BookingFlow() {
 
     if (sessionType === "famous-course") {
       if (famousCourseOption === "4-ball") {
-        basePrice = 150 * 4 * duration
+        basePrice = 150 * 4 * duration // R150/person x 4 people
       }
       if (famousCourseOption === "3-ball") {
-        basePrice = 150 * 3 * duration
+        basePrice = 150 * 3 * duration // R150/person/hour x 3 people
       }
     } else {
-      basePrice = playerCount <= 2 ? 250 * duration : 350 * duration
+      // Quick Play - Per person per hour pricing
+      if (playerCount === 1) {
+        basePrice = 250 * duration // R250/person/hour
+      } else if (playerCount === 2) {
+        basePrice = 180 * 2 * duration // R180/person/hour x 2
+      } else if (playerCount === 3) {
+        basePrice = 160 * 3 * duration // R160/person/hour x 3
+      } else {
+        basePrice = 150 * 4 * duration // R150/person/hour x 4+
+      }
     }
 
     // Add golf club rental
@@ -296,92 +304,106 @@ export function BookingFlow() {
                   <CardDescription>Choose between Famous Course 18-hole or Quick Play sessions</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RadioGroup
-                    value={sessionType}
-                    onValueChange={(value) => {
-                      setSessionType(value as SessionType)
-                      setFamousCourseOption(null)
-                      setValidationError("")
-                    }}
-                  >
-                    <div className="space-y-3">
-                      <Label
-                        htmlFor="famous-course"
-                        className="flex items-start justify-between p-4 border-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-start gap-3 flex-1">
-                          <RadioGroupItem value="famous-course" id="famous-course" className="mt-1" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-foreground text-lg">18-Hole Famous Course</p>
-                              <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
-                                <Sparkles className="w-3 h-3 mr-1" />
-                                Special Rates
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              Augusta National & legendary courses with Pro Tee
-                            </p>
-
-                            {sessionType === "famous-course" && (
-                              <div className="space-y-2 mt-3 pl-2 border-l-2 border-secondary">
-                                <Label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="famous-option"
-                                    checked={famousCourseOption === "4-ball"}
-                                    onChange={() => setFamousCourseOption("4-ball")}
-                                    className="w-4 h-4 text-secondary"
-                                  />
-                                  <div>
-                                    <p className="font-medium text-foreground">4-Ball Special: R150/person/hour</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      4 players • 3-hour minimum • R1800 total (R450/person)
-                                    </p>
-                                  </div>
-                                </Label>
-                                <Label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="famous-option"
-                                    checked={famousCourseOption === "3-ball"}
-                                    onChange={() => setFamousCourseOption("3-ball")}
-                                    className="w-4 h-4 text-secondary"
-                                  />
-                                  <div>
-                                    <p className="font-medium text-foreground">3-Ball: R150/person/hour</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      3 players • 3-hour minimum • R1350 total (R450/person)
-                                    </p>
-                                  </div>
-                                </Label>
-                              </div>
-                            )}
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="border-2 border-secondary/40 bg-gradient-to-br from-secondary/5 to-secondary/10 hover:shadow-xl transition-all duration-300 hover:border-secondary">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <CardTitle className="text-xl font-bold">4-Ball Special</CardTitle>
+                          <Badge className="bg-secondary text-white">Popular</Badge>
                         </div>
-                      </Label>
-
-                      <Label
-                        htmlFor="quickplay"
-                        className="flex items-start justify-between p-4 border-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-start gap-3 flex-1">
-                          <RadioGroupItem value="quickplay" id="quickplay" className="mt-1" />
-                          <div>
-                            <p className="font-semibold text-foreground text-lg">Quick Play Sessions</p>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              Practice range, skills challenges, all courses
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <Badge variant="outline">1-4 players</Badge>
-                              <Badge variant="outline">No minimum</Badge>
-                              <Badge variant="outline">R250-R600/hr</Badge>
-                            </div>
+                        <CardDescription>18-hole famous courses with 4 players</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="icon-badge-secondary">
+                            <Sparkles className="w-4 h-4 text-secondary" />
                           </div>
+                          <p className="font-medium text-foreground">R150/person/hour</p>
                         </div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          4 players • 3-hour minimum • R1800 total for 3 hours (R450/person)
+                        </p>
+                        <Button
+                          variant={
+                            sessionType === "famous-course" && famousCourseOption === "4-ball" ? "default" : "outline"
+                          }
+                          className="w-full"
+                          onClick={() => {
+                            setSessionType("famous-course")
+                            setFamousCourseOption("4-ball")
+                            setPlayerCount(4)
+                            setDuration(3)
+                          }}
+                        >
+                          Select 4-Ball
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-border hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-xl font-bold">3-Ball</CardTitle>
+                        <CardDescription>18-hole famous courses with 3 players</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="icon-badge-secondary">
+                            <Sparkles className="w-4 h-4 text-secondary" />
+                          </div>
+                          <p className="font-medium text-foreground">R150/person/hour</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          3 players • 3-hour minimum • R1350 total for 3 hours (R450/person)
+                        </p>
+                        <Button
+                          variant={
+                            sessionType === "famous-course" && famousCourseOption === "3-ball" ? "default" : "outline"
+                          }
+                          className="w-full"
+                          onClick={() => {
+                            setSessionType("famous-course")
+                            setFamousCourseOption("3-ball")
+                            setPlayerCount(3)
+                            setDuration(3)
+                          }}
+                        >
+                          Select 3-Ball
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-border hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-xl font-bold">Quick Play</CardTitle>
+                        <CardDescription>Practice sessions from 1-4 players</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="icon-badge-primary">
+                            <Trophy className="w-4 h-4 text-primary" />
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            R150-R250/person/hour
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Flexible duration • 1-4 players • Per-person-per-hour pricing
+                        </p>
+                        <Button
+                          variant={sessionType === "quickplay" ? "default" : "outline"}
+                          className="w-full"
+                          onClick={() => {
+                            setSessionType("quickplay")
+                            setFamousCourseOption(null)
+                            setPlayerCount(1)
+                            setDuration(1)
+                          }}
+                        >
+                          Select Quick Play
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </CardContent>
               </Card>
 
