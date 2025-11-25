@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Users, Clock, CalendarIcon, Trophy, AlertTriangle, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type SessionType = "famous-course" | "quickplay"
 type FamousCourseOption = "4-ball" | "3-ball" | null
@@ -25,6 +26,8 @@ export function BookingFlow() {
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [timeSlot, setTimeSlot] = useState<string>("")
   const [duration, setDuration] = useState<number>(1)
+  const [golfClubRental, setGolfClubRental] = useState<boolean>(false)
+  const [coachingSession, setCoachingSession] = useState<boolean>(false)
   const [validationError, setValidationError] = useState<string>("")
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
 
@@ -37,24 +40,30 @@ export function BookingFlow() {
   }
 
   const calculatePrice = () => {
+    let basePrice = 0
+
     if (sessionType === "famous-course") {
       if (famousCourseOption === "4-ball") {
-        return 150 * 4 * duration // Updated from R100 to R150 per person per hour, 4 people
+        basePrice = 150 * 4 * duration
       }
       if (famousCourseOption === "3-ball") {
-        return 150 * 3 * duration // Updated to R150 per person per hour to match 4-ball pricing, 3 people
+        basePrice = 150 * 3 * duration
       }
     } else {
-      // Quick Play pricing
-      const hourlyRates: Record<number, number> = {
-        1: 250,
-        2: 360,
-        3: 480,
-        4: 600,
-      }
-      return (hourlyRates[playerCount] || 250) * duration
+      basePrice = playerCount <= 2 ? 250 * duration : 350 * duration
     }
-    return 0
+
+    // Add golf club rental
+    if (golfClubRental) {
+      basePrice += 100
+    }
+
+    // Add coaching session
+    if (coachingSession) {
+      basePrice += 450
+    }
+
+    return basePrice
   }
 
   const validateBooking = () => {
@@ -118,6 +127,33 @@ export function BookingFlow() {
     return times
   }
 
+  const generateTimeSlots = () => {
+    if (!date) return []
+
+    const slots: string[] = []
+    const dayOfWeek = date.getDay()
+
+    // Monday-Friday: 9AM-8PM, Saturday: 8AM-8PM, Sunday: 10AM-4PM
+    let startHour = 9
+    let endHour = 20
+
+    if (dayOfWeek === 6) {
+      // Saturday
+      startHour = 8
+    } else if (dayOfWeek === 0) {
+      // Sunday
+      startHour = 10
+      endHour = 16
+    }
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      const timeString = `${hour.toString().padStart(2, "0")}:00`
+      slots.push(timeString)
+    }
+
+    return slots
+  }
+
   useEffect(() => {
     if (sessionType === "famous-course") {
       if (famousCourseOption === "4-ball") {
@@ -170,6 +206,8 @@ export function BookingFlow() {
         time: timeSlot,
         duration: duration.toString(),
         price: calculatePrice().toString(),
+        golfClubs: golfClubRental.toString(),
+        coaching: coachingSession.toString(),
       })
 
       router.push(`/booking/confirm?${params.toString()}`)
@@ -188,19 +226,7 @@ export function BookingFlow() {
   }
 
   // Sample time slots (would be fetched from API)
-  const timeSlots = [
-    { time: "09:00", available: true },
-    { time: "10:00", available: true },
-    { time: "11:00", available: true },
-    { time: "12:00", available: true },
-    { time: "13:00", available: true },
-    { time: "14:00", available: false }, // Example: booked
-    { time: "15:00", available: true },
-    { time: "16:00", available: true },
-    { time: "17:00", available: true },
-    { time: "18:00", available: true },
-    { time: "19:00", available: true },
-  ]
+  const timeSlots = generateTimeSlots()
 
   return (
     <div className="min-h-screen py-8 bg-background">
@@ -458,29 +484,72 @@ export function BookingFlow() {
                     <CardContent>
                       <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                         {timeSlots.map((slot) => {
-                          const [hour] = slot.time.split(":").map(Number)
+                          const [hour] = slot.split(":").map(Number)
                           const wouldEndAfterClosing = hour + getMinimumHours() > 20
-                          const isDisabled = !slot.available || wouldEndAfterClosing
+                          const isDisabled = !timeSlots.includes(slot) || wouldEndAfterClosing
 
                           return (
                             <Button
-                              key={slot.time}
-                              variant={timeSlot === slot.time ? "default" : "outline"}
+                              key={slot}
+                              variant={timeSlot === slot ? "default" : "outline"}
                               className={`flex flex-col h-auto py-3 ${
-                                timeSlot === slot.time
-                                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                                  : ""
+                                timeSlot === slot ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : ""
                               }`}
                               disabled={isDisabled}
-                              onClick={() => setTimeSlot(slot.time)}
+                              onClick={() => setTimeSlot(slot)}
                             >
-                              <span className="font-semibold">{slot.time}</span>
+                              <span className="font-semibold">{slot}</span>
                               {wouldEndAfterClosing && (
                                 <span className="text-[10px] text-destructive mt-1">Too late</span>
                               )}
                             </Button>
                           )
                         })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Optional Add-Ons */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Optional Add-Ons</CardTitle>
+                      <CardDescription>Enhance your golf experience</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <Checkbox
+                          id="golf-clubs"
+                          checked={golfClubRental}
+                          onCheckedChange={(checked) => setGolfClubRental(checked as boolean)}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="golf-clubs" className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-foreground">Golf Club Rental</p>
+                              <p className="text-sm text-muted-foreground">Full set of premium clubs</p>
+                            </div>
+                            <span className="text-lg font-bold text-secondary">R100</span>
+                          </div>
+                        </Label>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <Checkbox
+                          id="coaching"
+                          checked={coachingSession}
+                          onCheckedChange={(checked) => setCoachingSession(checked as boolean)}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="coaching" className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-foreground">Professional Coaching</p>
+                              <p className="text-sm text-muted-foreground">1-hour session with pro instructor</p>
+                            </div>
+                            <span className="text-lg font-bold text-secondary">R450</span>
+                          </div>
+                        </Label>
                       </div>
                     </CardContent>
                   </Card>
@@ -526,6 +595,12 @@ export function BookingFlow() {
                             R{calculatePrice().toLocaleString()}
                           </span>
                         </div>
+                        {(golfClubRental || coachingSession) && (
+                          <div className="text-xs text-muted-foreground space-y-1 mb-2">
+                            {golfClubRental && <p>+ Golf Club Rental: R100</p>}
+                            {coachingSession && <p>+ Coaching Session: R450</p>}
+                          </div>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {playerCount} player{playerCount > 1 ? "s" : ""} × {duration} hour{duration > 1 ? "s" : ""}
                         </p>

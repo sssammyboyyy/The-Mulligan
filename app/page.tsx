@@ -116,7 +116,8 @@ export default function HomePage() {
 
             <p className="text-xl sm:text-2xl md:text-3xl mb-10 text-primary-foreground/95 leading-relaxed max-w-3xl mx-auto font-light">
               Premium <span className="font-semibold text-secondary">Pro Tee</span> experience with{" "}
-              <span className="font-semibold">Augusta National</span> and 400+ world-class courses
+              <span className="font-semibold">Augusta National</span> and <span className="font-semibold">5000+</span>{" "}
+              world-class courses
             </p>
 
             {/* Bold, eye-catching CTAs */}
@@ -146,22 +147,20 @@ export default function HomePage() {
 
             {/* Social proof / trust indicators */}
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm sm:text-base text-primary-foreground/80">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-secondary" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 <span className="font-semibold">Premium Pro Tee Technology</span>
               </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="font-semibold">Open Mon-Fri 9AM-8PM, Sat 8AM-8PM, Sun 10AM-4PM</span>
+              <div className="flex items-center gap-3">
+                <div className="icon-badge-accent">
+                  <Clock className="w-6 h-6 text-secondary icon-enhanced" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">Mon-Fri: 9AM - 8PM</p>
+                  <p className="text-sm font-medium">Sat: 8AM - 8PM | Sun: 10AM - 4PM</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,7 +339,7 @@ export default function HomePage() {
               World-Class GS Pro Simulation
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Experience GS Pro's industry-leading golf simulation platform with 400+ championship courses and
+              Experience GS Pro's industry-leading golf simulation platform with 5000+ championship courses and
               photorealistic graphics
             </p>
           </div>
@@ -351,9 +350,9 @@ export default function HomePage() {
                   <div className="icon-container-primary w-16 h-16 flex items-center justify-center mb-4">
                     <Target className="w-8 h-8 text-white icon-enhanced" />
                   </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">400+ Championship Courses</h3>
+                  <h3 className="font-semibold text-xl mb-2 text-foreground">5000+ Championship Courses</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Play the world's most famous courses including Augusta National, St Andrews, Pebble Beach, and more
+                    Play the world's most famous courses including Augusta National, Pebble Beach, and thousands more
                     with GS Pro
                   </p>
                 </div>
@@ -552,9 +551,9 @@ export default function HomePage() {
                       </div>
                       <div>
                         <p className="font-semibold text-foreground">Operating Hours</p>
-                        <p className="text-sm text-muted-foreground">Monday - Friday: 9AM - 8PM</p>
-                        <p className="text-sm text-muted-foreground">Saturday: 8AM - 8PM</p>
-                        <p className="text-sm text-muted-foreground">Sunday: 10AM - 4PM</p>
+                        <p className="text-sm text-muted-foreground">Mon-Fri: 9AM - 8PM</p>
+                        <p className="text-sm text-muted-foreground">Sat: 8AM - 8PM</p>
+                        <p className="text-sm text-muted-foreground">Sun: 10AM - 4PM</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

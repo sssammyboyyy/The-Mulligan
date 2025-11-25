@@ -18,13 +18,13 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Elite Golf Sim | Indoor Golf Simulator Near Me Vanderbijlpark | Augusta National",
   description:
-    "Vanderbijlpark's premier indoor golf simulator. Play Augusta National, St Andrews, and 5000+ courses. Book your bay in 60 seconds. Walk-ins welcome Mon-Fri 9AM-8PM, Sat 8AM-8PM, Sun 10AM-4PM. SW5 Vanderbijlpark, Gauteng.",
+    "Vanderbijlpark's premier indoor golf simulator. Play Augusta National and 5000+ courses. Book your bay in 60 seconds. Walk-ins welcome Mon-Fri 9AM-8PM, Sat 8AM-8PM, Sun 10AM-4PM. SW5 Vanderbijlpark, Gauteng.",
   keywords:
-    "golf simulator near me, indoor golf simulator near me, golf simulator Vanderbijlpark, indoor golf Gauteng, Augusta National simulator, St Andrews simulator",
+    "golf simulator near me, indoor golf simulator near me, golf simulator Vanderbijlpark, indoor golf Gauteng, Augusta National simulator, golf simulation",
   openGraph: {
     title: "Elite Golf Sim Vanderbijlpark | World-Class Golf Simulator",
     description:
-      "Experience Augusta National, St Andrews & premium golf simulation in Vanderbijlpark. Book online or walk in.",
+      "Experience Augusta National & premium golf simulation with 5000+ courses in Vanderbijlpark. Book online or walk in.",
     type: "website",
   },
   generator: "v0.app",
@@ -46,7 +46,7 @@ export default function RootLayout({
               "@type": ["LocalBusiness", "SportsActivityLocation"],
               name: "Elite Golf Sim",
               description:
-                "Vanderbijlpark's premier indoor golf simulator facility featuring Augusta National, St Andrews and 5000+ championship courses",
+                "Vanderbijlpark's premier indoor golf simulator facility featuring Augusta National and 5000+ championship courses",
               address: {
                 "@type": "PostalAddress",
                 streetAddress: "38A Chopin St, Vanderbijlpark S. W. 5",

@@ -33,6 +33,8 @@ export function BookingConfirmation() {
   const time = searchParams.get("time") || ""
   const duration = searchParams.get("duration") || "1"
   const basePrice = Number.parseFloat(searchParams.get("price") || "0")
+  const golfClubs = searchParams.get("golfClubs") === "true"
+  const coaching = searchParams.get("coaching") === "true"
 
   const getDepositAmount = () => {
     if (sessionType === "famous-course") {
@@ -99,6 +101,8 @@ export function BookingConfirmation() {
       accept_whatsapp: acceptWhatsApp,
       enter_competition: enterCompetition,
       coupon_code: couponApplied ? couponCode : null,
+      golf_club_rental: golfClubs,
+      coaching_session: coaching,
     }
 
     try {
@@ -179,7 +183,7 @@ export function BookingConfirmation() {
                     {sessionType === "famous-course" && (
                       <>
                         <Badge className="mt-2 bg-secondary/20 text-secondary border-0">
-                          Augusta National, St. Andrews & 5000+ Pro Tee Famous Courses
+                          Augusta National & 5000+ Pro Tee Famous Courses
                         </Badge>
                         <p className="text-xs text-muted-foreground mt-2">
                           Golf club rental available: R100 (payable in-store)
@@ -334,6 +338,18 @@ export function BookingConfirmation() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">GS Pro Technology</span>
                       <span className="font-medium text-foreground">Included</span>
+                    </div>
+                  )}
+                  {golfClubs && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Golf Club Rental</span>
+                      <span className="font-medium text-foreground">R100</span>
+                    </div>
+                  )}
+                  {coaching && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Coaching Session (1 hour)</span>
+                      <span className="font-medium text-foreground">R450</span>
                     </div>
                   )}
                 </div>

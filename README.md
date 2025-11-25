@@ -207,7 +207,7 @@ Sunday: Closed
 
 ## 🚦 Launch Checklist
 
-- [x] Augusta National only (no St. Andrews)
+- [x] Augusta National and 5000+ courses
 - [x] Real-time bay availability display
 - [x] Walk-in payment messaging
 - [x] POPIA-compliant WhatsApp opt-ins
