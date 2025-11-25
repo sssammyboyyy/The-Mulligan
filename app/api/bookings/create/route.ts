@@ -1,7 +1,7 @@
-export const runtime = "nodejs"
-
 import { createServerClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+
+export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
