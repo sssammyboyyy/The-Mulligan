@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr"
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
@@ -7,34 +7,32 @@ export async function updateSession(request: NextRequest) {
 
   // If Supabase is not configured, skip middleware processing
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[v0] Supabase environment variables not found in middleware, skipping auth checks')
+    console.warn("[v0] Supabase environment variables not found in middleware, skipping auth checks")
     return NextResponse.next({
       request,
     })
   }
 
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   })
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
-        },
-      },
+  // Get auth token from cookies
+  const authToken = request.cookies.get("sb-access-token")?.value
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
     },
-  )
+    global: {
+      headers: authToken
+        ? {
+            Authorization: `Bearer ${authToken}`,
+          }
+        : {},
+    },
+  })
 
   const {
     data: { user },
