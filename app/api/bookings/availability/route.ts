@@ -1,82 +1,44 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-export const runtime = 'edge';
-
-// This is safe because we only expose start_time data, not user info
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+export const runtime = "edge"
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const date = searchParams.get("date")
+
+  if (!date) {
+    return NextResponse.json({ error: "Date parameter is required" }, { status: 400 })
+  }
+
   try {
-    const searchParams = request.nextUrl.searchParams
-    const dateParam = searchParams.get("date")
+    const supabase = await createClient()
 
-    if (!dateParam) {
-      return NextResponse.json({ bookedSlots: [], error: "Date parameter is required" }, { status: 400 })
+    // 1. Get all bookings for the selected date
+    // We fetch anything that is NOT cancelled. 
+    // This includes 'pending' (someone currently paying) and 'confirmed'.
+    const { data: bookings, error } = await supabase
+      .from("bookings")
+      .select("start_time")
+      .eq("booking_date", date)
+      .neq("status", "cancelled") 
+
+    if (error) {
+      console.error("Availability Fetch Error:", error)
+      // Return 500 so the frontend knows something is wrong, rather than assuming empty
+      return NextResponse.json({ error: "Failed to fetch availability" }, { status: 500 })
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.log("[v0] Missing Supabase config - returning empty slots for demo")
-      // Return empty slots when Supabase is not configured (allows UI to still work)
-      return NextResponse.json({
-        bookedSlots: [],
-        date: dateParam,
-        totalBookings: 0,
-        demo: true,
-      })
-    }
-
-    // Parse and format the date
-    const requestDate = new Date(dateParam)
-    if (isNaN(requestDate.getTime())) {
-      return NextResponse.json({ bookedSlots: [], error: "Invalid date format" }, { status: 400 })
-    }
-    const formattedDate = requestDate.toISOString().split("T")[0]
-
-    // This avoids the JSON parsing issues with the Supabase client
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/bookings?booking_date=eq.${formattedDate}&status=neq.cancelled&select=start_time`,
-      {
-        headers: {
-          apikey: supabaseServiceKey,
-          Authorization: `Bearer ${supabaseServiceKey}`,
-          "Content-Type": "application/json",
-        },
-      },
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.log("[v0] Supabase REST API error:", response.status, errorText)
-      // Return empty slots on error so UI still works
-      return NextResponse.json({
-        bookedSlots: [],
-        date: formattedDate,
-        totalBookings: 0,
-        error: "Database query failed",
-      })
-    }
-
-    const bookings = await response.json()
-
-    // Convert bookings to time slot strings (HH:MM format)
+    // 2. Extract just the time strings (e.g., ["09:00", "14:00"])
+    // Safely handles cases where start_time might be formatted differently
     const bookedSlots = (bookings || [])
-      .map((booking: { start_time?: string }) => booking.start_time?.substring(0, 5) || "")
+      .map((b) => b.start_time?.substring(0, 5))
       .filter(Boolean)
 
-    return NextResponse.json({
-      bookedSlots,
-      date: formattedDate,
-      totalBookings: bookings?.length || 0,
-    })
+    return NextResponse.json({ bookedSlots })
+    
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    console.log("[v0] Availability API error:", errorMessage)
-    // Return empty slots on error so UI still works
-    return NextResponse.json({
-      bookedSlots: [],
-      error: "Internal server error",
-      details: errorMessage,
-    })
+    console.error("Server Error:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
