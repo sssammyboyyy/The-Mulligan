@@ -16,9 +16,9 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: "Elite Golf Sim | Indoor Golf Simulator Near Me Vanderbijlpark | Augusta National",
+  title: "The Mulligan | Premier Golf Simulator in Vanderbijlpark ",
   description:
-    "Vanderbijlpark's premier indoor golf simulator. Play Augusta National and 5000+ courses. Book your bay in 60 seconds. Walk-ins welcome Mon-Fri 9AM-8PM, Sat 8AM-8PM, Sun 10AM-4PM. SW5 Vanderbijlpark, Gauteng.",
+    "Book 4-ball games, coaching, and practice sessions at The Mulligan. Top-tier golf simulation technology.",
   keywords:
     "golf simulator near me, indoor golf simulator near me, golf simulator Vanderbijlpark, indoor golf Gauteng, Augusta National simulator, golf simulation",
   openGraph: {
