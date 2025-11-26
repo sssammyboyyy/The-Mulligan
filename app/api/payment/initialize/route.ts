@@ -26,20 +26,16 @@ function calculateEndTimeText(start: string, duration: number): string {
   return date.toTimeString().slice(0, 5) 
 }
 
-
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-// --- 1. MAPPING VARIABLES (Fixes the Bug) ---
-    // We map camelCase (from frontend) to snake_case (for backend logic)
+    // --- 1. MAPPING VARIABLES ---
     const booking_date = body.booking_date || body.date
     const start_time = body.start_time || body.timeSlot
     const duration_hours = body.duration_hours || body.duration
     const player_count = body.player_count || body.players
     
-    // CRITICAL: This was breaking the deposit logic
     const session_type = body.session_type || body.sessionType 
     const famous_course_option = body.famous_course_option || body.sessionType 
     
@@ -50,9 +46,7 @@ export async function POST(request: NextRequest) {
     const guest_email = body.guest_email || body.customerEmail
     const guest_phone = body.guest_phone || body.customerPhone
     
-    // Extract other fields normally
     const {
-      simulator_id = 1,
       accept_whatsapp,
       enter_competition,
       coupon_code
@@ -61,7 +55,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // ---------------------------------------------------------
-    // 1. ROBUST COUPON & PRICE LOGIC
+    // 2. ROBUST COUPON & PRICE LOGIC
     // ---------------------------------------------------------
     let dbTotalPrice = total_price
     let dbPaymentStatus = "pending"
@@ -69,35 +63,34 @@ export async function POST(request: NextRequest) {
     let skipYoco = false
     let couponApplied = null
 
-    // Normalize input: trim spaces and make uppercase to avoid case mismatch
     const cleanCouponCode = coupon_code ? String(coupon_code).trim().toUpperCase() : null
 
     if (cleanCouponCode && cleanCouponCode.length > 0) {
       const { data: couponData } = await supabase
         .from("coupons")
         .select("*")
-        .eq("code", cleanCouponCode) // Ensure your DB codes are Uppercase or adjust this
+        .eq("code", cleanCouponCode)
         .eq("is_active", true)
         .single()
 
       if (couponData) {
         couponApplied = cleanCouponCode
         
-        // ADMIN BYPASS (Walk-in / Cash in store)
+        // ADMIN BYPASS
         if (cleanCouponCode === "MULLIGAN_ADMIN_100") {
           dbTotalPrice = base_price 
           dbPaymentStatus = "paid_instore" 
           dbStatus = "confirmed"
           skipYoco = true
         }
-        // 100% DISCOUNT (Friend / Promo)
+        // 100% DISCOUNT
         else if (couponData.discount_percent === 100) {
           dbTotalPrice = 0
           dbPaymentStatus = "completed"
           dbStatus = "confirmed"
           skipYoco = true
         }
-        // PERCENTAGE DISCOUNT (e.g. 10% off)
+        // PERCENTAGE DISCOUNT
         else if (couponData.discount_percent > 0) {
            const discountAmount = (base_price * (couponData.discount_percent / 100));
            dbTotalPrice = Math.max(0, base_price - discountAmount);
@@ -105,7 +98,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Safety check for naturally free items (if any exist in future)
     if (dbTotalPrice === 0 && !skipYoco) {
       dbPaymentStatus = "completed"
       dbStatus = "confirmed"
@@ -113,7 +105,31 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 2. CREATE DB ROW (LOCK THE SLOT)
+    // 3. MULTI-BAY ASSIGNMENT LOGIC (The Fix)
+    // ---------------------------------------------------------
+    // Check which bays are taken at this specific time
+    const { data: existingBookings } = await supabase
+        .from("bookings")
+        .select("simulator_id")
+        .eq("booking_date", booking_date)
+        .eq("start_time", start_time)
+        .neq("status", "cancelled")
+
+    const takenBays = existingBookings?.map(b => b.simulator_id) || []
+    
+    // Find first available bay (1, 2, or 3)
+    let assignedSimulatorId = 0
+    if (!takenBays.includes(1)) assignedSimulatorId = 1
+    else if (!takenBays.includes(2)) assignedSimulatorId = 2
+    else if (!takenBays.includes(3)) assignedSimulatorId = 3
+    
+    if (assignedSimulatorId === 0) {
+        // Double check against race conditions or fully booked slots
+        return NextResponse.json({ error: "Sorry, all bays are full for this time." }, { status: 409 })
+    }
+
+    // ---------------------------------------------------------
+    // 4. CREATE DB ROW
     // ---------------------------------------------------------
     const slotStartISO = createSASTTimestamp(booking_date, start_time);
     const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours);
@@ -129,12 +145,12 @@ export async function POST(request: NextRequest) {
         slot_end: slotEndISO,
         duration_hours,
         player_count,
-        simulator_id, 
+        simulator_id: assignedSimulatorId, // <--- USING DYNAMIC ID
         user_type: "guest",
         session_type,
         famous_course_option,
         base_price,
-        total_price: dbTotalPrice, // The full value of the booking
+        total_price: dbTotalPrice,
         status: dbStatus,
         payment_status: dbPaymentStatus,
         guest_name,
@@ -149,9 +165,6 @@ export async function POST(request: NextRequest) {
 
     if (bookingError) {
       console.error("Booking Insert Error:", bookingError)
-      if (bookingError.code === '23P01') { 
-        return NextResponse.json({ error: "Slot already taken" }, { status: 409 })
-      }
       return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
     }
 
@@ -164,23 +177,22 @@ export async function POST(request: NextRequest) {
       })
     }
 
-// --- 3. DEPOSIT LOGIC (40% Rule) ---
+    // ---------------------------------------------------------
+    // 5. DEPOSIT LOGIC (40% Rule)
+    // ---------------------------------------------------------
     let amountToCharge = dbTotalPrice; 
 
-    // Helper to check if it's a special course even if casing is wrong
     const sessionStr = String(session_type || "").toLowerCase();
     const optionStr = String(famous_course_option || "").toLowerCase();
     
-    // If it is Famous Course OR contains "ball" (like 4ball/3ball)
     if (sessionStr.includes("famous") || sessionStr.includes("ball") || optionStr.includes("ball")) {
-         // Calculate 40% Deposit
          amountToCharge = Math.ceil(dbTotalPrice * 0.40);
     }
     
     const outstandingBalance = dbTotalPrice - amountToCharge;
 
     // ---------------------------------------------------------
-    // 4. YOCO CHECKOUT
+    // 6. YOCO CHECKOUT
     // ---------------------------------------------------------
     const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.themulligan.org"
 
@@ -191,18 +203,16 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: Math.round(amountToCharge * 100), // Yoco expects cents
+        amount: Math.round(amountToCharge * 100),
         currency: "ZAR",
         cancelUrl: `${appUrl}/booking?cancelled=true`,
-        // Send them to a simple success page, n8n handles the heavy lifting
         successUrl: `${appUrl}/success?bookingId=${booking.id}`, 
         failureUrl: `${appUrl}/booking?error=payment_failed`,
         metadata: {
           bookingId: booking.id,
-          // PASS THESE so n8n can email the clerk the details:
-          totalPrice: dbTotalPrice, 
-          depositPaid: amountToCharge,
-          outstandingBalance: outstandingBalance,
+          totalPrice: dbTotalPrice.toString(), 
+          depositPaid: amountToCharge.toString(),
+          outstandingBalance: outstandingBalance.toString(),
           isDeposit: (outstandingBalance > 0).toString()
         },
       }),
@@ -210,10 +220,16 @@ export async function POST(request: NextRequest) {
 
     const yocoData = await yocoResponse.json()
 
+    // NEW: Save the Yoco Checkout ID immediately
+    if (yocoData.id) {
+       await supabase
+        .from("bookings")
+        .update({ yoco_payment_id: yocoData.id })
+        .eq("id", booking.id)
+    }
+
     if (!yocoResponse.ok) {
       console.error("Yoco Error:", yocoData)
-      // If payment fails to initialize, we should technically delete the pending booking
-      // or let the auto-cancel cleaner handle it later.
       return NextResponse.json({ error: "Payment initialization failed" }, { status: 500 })
     }
 
