@@ -56,5 +56,5 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json(bookedSlots)
+  return NextResponse.json({ bookedSlots })
 }
