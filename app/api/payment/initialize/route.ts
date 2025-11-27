@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 2. ROBUST COUPON & PRICE LOGIC
     // ---------------------------------------------------------
-    let dbTotalPrice = total_price
+    let dbTotalPrice = Number(total_price)
     let dbPaymentStatus = "pending"
     let dbStatus = "pending"
     let skipYoco = false
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         
         // ADMIN BYPASS
         if (cleanCouponCode === "MULLIGAN_ADMIN_100") {
-          dbTotalPrice = base_price 
+          dbTotalPrice = Number(base_price) // Reset to base so reporting is accurate, or 0 if you prefer
           dbPaymentStatus = "paid_instore" 
           dbStatus = "confirmed"
           skipYoco = true
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
         }
         // PERCENTAGE DISCOUNT
         else if (couponData.discount_percent > 0) {
-           const discountAmount = (base_price * (couponData.discount_percent / 100));
-           dbTotalPrice = Math.max(0, base_price - discountAmount);
+           const discountAmount = (Number(base_price) * (couponData.discount_percent / 100));
+           dbTotalPrice = Math.max(0, Number(base_price) - discountAmount);
         }
       }
     }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       skipYoco = true
     }
 
-// ---------------------------------------------------------
+    // ---------------------------------------------------------
     // 3. MULTI-BAY ASSIGNMENT LOGIC (Overlap Fixed)
     // ---------------------------------------------------------
     
@@ -113,7 +113,6 @@ export async function POST(request: NextRequest) {
     const requestedEndISO = addHoursToTimestamp(requestedStartISO, duration_hours);
 
     // Fetch ALL active bookings for the day to check overlaps in JS
-    // (Simpler and safer than complex SQL overlaps)
     const { data: dailyBookings } = await supabase
         .from("bookings")
         .select("simulator_id, slot_start, slot_end")
@@ -161,7 +160,7 @@ export async function POST(request: NextRequest) {
         slot_end: slotEndISO,
         duration_hours,
         player_count,
-        simulator_id: assignedSimulatorId, // <--- USING DYNAMIC ID
+        simulator_id: assignedSimulatorId, 
         user_type: "guest",
         session_type,
         famous_course_option,
@@ -201,6 +200,8 @@ export async function POST(request: NextRequest) {
     const sessionStr = String(session_type || "").toLowerCase();
     const optionStr = String(famous_course_option || "").toLowerCase();
     
+    // Logic: If it involves "famous" or "ball" (multi-player), take 40% deposit.
+    // Otherwise (single player practice), take full amount.
     if (sessionStr.includes("famous") || sessionStr.includes("ball") || optionStr.includes("ball")) {
          amountToCharge = Math.ceil(dbTotalPrice * 0.40);
     }
@@ -219,16 +220,17 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: Math.round(amountToCharge * 100),
+        amount: Math.round(amountToCharge * 100), // Yoco requires cents
         currency: "ZAR",
         cancelUrl: `${appUrl}/booking?cancelled=true`,
         successUrl: `${appUrl}/success?bookingId=${booking.id}`, 
         failureUrl: `${appUrl}/booking?error=payment_failed`,
         metadata: {
           bookingId: booking.id,
-          totalPrice: dbTotalPrice.toString(), 
-          depositPaid: amountToCharge.toString(),
-          outstandingBalance: outstandingBalance.toString(),
+          // Formatting to 2 decimals for clean emails (e.g., "150.00")
+          totalPrice: dbTotalPrice.toFixed(2), 
+          depositPaid: amountToCharge.toFixed(2),
+          outstandingBalance: outstandingBalance.toFixed(2),
           isDeposit: (outstandingBalance > 0).toString()
         },
       }),
@@ -236,7 +238,7 @@ export async function POST(request: NextRequest) {
 
     const yocoData = await yocoResponse.json()
 
-    // NEW: Save the Yoco Checkout ID immediately
+    // NEW: Save the Yoco Checkout ID immediately for reference
     if (yocoData.id) {
        await supabase
         .from("bookings")
@@ -254,8 +256,8 @@ export async function POST(request: NextRequest) {
       booking_id: booking.id,
     })
 
- } catch (error) {
+ } catch (error: any) {
     console.error("Server Error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
