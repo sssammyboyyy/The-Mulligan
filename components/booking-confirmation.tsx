@@ -1,115 +1,71 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { ArrowLeft, Calendar, Clock, Users, Trophy, ChevronRight, MessageSquare, Mail, Phone, User, Info } from "lucide-react"
+import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Calendar, Clock, Users, CreditCard, Gift, Trophy, Zap, Sparkles, Check } from "lucide-react"
-import Link from "next/link"
 
-export function BookingConfirmation() {
+export default function BookingConfirmation() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
-  // State for processing and errors
+  // -- STATE --
   const [isProcessing, setIsProcessing] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null) // <--- ADDED THIS
-
-  // Form State
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  
+  // -- INPUTS --
   const [guestName, setGuestName] = useState("")
   const [guestEmail, setGuestEmail] = useState("")
   const [guestPhone, setGuestPhone] = useState("")
   const [acceptWhatsApp, setAcceptWhatsApp] = useState(false)
   const [enterCompetition, setEnterCompetition] = useState(false)
   const [couponCode, setCouponCode] = useState("")
-  const [couponApplied, setCouponApplied] = useState(false)
-  const [couponDiscount, setCouponDiscount] = useState(0)
 
-  // Parse URL params
-  const sessionType = searchParams.get("sessionType") || "quickplay"
-  const famousCourseOption = searchParams.get("famousCourseOption") || ""
-  const players = Number.parseInt(searchParams.get("players") || "1")
-  const duration = Number.parseFloat(searchParams.get("duration") || "1")
+  // -- URL PARAMS --
+  const sessionType = searchParams.get("sessionType") || "quick"
+  const players = parseInt(searchParams.get("players") || "1")
   const date = searchParams.get("date") || ""
   const timeSlot = searchParams.get("timeSlot") || ""
+  const duration = parseFloat(searchParams.get("duration") || "1")
   const golfClubRental = searchParams.get("golfClubRental") === "true"
   const coachingSession = searchParams.get("coachingSession") === "true"
+  const famousCourseOption = searchParams.get("famousCourseOption") || ""
 
-  const calculatePrice = () => {
-    let basePrice = 0
-
-    if (sessionType === "famous-course") {
-      if (famousCourseOption === "4-ball") {
-        basePrice = 150 * 4 * duration
-      }
-      if (famousCourseOption === "3-ball") {
-        basePrice = 160 * 3 * duration
-      }
-    } else {
-      if (players === 1) basePrice = 250 * duration
-      else if (players === 2) basePrice = 180 * 2 * duration
-      else if (players === 3) basePrice = 160 * 3 * duration
-      else basePrice = 150 * 4 * duration
+  // -- CALCULATE PRICE --
+  const calculateTotal = () => {
+    let base = 0
+    // Famous/Special Logic
+    if (sessionType === "4ball") base = 150 * 4 * duration
+    else if (sessionType === "3ball") base = 160 * 3 * duration
+    else {
+      // Quick Play Logic
+      const pricing: Record<number, number> = { 1: 250, 2: 180, 3: 160, 4: 150 }
+      const pricePerPerson = pricing[Math.min(players, 4)] || 150
+      base = pricePerPerson * players * duration
     }
-
-    if (golfClubRental) basePrice += 100
-    if (coachingSession) basePrice += 450
-
-    return basePrice
+    
+    // Add-ons
+    if (golfClubRental) base += 100
+    if (coachingSession) base += 250
+    
+    return base
   }
 
-  const getPerPersonPrice = () => {
-    if (sessionType === "famous-course") {
-      return famousCourseOption === "4-ball" ? 150 : 160
-    }
-    if (players === 1) return 250
-    if (players === 2) return 180
-    if (players === 3) return 160
-    return 150
-  }
+  const basePrice = calculateTotal()
+  const totalPrice = basePrice // (Coupon logic handled in backend mostly, or add simple frontend check here)
+  
+  // Deposit Logic (40% for Famous/Ball options)
+  const isDeposit = sessionType.includes("ball") || sessionType.includes("famous")
+  const depositAmount = isDeposit ? Math.ceil(totalPrice * 0.4) : totalPrice
+  const payNowAmount = depositAmount
 
-  const basePrice = calculatePrice()
-  const totalPrice = couponApplied ? basePrice - couponDiscount : basePrice
-
-  const getDepositAmount = () => {
-    if (sessionType === "famous-course") {
-      if (famousCourseOption === "4-ball") return 600
-      if (famousCourseOption === "3-ball") return 480
-    }
-    return totalPrice
-  }
-
-  const depositAmount = getDepositAmount()
-  const remainingAmount = sessionType === "famous-course" ? totalPrice - depositAmount : 0
-
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) return
-    try {
-      const response = await fetch("/api/coupons/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coupon_code: couponCode,
-          booking_amount: basePrice,
-          session_type: sessionType,
-        }),
-      })
-      const data = await response.json()
-      if (data.valid) {
-        setCouponApplied(true)
-        setCouponDiscount(data.discount_amount)
-      } else {
-        alert(data.message || "Invalid coupon code")
-      }
-    } catch (error) {
-      alert("Failed to validate coupon")
-    }
-  }
-
-  // --- UPDATED PAYMENT HANDLER ---
+  // --- PAYMENT HANDLER ---
   const handlePayment = async () => {
     // 1. Validation
     if (!guestName || !guestEmail || !guestPhone || !acceptWhatsApp) {
@@ -118,18 +74,7 @@ export function BookingConfirmation() {
     }
 
     setIsProcessing(true)
-    setErrorMessage(null) // Clear previous errors
-
-// --- UPDATED PAYMENT HANDLER (CORRECTED) ---
-  const handlePayment = async () => {
-    // 1. Validation
-    if (!guestName || !guestEmail || !guestPhone || !acceptWhatsApp) {
-      setErrorMessage("Please fill in all required fields marked with *")
-      return
-    }
-
-    setIsProcessing(true)
-    setErrorMessage(null) 
+    setErrorMessage(null)
 
     try {
       const response = await fetch("/api/payment/initialize", {
@@ -153,8 +98,8 @@ export function BookingConfirmation() {
           
           // Financials
           base_price: basePrice,
-          total_price: totalPrice, // Sends the price AFTER coupon
-          coupon_code: couponApplied ? couponCode : null,
+          total_price: totalPrice,
+          coupon_code: couponCode || null,
           
           // Add-ons
           golf_club_rental: golfClubRental,
@@ -176,7 +121,7 @@ export function BookingConfirmation() {
         throw new Error(data.error || "Payment initialization failed")
       }
 
-      // 4. Handle Success (Free Coupon or Paid)
+      // 4. Handle Free Booking
       if (data.free_booking && data.booking_id) {
         router.push(`/booking/success?reference=${data.booking_id}`)
         return
@@ -205,244 +150,180 @@ export function BookingConfirmation() {
     : ""
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
-      <div className="max-w-lg mx-auto px-4 py-6 sm:py-8">
-        {/* Back Link */}
-        <Link
-          href="/booking"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Booking
-        </Link>
-
+    <div className="min-h-screen bg-muted/30 pb-20">
+      <div className="max-w-lg mx-auto px-4 py-6">
+        
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
-            <Sparkles className="w-4 h-4 text-secondary" />
-            <span className="text-sm font-medium text-primary">Almost There</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Confirm Booking</h1>
-          <p className="text-muted-foreground text-sm">Review details and complete payment</p>
-        </div>
+        <Link href="/booking" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to options
+        </Link>
+        
+        <h1 className="text-2xl font-bold mb-6">Confirm Details</h1>
 
-        <div className="space-y-4">
-          {/* Booking Summary Card */}
-          <Card className="overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-primary/10 to-secondary/10 pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                {sessionType === "famous-course" ? (
-                  <Trophy className="w-5 h-5 text-secondary" />
-                ) : (
-                  <Zap className="w-5 h-5 text-primary" />
-                )}
-                {sessionType === "famous-course"
-                  ? `${famousCourseOption === "4-ball" ? "4-Ball" : "3-Ball"} Special`
-                  : "Quick Play Session"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <Users className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-lg font-bold">{players}</p>
-                  <p className="text-xs text-muted-foreground">Players</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-lg font-bold">{duration}h</p>
-                  <p className="text-xs text-muted-foreground">Duration</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <Calendar className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-sm font-bold">{timeSlot}</p>
-                  <p className="text-xs text-muted-foreground">{formattedDate}</p>
-                </div>
-              </div>
-
-              {/* Pricing breakdown */}
-              <div className="pt-3 border-t space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    R{getPerPersonPrice()}/person × {players} × {duration}h
-                  </span>
-                  <span className="font-medium">
-                    R{calculatePrice() - (golfClubRental ? 100 : 0) - (coachingSession ? 450 : 0)}
-                  </span>
-                </div>
-                {golfClubRental && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Golf Club Rental</span>
-                    <span className="font-medium">R100</span>
-                  </div>
-                )}
-                {coachingSession && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Coaching Session</span>
-                    <span className="font-medium">R450</span>
-                  </div>
-                )}
-                {couponApplied && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Coupon Discount</span>
-                    <span>-R{couponDiscount}</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contact Details Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Your Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Summary Card */}
+        <Card className="mb-6 border-0 shadow-md overflow-hidden">
+          <div className="h-2 bg-primary w-full" />
+          <CardContent className="p-6 space-y-4">
+            <div className="flex justify-between items-start">
               <div>
-                <Label htmlFor="name" className="text-sm mb-2 block">
-                  Full Name *
-                </Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="h-11"
-                />
+                <p className="font-semibold text-lg">{sessionType === "4ball" ? "4-Ball Special" : sessionType === "3ball" ? "3-Ball Special" : "Quick Play Session"}</p>
+                <p className="text-sm text-muted-foreground">{duration} Hours • {players} Players</p>
               </div>
-              <div>
-                <Label htmlFor="email" className="text-sm mb-2 block">
-                  Email *
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  className="h-11"
-                />
+              <div className="bg-primary/10 p-2 rounded-lg">
+                <Trophy className="w-6 h-6 text-primary" />
               </div>
-              <div>
-                <Label htmlFor="phone" className="text-sm mb-2 block">
-                  WhatsApp Number *
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+27 12 345 6789"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
-                  className="h-11"
-                />
+            </div>
+            
+            <Separator />
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span>{formattedDate}</span>
               </div>
-
-              <div className="pt-2 space-y-3">
-                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
-                  <Checkbox
-                    checked={acceptWhatsApp}
-                    onCheckedChange={(c) => setAcceptWhatsApp(c as boolean)}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Accept WhatsApp confirmations *</p>
-                    <p className="text-xs text-muted-foreground">Required for booking updates</p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
-                  <Checkbox
-                    checked={enterCompetition}
-                    onCheckedChange={(c) => setEnterCompetition(c as boolean)}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Enter monthly competitions</p>
-                    <p className="text-xs text-muted-foreground">Win prizes & free sessions</p>
-                  </div>
-                </label>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span>{timeSlot}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Coupon Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Gift className="w-4 h-4 text-secondary" />
-                Coupon Code
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter code"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
-                  disabled={couponApplied}
-                  className="h-10"
-                />
-                <Button
-                  onClick={applyCoupon}
-                  variant="outline"
-                  disabled={couponApplied || !couponCode.trim()}
-                  className="h-10 px-4 bg-transparent"
-                >
-                  {couponApplied ? <Check className="w-4 h-4" /> : "Apply"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Payment Summary */}
-          <div className="bg-gradient-to-r from-primary to-primary/90 rounded-xl p-5 text-white">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm opacity-80">{sessionType === "famous-course" ? "Deposit Amount" : "Total Due"}</p>
-                <p className="text-3xl font-bold">R{sessionType === "famous-course" ? depositAmount : totalPrice}</p>
-              </div>
-              <CreditCard className="w-10 h-10 opacity-50" />
             </div>
 
-            {sessionType === "famous-course" && remainingAmount > 0 && (
-              <div className="bg-white/10 rounded-lg p-3 mt-3">
-                <p className="text-xs opacity-80">Remaining balance due in-store</p>
-                <p className="text-lg font-semibold">R{remainingAmount}</p>
+            {/* Price Breakdown */}
+            <div className="bg-muted/50 p-4 rounded-lg space-y-2 mt-4">
+              <div className="flex justify-between text-sm">
+                <span>Total Value</span>
+                <span>R{totalPrice}</span>
               </div>
-            )}
-          </div>
-
-          {/* ERROR MESSAGE DISPLAY (Added Here) */}
-          {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 shadow-sm">
-              <span className="mt-0.5">🚫</span>
-              <p className="font-medium">{errorMessage}</p>
+              
+              {isDeposit && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Pay Later (In Store)</span>
+                  <span>- R{totalPrice - depositAmount}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/50">
+                <span>Pay Now</span>
+                <span className="text-primary">R{payNowAmount}</span>
+              </div>
             </div>
-          )}
+          </CardContent>
+        </Card>
 
-          {/* Pay Button */}
-          <Button
-            onClick={handlePayment}
-            disabled={isProcessing || !guestName || !guestEmail || !guestPhone || !acceptWhatsApp}
-            className="w-full h-12 text-base font-semibold bg-secondary hover:bg-secondary/90 text-white"
-          >
-            {isProcessing ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Processing...
-              </span>
-            ) : (
-              `Pay R${sessionType === "famous-course" ? depositAmount : totalPrice}`
-            )}
-          </Button>
+        {/* Customer Form */}
+        <Card className="border-0 shadow-md">
+           <CardHeader>
+             <CardTitle className="text-lg">Your Details</CardTitle>
+           </CardHeader>
+           <CardContent className="space-y-4">
+             
+             {/* Name */}
+             <div className="space-y-2">
+               <Label htmlFor="name">Full Name *</Label>
+               <div className="relative">
+                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                 <Input 
+                   id="name" 
+                   placeholder="John Doe" 
+                   className="pl-9"
+                   value={guestName}
+                   onChange={(e) => setGuestName(e.target.value)}
+                 />
+               </div>
+             </div>
 
-          {/* Security Note */}
-          <p className="text-xs text-center text-muted-foreground">
-            Secure payment powered by Yoco. Your details are protected.
-          </p>
-        </div>
+             {/* Email */}
+             <div className="space-y-2">
+               <Label htmlFor="email">Email Address *</Label>
+               <div className="relative">
+                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                 <Input 
+                   id="email" 
+                   type="email" 
+                   placeholder="john@example.com" 
+                   className="pl-9"
+                   value={guestEmail}
+                   onChange={(e) => setGuestEmail(e.target.value)}
+                 />
+               </div>
+             </div>
+
+             {/* Phone */}
+             <div className="space-y-2">
+               <Label htmlFor="phone">Phone Number *</Label>
+               <div className="relative">
+                 <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                 <Input 
+                   id="phone" 
+                   type="tel" 
+                   placeholder="082 123 4567" 
+                   className="pl-9"
+                   value={guestPhone}
+                   onChange={(e) => setGuestPhone(e.target.value)}
+                 />
+               </div>
+             </div>
+            
+             {/* Coupon Code */}
+             <div className="space-y-2 pt-2">
+               <Label htmlFor="coupon">Coupon Code (Optional)</Label>
+               <Input 
+                 id="coupon" 
+                 placeholder="Enter code" 
+                 value={couponCode}
+                 onChange={(e) => setCouponCode(e.target.value)}
+               />
+             </div>
+
+             {/* Checkboxes */}
+             <div className="space-y-4 pt-4">
+               <div className="flex items-start space-x-2">
+                 <Checkbox 
+                   id="whatsapp" 
+                   checked={acceptWhatsApp} 
+                   onCheckedChange={(c) => setAcceptWhatsApp(c === true)} 
+                 />
+                 <Label htmlFor="whatsapp" className="text-sm leading-none pt-0.5 cursor-pointer">
+                   I accept receiving booking confirmation via WhatsApp/SMS *
+                 </Label>
+               </div>
+               
+               <div className="flex items-start space-x-2">
+                 <Checkbox 
+                   id="competition" 
+                   checked={enterCompetition} 
+                   onCheckedChange={(c) => setEnterCompetition(c === true)} 
+                 />
+                 <Label htmlFor="competition" className="text-sm leading-none pt-0.5 cursor-pointer text-muted-foreground">
+                   Enter me into the monthly "Free Round" competition
+                 </Label>
+               </div>
+             </div>
+
+             {/* Error Message */}
+             {errorMessage && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2 animate-in fade-in">
+                  <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <p className="font-medium">{errorMessage}</p>
+                </div>
+              )}
+
+             {/* Action Button */}
+             <Button 
+               className="w-full h-12 text-lg font-bold mt-2" 
+               onClick={handlePayment}
+               disabled={isProcessing}
+             >
+               {isProcessing ? "Processing..." : `Pay R${payNowAmount}`}
+             </Button>
+             
+             <p className="text-xs text-center text-muted-foreground pt-2">
+               Secure payment via Yoco. 
+             </p>
+
+           </CardContent>
+        </Card>
       </div>
     </div>
   )
-}
 }
