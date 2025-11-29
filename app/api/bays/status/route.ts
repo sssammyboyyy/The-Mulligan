@@ -1,63 +1,70 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 
-// 1. Force Edge Runtime (Required for Cloudflare Pages)
+// 1. Force Edge Runtime & DISABLE CACHE
 export const runtime = "edge"
+export const dynamic = "force-dynamic" // <--- CRITICAL FIX for Admin visibility
 
 export async function GET() {
   try {
-    // 2. Initialize Supabase
-    // Note: This uses your public anon key. 
-    // Ensure your Supabase RLS (Policies) allows "Select" on the 'bookings' table for public users
-    // OR use the Service Role Key if you have it stored in env vars for full access.
+    // Initialize Supabase
+    // Ideally use process.env.SUPABASE_SERVICE_ROLE_KEY if available for Admin bypass
+    // Otherwise ensure your Public/Anon key has SELECT permissions on 'bookings'
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 3. Get Current Time (UTC ISO String)
-    const now = new Date().toISOString()
+    // 2. Fetch TODAY'S active bookings
+    // We fetch a slightly wider window to filter in JS for precision
+    const now = new Date()
+    const startOfDay = new Date(now).setHours(0,0,0,0)
+    const endOfDay = new Date(now).setHours(23,59,59,999)
 
-    // 4. Query Database
-    // "Find confirmed bookings that started before now AND end after now"
     const { data: activeBookings, error } = await supabase
       .from("bookings")
-      .select("simulator_id")
-      .eq("status", "confirmed")
-      .lte("slot_start", now) // Started <= Now
-      .gt("slot_end", now)    // End > Now
+      .select("simulator_id, slot_start, slot_end, status")
+      // Check Confirmed OR Pending (if someone is paying right now, mark it occupied)
+      .neq("status", "cancelled") 
+      .gte("slot_end", new Date(startOfDay).toISOString()) // Optimization
+      .lte("slot_start", new Date(endOfDay).toISOString())
 
     if (error) {
       console.error("Supabase Error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // 5. Calculate Status for Bays 1, 2, 3
-    // Extract IDs of busy simulators (e.g., [1, 3])
-    const occupiedIds = activeBookings ? activeBookings.map((b) => b.simulator_id) : []
+    // 3. Precise JS Time Comparison (Timezone Safe)
+    const nowMs = now.getTime()
+    
+    // Filter: Booking must be effectively "Live" right now
+    const currentLiveBookings = activeBookings?.filter(b => {
+      const startMs = new Date(b.slot_start).getTime()
+      const endMs = new Date(b.slot_end).getTime()
+      // It is live if: Start is in past AND End is in future
+      return startMs <= nowMs && endMs > nowMs
+    }) || []
+
+    // 4. Map IDs
+    const occupiedIds = currentLiveBookings.map((b) => b.simulator_id)
 
     const bays = [1, 2, 3].map((id) => ({
       id,
       status: occupiedIds.includes(id) ? "occupied" : "available",
-      label: `Bay ${id}` // You can rename this if you want "Simulator 1" etc.
+      label: `Simulator ${id}`
     }))
 
-    // Count how many are green
     const availableCount = bays.filter((b) => b.status === "available").length
 
-    // 6. Return JSON with No-Cache Headers
-    // Vital for "Live" data so the browser doesn't save the result
     return NextResponse.json(
       { 
         bays, 
         availableCount,
-        serverTime: now
+        serverTime: now.toISOString()
       }, 
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
         }
       }
     )
