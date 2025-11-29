@@ -45,12 +45,11 @@ export default function AdminDashboard() {
   // 2. FETCH BOOKINGS
   const fetchBookings = async () => {
     setLoading(true)
-    // Fetch bookings for the selected date
     const { data, error } = await supabase
       .from("bookings")
       .select("*")
       .eq("booking_date", walkInDate)
-      .neq("status", "cancelled") // Hide cancelled to keep list clean
+      .neq("status", "cancelled")
       .order("start_time", { ascending: true })
     
     if (data) setBookings(data)
@@ -58,38 +57,37 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  // 3. CREATE WALK-IN (Bypasses Yoco)
+  // 3. CREATE WALK-IN (FIXED: Uses Admin Route + Instant Confirmation)
   const handleWalkIn = async () => {
     if (!walkInName || !walkInTime) return alert("Please fill in details")
     
     setLoading(true)
     try {
-      const res = await fetch("/api/payment/initialize", {
+      // CHANGED: Use the dedicated Admin/Walk-in Endpoint
+      const res = await fetch("/api/bookings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           booking_date: walkInDate,
           start_time: walkInTime,
-          duration: walkInDuration,
+          duration_hours: walkInDuration,
           players: walkInPlayers, 
-          // Use a safe session type that likely matches DB constraints
           session_type: "quickplay", 
           guest_name: walkInName,
-          guest_email: "walkin@admin.com", 
-          // Price calculation (Visual only, backend recalculates based on admin coupon)
-          total_price: 350 * walkInDuration,
-          // CRITICAL: This Code tells Backend to mark as PAID and CONFIRMED
-          coupon_code: "MULLIGAN_ADMIN_100" 
+          guest_email: "walkin@themulligan.org", // Dummy email for record
+          total_price: 0, // Walk-ins pay at the counter, tracking value optional here
+          payment_status: "completed" // <--- FORCE CONFIRMED STATUS
         }),
       })
 
       const result = await res.json()
       
       if (!res.ok) {
-        throw new Error(result.error || result.details || "Failed to create booking")
+        throw new Error(result.error || "Failed to create booking")
       }
 
-      alert(`✅ Walk-in Confirmed!\nBay Assigned: ${result.booking_id || "Success"}`)
+      // CHANGED: Show clean message with Assigned Bay
+      alert(`✅ Walk-in Confirmed!\n\n👉 ASSIGN TO: Simulator ${result.assigned_bay}`)
       
       // Reset Form
       setWalkInName("")
@@ -233,10 +231,10 @@ export default function AdminDashboard() {
                 bookings.map((b) => (
                   <tr key={b.id}>
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-bold text-gray-900">
-                      {b.start_time}
+                      {b.start_time.slice(0,5)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      Simulator {b.simulator_id}
+                      <span className="font-semibold text-gray-700">Simulator {b.simulator_id}</span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                       {b.guest_name}
@@ -253,7 +251,7 @@ export default function AdminDashboard() {
                         {b.status.toUpperCase()}
                       </span>
                       {b.payment_status === 'paid_instore' && (
-                        <div className="text-xs text-green-600 mt-1">Paid In-Store</div>
+                        <div className="text-xs text-green-600 mt-1 font-medium">In-Store Payment</div>
                       )}
                     </td>
                   </tr>
