@@ -61,7 +61,7 @@ function BookingDetails() {
   const amountDueNow = (isDepositEligible && !payFullAmount) ? depositAmount : total
   const amountDueLater = total - amountDueNow
 
-  const handlePayment = async () => {
+const handlePayment = async () => {
     if (!guestName || !guestEmail || !guestPhone) {
       setError("Please fill in your details.")
       return
@@ -75,29 +75,34 @@ function BookingDetails() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // Booking Details
           booking_date: dateStr,
           start_time: timeSlot,
           duration_hours: duration,
           player_count: players,
           session_type: sessionType,
-          
-          // Customer Details
           guest_name: guestName,
           guest_email: guestEmail,
           guest_phone: guestPhone,
-          
-          // Financials
           total_price: total,
-          // CRITICAL: Send the checkbox state
-          pay_full_amount: payFullAmount, 
-          
-          // Extras
-          enter_competition: false, // Add UI for this if needed
+          pay_full_amount: payFullAmount, // <--- Passing the checkbox
+          enter_competition: false,
           accept_whatsapp: true
         }),
       })
 
+      // 1. Check if response is OK first
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("API Error Raw:", errorText)
+        try {
+           const errorJson = JSON.parse(errorText)
+           throw new Error(errorJson.error || "Server returned an error")
+        } catch {
+           throw new Error(`Payment Server Error: ${response.status}`)
+        }
+      }
+
+      // 2. Parse JSON safely
       const data = await response.json()
 
       if (data.error) throw new Error(data.error)
@@ -108,9 +113,9 @@ function BookingDetails() {
       }
 
     } catch (err: any) {
-      console.error(err)
+      console.error("Payment Error:", err)
       setError(err.message || "Payment initialization failed")
-      setIsProcessing(false)
+      setIsProcessing(false) // <--- STOPS THE SPINNER
     }
   }
 
