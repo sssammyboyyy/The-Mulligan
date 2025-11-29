@@ -53,7 +53,14 @@ export async function GET(request: NextRequest) {
       // Check overlap: Booking starts before Slot ends AND Booking ends after Slot starts
       return bStart < slotEnd && bEnd > slotStart;
     })
+    // DEBUG LOG: See what the server counts
+    if (activeBookings.length > 0) {
+        console.log(`Slot ${time} has ${activeBookings.length} bookings`);
+    }
 
+    if (activeBookings.length >= 3) {
+      bookedSlots.push(time)
+    }
     // If 3 or more bays are occupied during this 30-min block, mark it full
     if (activeBookings.length >= 3) {
       bookedSlots.push(time)
