@@ -1,37 +1,44 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server"
 
-export const runtime = "edge";
+export const runtime = "edge"
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = await req.json()
+    const { bookingId } = body
+    
+    // Point to your EXISTING n8n Webhook
+    const N8N_URL = "https://n8n.srv1127912.hstgr.cloud/webhook/payment-webhook" 
 
-    // 1. CONFIGURATION
-    // Add these to your .env.local file!
-    const N8N_URL = "https://n8n.srv1127912.hstgr.cloud/webhook/manual-confirm";
-    const N8N_SECRET = "mulligan-secure-8821"; // Must match the string in n8n Code Node
+    // Simulate a Yoco Payload so n8n understands it
+    const payload = {
+      type: "payment.succeeded", 
+      payload: {
+        id: "manual_coupon_bypass",
+        amount: 0,
+        status: "succeeded",
+        metadata: {
+          bookingId: bookingId,
+          depositPaid: "0.00", 
+          outstandingBalance: "0.00",
+          totalPrice: "0.00 (Coupon)"
+        }
+      }
+    }
 
-    // 2. FORWARD TO N8N
-    const n8nResponse = await fetch(N8N_URL, {
+    await fetch(N8N_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-yoco-timestamp": Date.now().toString(),
+        "x-yoco-signature": "bypass_manual_auth" 
       },
-      body: JSON.stringify({
-        ...body,
-        secret: N8N_SECRET // Inject secret here, server-side
-      }),
-    });
+      body: JSON.stringify(payload)
+    })
 
-    if (!n8nResponse.ok) {
-      console.error("n8n Error:", await n8nResponse.text());
-      return NextResponse.json({ error: "Failed to trigger automation" }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error("Confirmation Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to trigger automation" }, { status: 500 })
   }
 }
