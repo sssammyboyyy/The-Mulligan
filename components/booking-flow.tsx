@@ -1,4 +1,5 @@
 "use client"
+
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,12 +52,9 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [timeSlot, setTimeSlot] = useState("")
   const [duration, setDuration] = useState(1)
-  const [customerName, setCustomerName] = useState("")
-  const [customerEmail, setCustomerEmail] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
   const [golfClubRental, setGolfClubRental] = useState(false)
   const [coachingSession, setCoachingSession] = useState(false)
-  const [payFullAmount, setPayFullAmount] = useState(false) // <--- ADD THIS
+
   // Availability state
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
@@ -156,8 +154,6 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
     }
   }, [sessionType, getMinDuration, duration])
 
- // ... existing code ...
-
   // ROBUST SLOT CHECKER: Checks Database AND Past Time
   const isSlotBooked = useCallback((slot: string) => {
     // 1. Database Check
@@ -170,15 +166,12 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
       const slotDate = new Date(date)
       slotDate.setHours(hours, minutes, 0, 0)
 
-      // Buffer: Disable slots if we are already 15 mins into them? 
-      // Or just strict: if slot is 14:00 and now is 14:01, disable it.
+      // Buffer: strict check
       if (slotDate <= now) return true
     }
 
     return false
   }, [bookedSlots, date])
-
-  // ... existing code ...
 
   // Handle session type selection
   const handleSessionSelect = (type: "4ball" | "3ball" | "quick") => {
@@ -227,7 +220,6 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
         duration: duration.toString(),
         golfClubRental: golfClubRental.toString(),
         coachingSession: coachingSession.toString(),
-        payFullAmount: payFullAmount.toString(),
       })
       window.location.href = `/booking/confirm?${params.toString()}`
     }
@@ -272,7 +264,7 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
         ))}
       </div>
 
-      {/* Step 1: Session Selection - Restored UI */}
+      {/* Step 1: Session Selection */}
       {step === 1 && (
         <div className="space-y-6 px-4">
           <div>
@@ -583,22 +575,25 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground p-4 shadow-lg">
+      {/* Footer Area with Price and Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground p-4 shadow-lg z-50">
         <div className="max-w-lg mx-auto">
+          
+          {/* Price Summary */}
           {sessionType && (
-            <div className="flex items-center space-x-2 mb-4 p-3 bg-white/10 rounded-lg">
-            <input 
-            type="checkbox" 
-            id="payFull" 
-            checked={payFullAmount}
-            onChange={(e) => setPayFullAmount(e.target.checked)}
-            className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-            <label htmlFor="payFull" className="text-sm font-medium text-white cursor-pointer select-none">
-              Pay full amount now (R{calculatePrice()})
-                </label>
-                  </div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs opacity-80">Estimated Total</p>
+                <p className="text-2xl font-bold">R{calculatePrice().toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs opacity-80">Per Person</p>
+                <p className="text-lg font-semibold">R{getPricePerPersonPerHour()}/hr</p>
+              </div>
+            </div>
           )}
+
+          {/* Navigation Buttons */}
           <div className="flex gap-3">
             {step > 1 && (
               <Button
