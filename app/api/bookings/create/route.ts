@@ -1,59 +1,124 @@
-import { createServerClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-export const runtime = 'edge';
+// 1. Force Edge Runtime
+export const runtime = "edge"
+
+// --- HELPERS (Same as Checkout Route for consistency) ---
+function createSASTTimestamp(dateStr: string, timeStr: string): string {
+  const cleanTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr
+  return `${dateStr}T${cleanTime}+02:00`
+}
+
+function addHoursToTimestamp(timestamp: string, hours: number): string {
+  const date = new Date(timestamp)
+  date.setHours(date.getHours() + hours)
+  return date.toISOString()
+}
+
+function calculateEndTimeText(start: string, duration: number): string {
+  const [hours, minutes] = start.split(":").map(Number)
+  const date = new Date()
+  date.setHours(hours, minutes, 0, 0)
+  date.setHours(date.getHours() + duration)
+  return date.toTimeString().slice(0, 5)
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createClient()
     const bookingData = await request.json()
 
-    // Calculate end time
-    const [hours, minutes] = bookingData.start_time.split(":").map(Number)
-    const durationHours = Math.floor(bookingData.duration_hours)
-    const durationMinutes = Math.round((bookingData.duration_hours % 1) * 60)
-    const endHours = hours + durationHours
-    const endMinutes = minutes + durationMinutes
-    const end_time = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
+    // 1. EXTRACT DATA
+    const {
+      booking_date,
+      start_time,
+      duration_hours,
+      total_price,
+      guest_name,
+      guest_email,
+      guest_phone,
+      payment_status, // e.g. "completed" for cash/card in store
+    } = bookingData
 
-    // Check for overlapping bookings
-    const { data: existingBookings, error: checkError } = await supabase
+    // 2. CALCULATE TIMES
+    const slotStartISO = createSASTTimestamp(booking_date, start_time)
+    const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours)
+    const endTimeText = calculateEndTimeText(start_time, duration_hours)
+
+    // 3. CHECK AVAILABILITY (MULTI-BAY LOGIC)
+    
+    // Fetch all active bookings for this day
+    const { data: dailyBookings } = await supabase
       .from("bookings")
-      .select("*")
-      .eq("booking_date", bookingData.booking_date)
-      .or(`and(start_time.lte.${end_time},end_time.gt.${bookingData.start_time})`)
+      .select("simulator_id, slot_start, slot_end")
+      .eq("booking_date", booking_date)
       .neq("status", "cancelled")
 
-    if (checkError) {
-      console.error("[v0] Error checking availability:", checkError)
-      return NextResponse.json({ error: "Failed to check availability" }, { status: 500 })
+    // Identify which bays are taken
+    const takenBays = new Set<number>()
+    
+    if (dailyBookings) {
+      dailyBookings.forEach((b) => {
+        // Overlap Logic: (StartA < EndB) and (EndA > StartB)
+        const isOverlapping = b.slot_start < slotEndISO && b.slot_end > slotStartISO
+        if (isOverlapping) {
+          takenBays.add(b.simulator_id)
+        }
+      })
     }
 
-    if (existingBookings && existingBookings.length > 0) {
-      return NextResponse.json({ error: "Time slot not available due to overlapping booking" }, { status: 409 })
+    // 4. ASSIGN BAY (1 -> 2 -> 3)
+    let assignedSimulatorId = 0
+    if (!takenBays.has(1)) assignedSimulatorId = 1
+    else if (!takenBays.has(2)) assignedSimulatorId = 2
+    else if (!takenBays.has(3)) assignedSimulatorId = 3
+
+    // If all are full, return 409
+    if (assignedSimulatorId === 0) {
+      return NextResponse.json(
+        { error: "All 3 Simulators are busy for this time slot." }, 
+        { status: 409 }
+      )
     }
 
-    // Create booking
+    // 5. INSERT BOOKING
     const { data: booking, error: insertError } = await supabase
       .from("bookings")
       .insert({
-        ...bookingData,
-        end_time,
-        user_type: "adult",
-        base_price: bookingData.total_price,
-        status: bookingData.payment_status === "completed" ? "confirmed" : "pending",
+        booking_date,
+        start_time,
+        end_time: endTimeText,
+        slot_start: slotStartISO,
+        slot_end: slotEndISO,
+        duration_hours,
+        simulator_id: assignedSimulatorId, // <--- Assigned Dynamically
+        user_type: "walk_in", // Track that this was an admin/walk-in
+        guest_name: guest_name || "Walk-In Guest",
+        guest_email,
+        guest_phone,
+        total_price,
+        // If admin says "completed", mark as confirmed & paid_instore
+        status: payment_status === "completed" ? "confirmed" : "pending",
+        payment_status: payment_status === "completed" ? "paid_instore" : "pending",
+        // Default fields
+        players: bookingData.players || 1,
+        session_type: bookingData.session_type || "quick",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single()
 
     if (insertError) {
-      console.error("[v0] Error creating booking:", insertError)
+      console.error("Walk-in Insert Error:", insertError)
       return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, booking_id: booking.id })
-  } catch (error) {
-    console.error("[v0] Booking creation error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
+
+  } catch (error: any) {
+    console.error("Walk-in Server Error:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
