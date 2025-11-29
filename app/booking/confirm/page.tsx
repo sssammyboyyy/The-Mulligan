@@ -1,21 +1,25 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Calendar, Clock, Users, Trophy, CreditCard, ArrowRight, Loader2, AlertCircle } from "lucide-react"
-import { format } from "date-fns"
+import { Calendar, Users, CreditCard, ArrowRight, Loader2, AlertCircle, Trophy } from "lucide-react"
 
 // Helper to wrap search params for Next.js 15
 function BookingDetails() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   
   // State
   const [isProcessing, setIsProcessing] = useState(false)
   const [payFullAmount, setPayFullAmount] = useState(false)
+  const [couponCode, setCouponCode] = useState("") // <--- COUPON RESTORED
   const [error, setError] = useState<string | null>(null)
+
+  // Hardcoded Guest Info (In real app, pass this from Step 1 or generic inputs)
+  const [guestName, setGuestName] = useState("")
+  const [guestEmail, setGuestEmail] = useState("")
+  const [guestPhone, setGuestPhone] = useState("")
 
   // Extract Params
   const sessionType = searchParams.get("sessionType") || ""
@@ -25,22 +29,14 @@ function BookingDetails() {
   const duration = Number(searchParams.get("duration")) || 1
   const golfClubRental = searchParams.get("golfClubRental") === "true"
   const coachingSession = searchParams.get("coachingSession") === "true"
-  
-  // Hardcoded Guest Info (In a real app, you'd collect this in a form on this page or previous step)
-  // For now, let's assume you might add inputs here, or passed them from step 1.
-  // We will add simple inputs here to make it functional if missing.
-  const [guestName, setGuestName] = useState("")
-  const [guestEmail, setGuestEmail] = useState("")
-  const [guestPhone, setGuestPhone] = useState("")
 
   // --- CALCULATION LOGIC ---
   const calculateTotal = () => {
     let basePrice = 0
-    // Re-implement pricing logic here to show correct totals
     if (sessionType === "4ball") basePrice = 150 * 4 * duration
     else if (sessionType === "3ball") basePrice = 160 * 3 * duration
     else {
-      // Simple fallback for Quick Play
+      // Quick Play Fallback
       const pricing = { 1: 250, 2: 180, 3: 160, 4: 150 }
       const rate = pricing[Math.min(players, 4) as keyof typeof pricing] || 250
       basePrice = rate * players * duration
@@ -53,15 +49,15 @@ function BookingDetails() {
 
   const total = calculateTotal()
   
-  // Deposit Logic (Mirrors Backend)
+  // Deposit Logic
   const isDepositEligible = sessionType.includes("ball") || sessionType.includes("famous")
   const depositAmount = Math.ceil(total * 0.40)
   
-  // The actual amount to charge NOW based on checkbox
+  // Checkbox Toggle
   const amountDueNow = (isDepositEligible && !payFullAmount) ? depositAmount : total
   const amountDueLater = total - amountDueNow
 
-const handlePayment = async () => {
+  const handlePayment = async () => {
     if (!guestName || !guestEmail || !guestPhone) {
       setError("Please fill in your details.")
       return
@@ -75,17 +71,25 @@ const handlePayment = async () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Booking Details
           booking_date: dateStr,
           start_time: timeSlot,
           duration_hours: duration,
           player_count: players,
           session_type: sessionType,
+          
+          // Customer Details
           guest_name: guestName,
           guest_email: guestEmail,
           guest_phone: guestPhone,
+          
+          // Financials
           total_price: total,
-          pay_full_amount: payFullAmount, // <--- Passing the checkbox
-          enter_competition: false,
+          pay_full_amount: payFullAmount, // <--- CHECKBOX STATE
+          coupon_code: couponCode,        // <--- COUPON STATE
+          
+          // Extras
+          enter_competition: false, 
           accept_whatsapp: true
         }),
       })
@@ -93,21 +97,24 @@ const handlePayment = async () => {
       // 1. Check if response is OK first
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("API Error Raw:", errorText)
+        let errorMessage = "Server Error"
         try {
            const errorJson = JSON.parse(errorText)
-           throw new Error(errorJson.error || "Server returned an error")
+           errorMessage = errorJson.error || errorMessage
         } catch {
-           throw new Error(`Payment Server Error: ${response.status}`)
+           errorMessage = `Error: ${response.status} ${response.statusText}`
         }
+        throw new Error(errorMessage)
       }
 
       // 2. Parse JSON safely
       const data = await response.json()
 
-      if (data.error) throw new Error(data.error)
       if (data.redirectUrl) {
         window.location.href = data.redirectUrl
+      } else if (data.free_booking) {
+         // Handle 100% Coupon Success (Bypass Yoco)
+         window.location.href = `/success?bookingId=${data.booking_id}`
       } else {
         throw new Error("No payment redirect found")
       }
@@ -115,16 +122,17 @@ const handlePayment = async () => {
     } catch (err: any) {
       console.error("Payment Error:", err)
       setError(err.message || "Payment initialization failed")
-      setIsProcessing(false) // <--- STOPS THE SPINNER
+    } finally {
+      // THIS IS THE FIX FOR THE INFINITE SPINNER
+      setIsProcessing(false) 
     }
   }
 
-  // Determine Display Text
   const sessionLabel = sessionType === "4ball" ? "4-Ball Special" : 
                        sessionType === "3ball" ? "3-Ball Special" : "Quick Play"
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
+    <div className="max-w-2xl mx-auto p-4 space-y-6 pb-20">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Confirm Booking</h1>
         <p className="text-slate-600">Review your session details</p>
@@ -153,14 +161,9 @@ const handlePayment = async () => {
                 <span className="text-slate-500">Type</span>
                 <span className="font-medium">{sessionLabel}</span>
               </div>
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-slate-500">Players</span>
-                <span className="font-medium">{players}</span>
-              </div>
             </CardContent>
           </Card>
 
-          {/* Customer Inputs (If not passed from previous step) */}
           <Card>
              <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -199,6 +202,30 @@ const handlePayment = async () => {
                   placeholder="082 123 4567"
                 />
               </div>
+            </CardContent>
+          </Card>
+
+           {/* COUPON INPUT */}
+           <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-600" />
+                Promo Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={couponCode}
+                  onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                  className="flex-1 p-2 border rounded-md uppercase placeholder:normal-case"
+                  placeholder="Enter code (e.g. SAVE10)"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                * Discount applied at payment step.
+              </p>
             </CardContent>
           </Card>
         </div>
