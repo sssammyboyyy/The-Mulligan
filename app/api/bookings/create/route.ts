@@ -112,7 +112,11 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error("Walk-in Insert Error:", insertError)
-      return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+      // CHANGE THIS LINE to send the full error details to the frontend
+      return NextResponse.json({ 
+        error: insertError.message, 
+        details: insertError 
+      }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
