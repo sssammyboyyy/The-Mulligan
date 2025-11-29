@@ -9,6 +9,9 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// Duration options for the dropdown
+const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4]
+
 export default function AdminDashboard() {
   // --- STATE ---
   const [pin, setPin] = useState("")
@@ -24,13 +27,13 @@ export default function AdminDashboard() {
   const [walkInTime, setWalkInTime] = useState("09:00")
   const [walkInDate, setWalkInDate] = useState(new Date().toISOString().split('T')[0])
   const [walkInDuration, setWalkInDuration] = useState(1)
+  const [walkInPlayers, setWalkInPlayers] = useState(1)
 
   // --- ACTIONS ---
 
   // 1. PIN LOGIN
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Hardcoded PIN for MVP (You can move this to env var later)
     if (pin === "1234") {
       setIsAuthenticated(true)
       fetchBookings()
@@ -47,9 +50,11 @@ export default function AdminDashboard() {
       .from("bookings")
       .select("*")
       .eq("booking_date", walkInDate)
+      .neq("status", "cancelled") // Hide cancelled to keep list clean
       .order("start_time", { ascending: true })
     
     if (data) setBookings(data)
+    if (error) console.error("Fetch Error:", error)
     setLoading(false)
   }
 
@@ -66,26 +71,33 @@ export default function AdminDashboard() {
           booking_date: walkInDate,
           start_time: walkInTime,
           duration: walkInDuration,
-          players: 4, // Default to 4 for simplicity
-          session_type: "Walk-in",
+          players: walkInPlayers, 
+          // Use a safe session type that likely matches DB constraints
+          session_type: "quickplay", 
           guest_name: walkInName,
-          guest_email: "walkin@store.com", // Placeholder
-          base_price: 350 * walkInDuration, // Example Price
+          guest_email: "walkin@admin.com", 
+          // Price calculation (Visual only, backend recalculates based on admin coupon)
           total_price: 350 * walkInDuration,
-          coupon_code: "MULLIGAN_ADMIN_100" // <--- CRITICAL: Triggers "paid_instore" logic
+          // CRITICAL: This Code tells Backend to mark as PAID and CONFIRMED
+          coupon_code: "MULLIGAN_ADMIN_100" 
         }),
       })
 
       const result = await res.json()
       
-      if (!res.ok) throw new Error(result.error || "Failed")
+      if (!res.ok) {
+        throw new Error(result.error || result.details || "Failed to create booking")
+      }
 
-      alert("Walk-in Confirmed! Bay Assigned: " + result.booking_id)
+      alert(`✅ Walk-in Confirmed!\nBay Assigned: ${result.booking_id || "Success"}`)
+      
+      // Reset Form
       setWalkInName("")
-      fetchBookings() // Refresh list
+      fetchBookings() 
 
     } catch (err: any) {
-      alert("Error: " + err.message)
+      console.error(err)
+      alert(`❌ Error: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -132,8 +144,8 @@ export default function AdminDashboard() {
         <div className="mb-8 grid gap-6 md:grid-cols-2">
           
           {/* 1. Add Walk-in */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="mb-4 text-lg font-semibold text-gray-800">⛳ Add Walk-in</h3>
+          <div className="rounded-lg bg-white p-6 shadow border border-green-100">
+            <h3 className="mb-4 text-lg font-semibold text-green-800">⛳ Add Walk-in Booking</h3>
             <div className="space-y-3">
               <input 
                 className="w-full rounded border p-2" 
@@ -155,18 +167,31 @@ export default function AdminDashboard() {
                   onChange={e => setWalkInTime(e.target.value)}
                 />
               </div>
-               <select 
-                  className="w-full rounded border p-2"
-                  value={walkInDuration}
-                  onChange={(e) => setWalkInDuration(Number(e.target.value))}
-                >
-                  <option value={1}>1 Hour</option>
-                  <option value={2}>2 Hours</option>
+              <div className="flex gap-2">
+                <select 
+                    className="w-1/2 rounded border p-2"
+                    value={walkInDuration}
+                    onChange={(e) => setWalkInDuration(Number(e.target.value))}
+                  >
+                    {DURATION_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt} Hours</option>
+                    ))}
                 </select>
+                <select 
+                    className="w-1/2 rounded border p-2"
+                    value={walkInPlayers}
+                    onChange={(e) => setWalkInPlayers(Number(e.target.value))}
+                  >
+                    {[1,2,3,4,5,6,7,8].map(n => (
+                      <option key={n} value={n}>{n} Players</option>
+                    ))}
+                </select>
+              </div>
+
               <button 
                 onClick={handleWalkIn}
                 disabled={loading}
-                className="w-full rounded bg-blue-600 py-2 font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="w-full rounded bg-green-700 py-3 font-bold text-white hover:bg-green-800 disabled:opacity-50 transition-colors"
               >
                 {loading ? "Processing..." : "Confirm & Pay In-Store"}
               </button>
@@ -182,9 +207,9 @@ export default function AdminDashboard() {
                   value={walkInDate}
                   onChange={e => setWalkInDate(e.target.value)}
               />
-            <div className="text-center">
-              <p className="text-gray-500">Total Bookings Today</p>
-              <p className="text-4xl font-bold text-green-700">{bookings.length}</p>
+            <div className="text-center py-4 bg-gray-50 rounded">
+              <p className="text-gray-500">Active Bookings Today</p>
+              <p className="text-5xl font-bold text-green-700">{bookings.length}</p>
             </div>
           </div>
         </div>
@@ -197,35 +222,39 @@ export default function AdminDashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Time</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Bay</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Duration</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Payment</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {bookings.length === 0 ? (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-500">No bookings for this date.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-gray-500">No bookings found for this date.</td></tr>
               ) : (
                 bookings.map((b) => (
                   <tr key={b.id}>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                      {b.start_time} - {b.end_time}
+                    <td className="whitespace-nowrap px-6 py-4 text-sm font-bold text-gray-900">
+                      {b.start_time}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      Bay {b.simulator_id}
+                      Simulator {b.simulator_id}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                       {b.guest_name}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                        b.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
-                        b.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {b.status}
-                      </span>
+                      <div className="text-xs text-gray-400">{b.session_type}</div>
                     </td>
                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      {b.payment_status === 'paid_instore' ? 'Store Cash/Card' : b.payment_status}
+                      {b.duration_hours} hrs
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold leading-5 ${
+                        b.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                        b.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {b.status.toUpperCase()}
+                      </span>
+                      {b.payment_status === 'paid_instore' && (
+                        <div className="text-xs text-green-600 mt-1">Paid In-Store</div>
+                      )}
                     </td>
                   </tr>
                 ))
