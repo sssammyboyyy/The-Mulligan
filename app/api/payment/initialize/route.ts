@@ -107,50 +107,49 @@ export async function POST(request: NextRequest) {
       skipYoco = true
     }
 
+    3. MULTI-BAY ASSIGNMENT LOGIC (Date-Safe Fix)
     // ---------------------------------------------------------
-    // 3. MULTI-BAY ASSIGNMENT LOGIC (FIXED RLS ISSUE)
-    // ---------------------------------------------------------
-    const requestedStartISO = createSASTTimestamp(booking_date, start_time);
-    const requestedEndISO = addHoursToTimestamp(requestedStartISO, duration_hours);
+    
+    // Define the requested time window as Date Objects
+    const requestedStartStr = createSASTTimestamp(booking_date, start_time);
+    const requestedEndStr = addHoursToTimestamp(requestedStartStr, duration_hours);
+    
+    const reqStart = new Date(requestedStartStr);
+    const reqEnd = new Date(requestedEndStr);
 
-    // CRITICAL FIX: Create an Admin/Service Client to see ALL bookings
-    // We try to use the Service Key (if available) to bypass RLS.
-    // If not, we use the Anon key and hope RLS allows public select.
-    const adminSupabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
-    const { data: dailyBookings, error: fetchError } = await adminSupabase
+    // Fetch ALL active bookings for the day
+    const { data: dailyBookings } = await supabase
         .from("bookings")
         .select("simulator_id, slot_start, slot_end")
         .eq("booking_date", booking_date)
         .neq("status", "cancelled")
-    
-    if (fetchError) {
-      console.error("Availability Check Failed:", fetchError)
-      // Fail safe: If we can't check availability, don't allow booking
-      return NextResponse.json({ error: "System check failed. Please contact support." }, { status: 500 })
-    }
 
+    // Find which bays are busy
     const takenBays = new Set<number>();
+    
     if (dailyBookings) {
       dailyBookings.forEach(b => {
-        const isOverlapping = (b.slot_start < requestedEndISO) && (b.slot_end > requestedStartISO);
-        if (isOverlapping) takenBays.add(b.simulator_id);
+        // Convert DB timestamps (UTC) to Date objects for comparison
+        const bStart = new Date(b.slot_start);
+        const bEnd = new Date(b.slot_end);
+
+        // Check overlap: (StartA < EndB) and (EndA > StartB)
+        const isOverlapping = (bStart < reqEnd) && (bEnd > reqStart);
+        
+        if (isOverlapping) {
+           takenBays.add(b.simulator_id);
+        }
       });
     }
 
+    // Find first available bay (1, 2, or 3)
     let assignedSimulatorId = 0
     if (!takenBays.has(1)) assignedSimulatorId = 1
     else if (!takenBays.has(2)) assignedSimulatorId = 2
     else if (!takenBays.has(3)) assignedSimulatorId = 3
     
     if (assignedSimulatorId === 0) {
-        return NextResponse.json({ 
-          error: "All bays are full for this time.", 
-          details: "Overlap detected with existing bookings." 
-        }, { status: 409 })
+        return NextResponse.json({ error: "Sorry, all bays are full for this time duration." }, { status: 409 })
     }
 
     // ---------------------------------------------------------
