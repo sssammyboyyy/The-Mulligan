@@ -64,5 +64,5 @@ export async function GET(request: NextRequest) {
   })
 
   // Returns { bookedSlots: ["14:00", "14:30"] }
-  return NextResponse.json({ bookedSlots })
+  return NextResponse.json({ bookedSlots }) 
 }
