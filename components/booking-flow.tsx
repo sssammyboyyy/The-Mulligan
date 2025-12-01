@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-import { ArrowLeft, ArrowRight, Users, CalendarIcon, Clock, Check, Trophy, Zap, Sparkles, Loader2, GraduationCap } from "lucide-react"
+import { ArrowLeft, ArrowRight, Users, CalendarIcon, Clock, Check, Trophy, Zap, Sparkles, Loader2, Info } from "lucide-react"
 import { format, addDays, startOfToday, isToday, isTomorrow, isWeekend, getDay } from "date-fns"
 
 const PRICING = {
@@ -47,6 +47,7 @@ interface BookingData {
 export function BookingFlow({ onComplete }: BookingFlowProps) {
   // --- REFS FOR AUTO-SCROLL ---
   const topRef = useRef<HTMLDivElement>(null)
+  const quickPlayRef = useRef<HTMLDivElement>(null) // Ref for Quick Play options
   const timeSlotsRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
 
@@ -77,12 +78,29 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
   // 2. Scroll to Time Slots when Date is selected
   useEffect(() => {
     if (date && timeSlotsRef.current) {
-      // Small delay to allow UI to render
       setTimeout(() => {
         timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 100)
     }
   }, [date])
+
+  const handleSessionSelect = (type: "4ball" | "3ball" | "quick") => {
+    setSessionType(type)
+    
+    if (type === "4ball") {
+      setPlayers(4)
+      setDuration(3)
+    } else if (type === "3ball") {
+      setPlayers(3)
+      setDuration(3)
+    } else {
+      setDuration(1)
+      // AUTO-SCROLL for Quick Play: Reveal the player options
+      setTimeout(() => {
+        quickPlayRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 150)
+    }
+  }
 
   const calculatePrice = useCallback(() => {
     let basePrice = 0
@@ -174,19 +192,6 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
     return false
   }, [bookedSlots, date])
 
-  const handleSessionSelect = (type: "4ball" | "3ball" | "quick") => {
-    setSessionType(type)
-    if (type === "4ball") {
-      setPlayers(4)
-      setDuration(3)
-    } else if (type === "3ball") {
-      setPlayers(3)
-      setDuration(3)
-    } else {
-      setDuration(1)
-    }
-  }
-
   const getNextWeekend = () => {
     const today = startOfToday()
     const dayOfWeek = today.getDay()
@@ -235,10 +240,11 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
         </div>
         <h1 className="text-2xl font-bold text-foreground">Book Your Session</h1>
         <p className="text-muted-foreground mt-1">
-          {step === 1 ? "Choose your experience" : "Select date & time"}
+          {step === 1 ? "Step 1: Choose your game mode" : "Step 2: Select date & time"}
         </p>
       </div>
 
+      {/* Progress Indicators */}
       <div className="flex items-center justify-center gap-2 mb-8">
         {[1, 2].map((s) => (
           <div key={s} className="flex items-center">
@@ -248,7 +254,7 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
                 s < step
                   ? "bg-primary text-primary-foreground"
                   : s === step
-                    ? "bg-primary text-primary-foreground shadow-lg scale-110" // Visual Pop for active step
+                    ? "bg-primary text-primary-foreground shadow-lg scale-110"
                     : "bg-muted text-muted-foreground",
               )}
             >
@@ -262,10 +268,11 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
       {/* Step 1: Session Selection */}
       {step === 1 && (
         <div className="space-y-6 px-4">
+          {/* FAMOUS COURSES */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Trophy className="w-5 h-5 text-amber-600" />
-              <h2 className="font-semibold text-foreground">Famous Courses</h2>
+              <h2 className="font-semibold text-foreground">Famous Course Specials</h2>
             </div>
             <div className="space-y-3">
               <button
@@ -282,12 +289,15 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">4-Ball Special</span>
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Best Value</span>
+                    <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">Best Value</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">Play world-famous courses with 4 players</p>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-foreground">R150</span>
-                    <span className="text-muted-foreground text-sm"> /person/hour</span>
+                  <p className="text-sm text-muted-foreground mt-1">Full 18 holes at Augusta, Pebble Beach & more</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div>
+                        <span className="text-xl font-bold text-foreground">R150</span>
+                        <span className="text-muted-foreground text-xs uppercase"> /pp/hour</span>
+                    </div>
+                    <div className="text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded">3 Hour Session</div>
                   </div>
                 </div>
               </button>
@@ -305,19 +315,24 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="font-semibold text-foreground">3-Ball Special</span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-foreground">R160</span>
-                    <span className="text-muted-foreground text-sm"> /person/hour</span>
+                  <p className="text-sm text-muted-foreground mt-1">Perfect for a trio on the big courses</p>
+                  <div className="mt-3 flex items-center justify-between">
+                     <div>
+                        <span className="text-xl font-bold text-foreground">R160</span>
+                        <span className="text-muted-foreground text-xs uppercase"> /pp/hour</span>
+                     </div>
+                     <div className="text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded">3 Hour Session</div>
                   </div>
                 </div>
               </button>
             </div>
           </div>
 
+          {/* QUICK PLAY */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold text-foreground">Quick Play</h2>
+              <h2 className="font-semibold text-foreground">Quick Play (Flexible)</h2>
             </div>
             <button
               onClick={() => handleSessionSelect("quick")}
@@ -332,67 +347,79 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <span className="font-semibold text-foreground">Quick Play Session</span>
+                <p className="text-sm text-muted-foreground mt-1">Practice range or casual games (1-4 players)</p>
                 <div className="mt-2">
                   <span className="text-lg font-bold text-foreground">From R150</span>
-                  <span className="text-muted-foreground text-sm"> /person/hour</span>
+                  <span className="text-muted-foreground text-sm"> /pp/hour</span>
                 </div>
               </div>
             </button>
           </div>
 
+          {/* AUTO-REVEAL SECTION FOR QUICK PLAY */}
           {sessionType === "quick" && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">Number of Players</h2>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-4">
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setPlayers(num)}
-                      className={cn(
-                        "py-4 rounded-xl font-semibold transition-all flex flex-col items-center",
-                        players === num
-                          ? "bg-primary text-primary-foreground shadow-md scale-105"
-                          : "bg-muted/50 hover:bg-muted text-foreground",
-                      )}
-                    >
-                      <span className="text-xl">{num}</span>
-                    </button>
-                  ))}
+            <div ref={quickPlayRef} className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-6 pt-2 border-t border-dashed">
+              
+              {/* PLAYER COUNT */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  <h2 className="font-semibold text-foreground">Number of Players</h2>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {sessionType && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">Session Duration</h2>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-4">
-                <div className="flex flex-wrap gap-2">
-                  {durationOptions
-                    .filter((d) => d >= minDuration)
-                    .map((d) => (
+                <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 4].map((num) => (
                       <button
-                        key={d}
-                        onClick={() => setDuration(d)}
+                        key={num}
+                        onClick={() => setPlayers(num)}
                         className={cn(
-                          "px-4 py-2.5 rounded-xl font-medium transition-all",
-                          duration === d
-                            ? "bg-primary text-primary-foreground shadow-md scale-105"
-                            : "bg-muted/50 hover:bg-muted text-foreground",
+                          "py-3 rounded-xl transition-all flex flex-col items-center justify-center border-2",
+                          players === num
+                            ? "bg-primary text-primary-foreground border-primary shadow-md transform scale-105"
+                            : "bg-muted/30 border-transparent hover:bg-muted text-foreground",
                         )}
                       >
-                        {d}h
+                        <span className="text-xl font-bold">{num}</span>
+                        <span className="text-[10px] font-medium opacity-90">
+                            R{PRICING[num as keyof typeof PRICING]}pp
+                        </span>
                       </button>
                     ))}
+                  </div>
+                  <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
+                     <Info className="w-3 h-3" /> More players = Lower price per person!
+                  </p>
                 </div>
               </div>
+              
+              {/* DURATION */}
+              <div>
+                 <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                  <h2 className="font-semibold text-foreground">Session Duration</h2>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                    <div className="flex flex-wrap gap-2">
+                    {durationOptions
+                        .filter((d) => d >= minDuration)
+                        .map((d) => (
+                        <button
+                            key={d}
+                            onClick={() => setDuration(d)}
+                            className={cn(
+                            "px-4 py-2.5 rounded-xl font-medium transition-all border",
+                            duration === d
+                                ? "bg-primary text-primary-foreground border-primary shadow-md"
+                                : "bg-muted/30 border-transparent hover:bg-muted text-foreground",
+                            )}
+                        >
+                            {d}h
+                        </button>
+                        ))}
+                    </div>
+                </div>
+              </div>
+
             </div>
           )}
         </div>
@@ -401,8 +428,9 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
       {/* Step 2: Date & Time Selection */}
       {step === 2 && (
         <div className="space-y-4 px-4">
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground pb-4">
+          {/* FIX: p-0 and gap-0 ensures no white border around the header */}
+          <Card className="overflow-hidden border-0 shadow-lg p-0 gap-0">
+            <CardHeader className="bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground pb-4 pt-4 px-6 rounded-t-xl">
               <CardTitle className="text-lg font-semibold flex items-center gap-3">
                 <CalendarIcon className="w-5 h-5" />
                 Select Your Date
@@ -519,7 +547,9 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
                 )}
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-medium">Pro Coaching (30 min)</span>
+                  <span className="font-medium flex items-center gap-2">
+                      Pro Coaching (30 min)
+                  </span>
                   <span className="text-xs text-muted-foreground">Expert tuition included</span>
                 </div>
                 <span className="text-primary font-bold">+R250</span>
