@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@supabase/supabase-js"
 import { 
   Trash2, 
-  CheckCircle, // <--- THIS WAS MISSING OR UNDEFINED PREVIOUSLY
+  CheckCircle, 
   Clock, 
   DollarSign, 
   Users, 
@@ -16,7 +16,8 @@ import {
   Target,
   Trophy,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -25,6 +26,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
+
+const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4]
 
 export default function AdminDashboard() {
   // --- STATE ---
@@ -95,7 +98,6 @@ export default function AdminDashboard() {
 
     setIsActionLoading(true)
     try {
-      // Calls the API route - Ensure this file exists!
       const res = await fetch("/api/bookings/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,13 +105,11 @@ export default function AdminDashboard() {
       })
 
       if (!res.ok) {
-         // If 404, it means the API file is missing
          if(res.status === 404) throw new Error("API Route not found. Did you deploy the delete file?");
          const data = await res.json();
          throw new Error(data.error || "Delete failed");
       }
       
-      // Optimistic Update
       setBookings(prev => prev.filter(b => b.id !== id))
     } catch (err: any) {
       alert("Failed to delete: " + err.message)
@@ -285,6 +285,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8">
+        {/* FILTERS & STATS */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
            <div className="flex items-center gap-4">
                <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-2xl p-1.5 pl-4 shadow-sm">
@@ -387,7 +388,7 @@ export default function AdminDashboard() {
                    <div>
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Duration</label>
                       <div className="grid grid-cols-4 gap-3 mt-2">
-                        {[1, 2, 3, 4].map(h => (
+                        {DURATION_OPTIONS.map(h => (
                            <button
                              key={h}
                              onClick={() => setWalkInDuration(h)}
@@ -397,7 +398,7 @@ export default function AdminDashboard() {
                                 : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white hover:bg-zinc-900'
                              }`}
                            >
-                             {h} Hour{h > 1 ? 's' : ''}
+                             {h}h
                            </button>
                         ))}
                       </div>
