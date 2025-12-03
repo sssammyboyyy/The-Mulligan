@@ -4,12 +4,10 @@ import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Calendar, Clock, Trophy, Mail, Phone, User, Info } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, CreditCard, User, Info, CheckCircle2, ShieldCheck, Ticket } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
-
-// NOTE: We use standard HTML inputs for checkboxes to avoid build errors 
-// if Shadcn Checkbox/Label components are missing.
+import { cn } from "@/lib/utils"
 
 export default function BookingConfirmation() {
   const searchParams = useSearchParams()
@@ -18,13 +16,14 @@ export default function BookingConfirmation() {
   // -- STATE --
   const [isProcessing, setIsProcessing] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [payFullAmount, setPayFullAmount] = useState(false)
   
   // -- INPUTS --
   const [guestName, setGuestName] = useState("")
   const [guestEmail, setGuestEmail] = useState("")
   const [guestPhone, setGuestPhone] = useState("")
-  const [acceptWhatsApp, setAcceptWhatsApp] = useState(false)
-  const [enterCompetition, setEnterCompetition] = useState(false)
+  const [acceptWhatsApp, setAcceptWhatsApp] = useState(true)
+  const [enterCompetition, setEnterCompetition] = useState(true)
   const [couponCode, setCouponCode] = useState("")
 
   // -- URL PARAMS --
@@ -33,41 +32,18 @@ export default function BookingConfirmation() {
   const date = searchParams.get("date") || ""
   const timeSlot = searchParams.get("timeSlot") || ""
   const duration = parseFloat(searchParams.get("duration") || "1")
-  const golfClubRental = searchParams.get("golfClubRental") === "true"
-  const coachingSession = searchParams.get("coachingSession") === "true"
-  const famousCourseOption = searchParams.get("famousCourseOption") || ""
+  const passedTotalPrice = parseFloat(searchParams.get("totalPrice") || "0")
 
-  // -- CALCULATE PRICE --
-  const calculateTotal = () => {
-    let base = 0
-    if (sessionType === "4ball") base = 150 * 4 * duration
-    else if (sessionType === "3ball") base = 160 * 3 * duration
-    else {
-      const pricing: Record<number, number> = { 1: 250, 2: 180, 3: 160, 4: 150 }
-      const pricePerPerson = pricing[Math.min(players, 4)] || 150
-      base = pricePerPerson * players * duration
-    }
-    
-    // Add-ons
-    if (golfClubRental) base += 100
-    if (coachingSession) base += 250
-    
-    return base
-  }
+  // -- CALCULATIONS --
+  const totalPrice = passedTotalPrice > 0 ? passedTotalPrice : 0
+  const isDepositEligible = sessionType.includes("ball") || sessionType.includes("famous")
+  const depositAmount = isDepositEligible ? Math.ceil(totalPrice * 0.4) : totalPrice
+  const amountToPay = payFullAmount || !isDepositEligible ? totalPrice : depositAmount
+  const amountDueLater = totalPrice - amountToPay
 
-  const basePrice = calculateTotal()
-  const totalPrice = basePrice 
-  
-  // Deposit Logic (40% for Famous/Ball options)
-  const isDeposit = sessionType.includes("ball") || sessionType.includes("famous")
-  const depositAmount = isDeposit ? Math.ceil(totalPrice * 0.4) : totalPrice
-  const payNowAmount = depositAmount
-
-  // --- PAYMENT HANDLER ---
   const handlePayment = async () => {
-    // 1. Validation
-    if (!guestName || !guestEmail || !guestPhone || !acceptWhatsApp) {
-      setErrorMessage("Please fill in all required fields marked with *")
+    if (!guestName || !guestEmail || !guestPhone) {
+      setErrorMessage("Please fill in your contact details.")
       return
     }
 
@@ -84,45 +60,25 @@ export default function BookingConfirmation() {
           duration_hours: duration,
           player_count: players,
           session_type: sessionType,
-          famous_course_option: famousCourseOption,
           guest_name: guestName,
           guest_email: guestEmail,
           guest_phone: guestPhone,
           accept_whatsapp: acceptWhatsApp,
           enter_competition: enterCompetition,
-          base_price: basePrice,
           total_price: totalPrice,
+          pay_full_amount: payFullAmount, 
           coupon_code: couponCode || null,
-          golf_club_rental: golfClubRental,
-          coaching_session: coachingSession
         }),
       })
 
       const data = await response.json()
 
-      // 409 Conflict (Double Booking)
-      if (response.status === 409) {
-        setErrorMessage("⚠️ That slot was just grabbed by another player. Please choose another time.")
-        setIsProcessing(false)
-        return
-      }
+      if (!response.ok) throw new Error(data.error || "Payment initialization failed")
 
-      // Generic Error
-      if (!response.ok) {
-        throw new Error(data.error || "Payment initialization failed")
-      }
-
-      // Success (Free)
-      if (data.free_booking && data.booking_id) {
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl
+      } else if (data.free_booking) {
         router.push(`/booking/success?reference=${data.booking_id}`)
-        return
-      }
-      
-      // Success (Redirect to Yoco)
-      const paymentUrl = data.redirectUrl || data.authorization_url;
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-        return;
       }
 
     } catch (error) {
@@ -132,190 +88,185 @@ export default function BookingConfirmation() {
     }
   }
 
-  const formattedDate = date
-    ? new Date(date).toLocaleDateString("en-ZA", {
-        weekday: "short", day: "numeric", month: "short",
-      })
-    : ""
+  const formattedDate = date ? new Date(date).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" }) : ""
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-20">
-      <div className="max-w-lg mx-auto px-4 py-6">
+    <div className="min-h-screen bg-muted/10 pb-20 pt-8">
+      <div className="max-w-6xl mx-auto px-4">
         
-        {/* Header */}
-        <Link href="/booking" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to options
-        </Link>
-        
-        <h1 className="text-2xl font-bold mb-6">Confirm Details</h1>
+        <div className="mb-8">
+          <Link href="/booking" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary mb-4 transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to Step 2
+          </Link>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Secure Checkout</h1>
+        </div>
 
-        {/* Summary Card */}
-        <Card className="mb-6 border-0 shadow-md overflow-hidden">
-          <div className="h-2 bg-primary w-full" />
-          <CardContent className="p-6 space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold text-lg">{sessionType === "4ball" ? "4-Ball Special" : sessionType === "3ball" ? "3-Ball Special" : "Quick Play Session"}</p>
-                <p className="text-sm text-muted-foreground">{duration} Hours • {players} Players</p>
-              </div>
-              <div className="bg-primary/10 p-2 rounded-lg">
-                <Trophy className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-            
-            <hr className="border-t border-border" />
-            
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span>{formattedDate}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span>{timeSlot}</span>
-              </div>
-            </div>
-
-            {/* Price Breakdown */}
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2 mt-4">
-              <div className="flex justify-between text-sm">
-                <span>Total Value</span>
-                <span>R{totalPrice}</span>
-              </div>
-              
-              {isDeposit && (
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Pay Later (In Store)</span>
-                  <span>- R{totalPrice - depositAmount}</span>
+        <div className="grid lg:grid-cols-3 gap-8">
+          
+          {/* LEFT COLUMN */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="w-5 h-5 text-primary" /> Guest Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Full Name</label>
+                    <Input placeholder="e.g. Tiger Woods" value={guestName} onChange={e => setGuestName(e.target.value)} className="bg-muted/10 border-muted" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Phone</label>
+                    <Input placeholder="e.g. 082 123 4567" type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} className="bg-muted/10 border-muted" />
+                  </div>
                 </div>
-              )}
-              
-              <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/50">
-                <span>Pay Now</span>
-                <span className="text-primary">R{payNowAmount}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="space-y-2">
+                   <label className="text-xs font-bold uppercase text-muted-foreground">Email Address</label>
+                   <Input placeholder="name@example.com" type="email" value={guestEmail} onChange={e => setGuestEmail(e.target.value)} className="bg-muted/10 border-muted" />
+                </div>
+                
+                <div className="flex flex-col gap-3 pt-2">
+                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors">
+                      <input type="checkbox" checked={acceptWhatsApp} onChange={e => setAcceptWhatsApp(e.target.checked)} className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                      <span className="text-sm">Receive booking confirmation via WhatsApp</span>
+                   </label>
+                   <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors">
+                      <input type="checkbox" checked={enterCompetition} onChange={e => setEnterCompetition(e.target.checked)} className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                      <span className="text-sm">Enter me into the monthly "Free Round" competition</span>
+                   </label>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Customer Form */}
-        <Card className="border-0 shadow-md">
-           <CardHeader>
-             <CardTitle className="text-lg">Your Details</CardTitle>
-           </CardHeader>
-           <CardContent className="space-y-4">
-             
-             {/* Name */}
-             <div className="space-y-2">
-               <label htmlFor="name" className="text-sm font-medium leading-none">Full Name *</label>
-               <div className="relative">
-                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                 <Input 
-                   id="name" 
-                   placeholder="John Doe" 
-                   className="pl-9"
-                   value={guestName}
-                   onChange={(e) => setGuestName(e.target.value)}
-                 />
-               </div>
-             </div>
+            {isDepositEligible && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <CreditCard className="w-5 h-5 text-primary" /> Payment Option
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div 
+                      onClick={() => setPayFullAmount(false)}
+                      className={cn(
+                        "relative p-5 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md",
+                        !payFullAmount ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-white"
+                      )}
+                    >
+                      {!payFullAmount && <CheckCircle2 className="absolute top-4 right-4 w-5 h-5 text-primary" />}
+                      <div className="font-bold text-lg mb-1">Pay Deposit Only</div>
+                      <div className="text-2xl font-bold text-primary mb-2">R{depositAmount.toFixed(0)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Pay remainder (R{amountDueLater}) when you arrive at the venue.
+                      </p>
+                    </div>
 
-             {/* Email */}
-             <div className="space-y-2">
-               <label htmlFor="email" className="text-sm font-medium leading-none">Email Address *</label>
-               <div className="relative">
-                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                 <Input 
-                   id="email" 
-                   type="email" 
-                   placeholder="john@example.com" 
-                   className="pl-9"
-                   value={guestEmail}
-                   onChange={(e) => setGuestEmail(e.target.value)}
-                 />
-               </div>
-             </div>
+                    <div 
+                      onClick={() => setPayFullAmount(true)}
+                      className={cn(
+                        "relative p-5 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md",
+                        payFullAmount ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-white"
+                      )}
+                    >
+                      {payFullAmount && <CheckCircle2 className="absolute top-4 right-4 w-5 h-5 text-primary" />}
+                      <div className="font-bold text-lg mb-1">Pay Full Amount</div>
+                      <div className="text-2xl font-bold text-primary mb-2">R{totalPrice.toFixed(0)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Settle everything now. Express check-in at reception.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-             {/* Phone */}
-             <div className="space-y-2">
-               <label htmlFor="phone" className="text-sm font-medium leading-none">Phone Number *</label>
-               <div className="relative">
-                 <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                 <Input 
-                   id="phone" 
-                   type="tel" 
-                   placeholder="082 123 4567" 
-                   className="pl-9"
-                   value={guestPhone}
-                   onChange={(e) => setGuestPhone(e.target.value)}
-                 />
-               </div>
-             </div>
-            
-             {/* Coupon Code */}
-             <div className="space-y-2 pt-2">
-               <label htmlFor="coupon" className="text-sm font-medium leading-none">Coupon Code (Optional)</label>
-               <Input 
-                 id="coupon" 
-                 placeholder="Enter code" 
-                 value={couponCode}
-                 onChange={(e) => setCouponCode(e.target.value)}
-               />
-             </div>
+          {/* RIGHT COLUMN */}
+          <div className="lg:col-span-1">
+             <div className="sticky top-8 space-y-6">
+               <Card className="bg-primary text-primary-foreground border-none shadow-xl overflow-hidden relative">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                  <div className="absolute bottom-10 left-10 w-24 h-24 bg-secondary/20 rounded-full blur-xl" />
 
-             {/* Checkboxes (Standard HTML) */}
-             <div className="space-y-4 pt-4">
-               <div className="flex items-start space-x-2">
-                 <input 
-                    type="checkbox"
-                    id="whatsapp"
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={acceptWhatsApp}
-                    onChange={(e) => setAcceptWhatsApp(e.target.checked)}
-                 />
-                 <label htmlFor="whatsapp" className="text-sm leading-snug cursor-pointer">
-                   I accept receiving booking confirmation via WhatsApp/SMS *
-                 </label>
-               </div>
+                  <CardHeader className="pb-4 border-b border-white/10 relative z-10">
+                    <CardTitle>Session Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-4 relative z-10">
+                    <div>
+                      <p className="text-primary-foreground/70 text-xs font-bold uppercase tracking-wider mb-1">Date & Time</p>
+                      <div className="flex items-center gap-2 font-medium">
+                        <Calendar className="w-4 h-4" /> {formattedDate}
+                      </div>
+                      <div className="flex items-center gap-2 font-medium mt-1">
+                        <Clock className="w-4 h-4" /> {timeSlot} ({duration} hrs)
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-primary-foreground/70 text-xs font-bold uppercase tracking-wider mb-1">Experience</p>
+                      <div className="font-medium">{sessionType === "4ball" ? "4-Ball Special" : sessionType === "3ball" ? "3-Ball Special" : "Quick Play"}</div>
+                      <div className="text-sm opacity-90">{players} Players</div>
+                    </div>
+                    
+                    <div className="pt-4 mt-4 border-t border-white/10 space-y-2">
+                       <div className="flex justify-between text-sm">
+                         <span>Subtotal</span>
+                         <span>R{totalPrice}</span>
+                       </div>
+                       {amountDueLater > 0 && (
+                         <div className="flex justify-between text-sm text-secondary font-medium">
+                           <span>Pay Later</span>
+                           <span>-R{amountDueLater}</span>
+                         </div>
+                       )}
+                       <div className="flex justify-between text-xl font-bold pt-2">
+                         <span>Total Due</span>
+                         <span>R{amountToPay}</span>
+                       </div>
+                    </div>
+                  </CardContent>
+               </Card>
+
+               <Card className="border-dashed border-2">
+                 <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Ticket className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-bold">Have a promo code?</span>
+                    </div>
+                    <Input 
+                      placeholder="Enter code" 
+                      className="uppercase placeholder:normal-case"
+                      value={couponCode}
+                      onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                    />
+                 </CardContent>
+               </Card>
+
+               {errorMessage && (
+                  <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex gap-2">
+                    <Info className="w-4 h-4 flex-shrink-0 mt-0.5" /> {errorMessage}
+                  </div>
+               )}
+
+               <Button 
+                 onClick={handlePayment} 
+                 disabled={isProcessing}
+                 className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/25 rounded-xl"
+               >
+                 {isProcessing ? "Processing..." : `Pay R${amountToPay}`}
+               </Button>
                
-               <div className="flex items-start space-x-2">
-                 <input 
-                    type="checkbox"
-                    id="competition"
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    checked={enterCompetition}
-                    onChange={(e) => setEnterCompetition(e.target.checked)}
-                 />
-                 <label htmlFor="competition" className="text-sm leading-snug cursor-pointer text-muted-foreground">
-                   Enter me into the monthly "Free Round" competition
-                 </label>
+               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                 <ShieldCheck className="w-3 h-3" /> Secure Payment by Yoco
                </div>
              </div>
+          </div>
 
-             {/* Error Message */}
-             {errorMessage && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2 animate-in fade-in">
-                  <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <p className="font-medium">{errorMessage}</p>
-                </div>
-              )}
-
-             {/* Action Button */}
-             <Button 
-               className="w-full h-12 text-lg font-bold mt-2" 
-               onClick={handlePayment}
-               disabled={isProcessing}
-             >
-               {isProcessing ? "Processing..." : `Pay R${payNowAmount}`}
-             </Button>
-             
-             <p className="text-xs text-center text-muted-foreground pt-2">
-               Secure payment via Yoco. 
-             </p>
-
-           </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   )
