@@ -26,59 +26,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
 
-    // 2. Prepare Payload
-    const depositAmount = booking.total_price // Modify if you use deposit logic
-    
-    // Safety check for calculated values
+    // 2. Prepare Payload (Robust Calculation)
     const totalPrice = Number(booking.total_price) || 0
-    let calculatedDeposit = totalPrice
-    
-    // If logic dictates specific deposit rules, apply them here
-    // For now, passing total through to ensure email gets data
-    
+    // If we have an amount_paid field, use it. Otherwise assume full payment for this trigger context
+    // or calculate based on status.
+    const amountPaid = booking.amount_paid !== null ? Number(booking.amount_paid) : totalPrice
+    const outstanding = totalPrice - amountPaid
+
+    // Format to 2 decimal places fixed strings
     const payload = {
-        secret: "mulligan-secure-8821", // MATCHES N8N NODE
+        secret: "mulligan-secure-8821", // Validation secret
         bookingId: booking.id,
         yocoId: booking.yoco_payment_id || "manual",
         paymentStatus: booking.payment_status || "paid",
         
         // Email Data
-        guest_name: booking.guest_name,
+        guest_name: booking.guest_name || "Guest",
         guest_email: booking.guest_email,
-        guest_phone: booking.guest_phone,
+        guest_phone: booking.guest_phone || "",
         booking_date: booking.booking_date,
         start_time: booking.start_time,
         simulator_id: booking.simulator_id,
         
-        // Money Data
-        depositPaid: totalPrice.toFixed(2), 
-        outstandingBalance: "0.00",
+        // Money Data (FLAT STRUCTURE)
+        depositPaid: amountPaid.toFixed(2), 
+        outstandingBalance: outstanding.toFixed(2),
         totalPrice: totalPrice.toFixed(2)
     }
 
-    // 3. Send to n8n (FIRE AND FORGET)
+    // 3. Send to n8n
     const n8nUrl = "https://n8n.srv1127912.hstgr.cloud/webhook/manual-confirm"
     
-    // We create the promise but don't await the result to block the response
-    // ensuring the UI feels fast
+    // Fire and forget fetch
     // @ts-ignore
     const promise = fetch(n8nUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then(res => {
-        console.log("n8n Triggered:", res.status)
+        console.log(`n8n Triggered [${res.status}] for ${bookingId}`)
     }).catch(err => {
         console.error("n8n Failed:", err)
     })
 
-    // Cloudflare Workers optimization to keep script alive for the async fetch
+    // Cloudflare Workers optimization
     // @ts-ignore
     if (typeof request.waitUntil === 'function') {
         // @ts-ignore
         request.waitUntil(promise)
     } else {
-        // Fallback for local dev environment
         await promise
     }
 
