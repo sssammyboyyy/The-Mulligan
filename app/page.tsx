@@ -7,13 +7,86 @@ import { Separator } from "@/components/ui/separator"
 import { Clock, MapPin, Trophy, Target, Sparkles, CheckCircle2, Phone, Star, Check, Users } from "lucide-react"
 import BayStatusDisplay from "@/components/BayStatusDisplay"
 
+// --- DATA CONFIGURATION ---
+
+const FEATURES = [
+  {
+    title: "5000+ Championship Courses",
+    description: "Play the world's most famous courses including Augusta National, Pebble Beach, and thousands more with GS Pro",
+    icon: Target,
+    badge: "primary"
+  },
+  {
+    title: "Photorealistic Graphics",
+    description: "Immersive 4K graphics with dynamic lighting, weather effects, and authentic course details powered by GS Pro",
+    icon: Sparkles,
+    badge: "primary"
+  },
+  {
+    title: "Advanced Shot Analytics",
+    description: "Track every metric including carry distance, spin rates, ball speed, and launch angle with professional-grade accuracy",
+    icon: Trophy,
+    badge: "primary"
+  }
+]
+
+const PRICING_PLANS = [
+  {
+    players: 1,
+    price: 250,
+    note: "Perfect for focused solo practice and skill development",
+    highlight: false,
+    total: null
+  },
+  {
+    players: 2,
+    price: 180,
+    note: "Great value for pairs and friendly competition",
+    highlight: false,
+    total: "R360/hour total"
+  },
+  {
+    players: 3,
+    price: 160,
+    note: "Perfect for small group sessions and team play",
+    highlight: false,
+    total: "R480/hour total"
+  },
+  {
+    players: 4,
+    price: 150,
+    note: "Ultimate value for full groups and tournaments",
+    highlight: true,
+    total: "R600/hour for 4 people"
+  }
+]
+
+const COMPETITIONS = [
+  {
+    title: "Longest Drive Challenge",
+    desc: "",
+    icon: Trophy
+  },
+  {
+    title: "Hole-in-One Challenge",
+    desc: "",
+    icon: Star
+  },
+  {
+    title: "Closest to Pin",
+    desc: "Free session for monthly champion",
+    icon: CheckCircle2
+  }
+]
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">
+      {/* --- HEADER --- */}
       <header className="border-b border-border/40 bg-background/98 backdrop-blur-md sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo Section - Seamlessly Integrated */}
+            {/* Logo Section */}
             <Link href="/" className="flex items-center gap-3 sm:gap-4 flex-shrink-0 group">
               <div className="relative">
                 <div className="absolute inset-0 bg-secondary/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
@@ -38,71 +111,55 @@ export default function HomePage() {
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-              <Link
-                href="#pricing"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
-              >
+              <Link href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group">
                 Pricing
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
               </Link>
-              <Link
-                href="#features"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
-              >
+              <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group">
                 Benefits
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
               </Link>
-              <Link
-                href="#location"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
-              >
+              <Link href="#location" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 relative group">
                 Location
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
               </Link>
-              <Button
-                asChild
-                className="bg-secondary text-white hover:bg-secondary/90 font-medium shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
-              >
+              <Button asChild className="bg-secondary text-white hover:bg-secondary/90 font-medium shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
                 <Link href="/booking">Book</Link>
               </Button>
             </nav>
 
             {/* Mobile/Tablet Book Button */}
-            <Button
-              asChild
-              size="sm"
-              className="lg:hidden bg-secondary text-white hover:bg-secondary/90 font-medium shadow-md"
-            >
+            <Button asChild size="sm" className="lg:hidden bg-secondary text-white hover:bg-secondary/90 font-medium shadow-md">
               <Link href="/booking">Book</Link>
             </Button>
           </div>
         </div>
       </header>
 
+      {/* --- HERO SECTION --- */}
       <section className="relative bg-gradient-to-br from-primary via-primary/95 to-primary/80 text-primary-foreground py-24 md:py-40 lg:py-48 overflow-hidden">
-        {/* Enhanced background with multiple overlays for depth */}
-        <div className="absolute inset-0 bg-[url('/golf-simulator-bay-with-augusta-national-on-screen.jpg')] bg-cover bg-center opacity-30 mix-blend-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-transparent to-primary/60" />
+        {/* Optimized Background Image */}
+        <div className="absolute inset-0 z-0">
+          <Image 
+            src="/golf-simulator-bay-with-augusta-national-on-screen.jpg" 
+            alt="Golf Simulator Bay"
+            fill
+            className="object-cover opacity-30 mix-blend-overlay"
+            priority
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-transparent to-primary/60 z-0" />
 
         {/* Dynamic animated elements */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-secondary/30 rounded-full blur-3xl animate-glow" />
-        <div
-          className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl animate-glow"
-          style={{ animationDelay: "1s" }}
-        />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl animate-glow" style={{ animationDelay: "1s" }} />
 
         {/* Decorative golf ball pattern */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
-            backgroundSize: "50px 50px",
-          }}
-        />
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
 
         <div className="container mx-auto px-4 sm:px-6 relative z-10">
           <div className="max-w-5xl mx-auto text-center">
-            {/* Eye-catching badge */}
+            {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-secondary/20 backdrop-blur-sm border border-secondary/40 rounded-full px-6 py-3 mb-8 animate-fade-in">
               <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
               <span className="text-sm sm:text-base font-semibold tracking-wide">
@@ -110,15 +167,10 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Massive, dramatic headline */}
+            {/* Headline */}
             <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold mb-6 text-balance leading-[1.1] tracking-tight">
               The Simulator
-              <span
-                className="block text-secondary mt-2 text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
-                style={{
-                  textShadow: "0 0 40px rgba(184, 134, 66, 0.5)",
-                }}
-              >
+              <span className="block text-secondary mt-2 text-6xl sm:text-7xl md:text-8xl lg:text-9xl" style={{ textShadow: "0 0 40px rgba(184, 134, 66, 0.5)" }}>
                 Never Judges
               </span>
             </h1>
@@ -129,32 +181,21 @@ export default function HomePage() {
               world-class courses
             </p>
 
-            {/* Bold, eye-catching CTAs */}
+            {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-12">
-              <Button
-                asChild
-                size="lg"
-                className="bg-secondary text-white hover:bg-secondary/90 text-lg h-16 px-10 rounded-full font-bold shadow-2xl hover:shadow-secondary/50 hover:scale-105 transition-all duration-300"
-              >
+              <Button asChild size="lg" className="bg-secondary text-white hover:bg-secondary/90 text-lg h-16 px-10 rounded-full font-bold shadow-2xl hover:shadow-secondary/50 hover:scale-105 transition-all duration-300">
                 <Link href="/booking">
-                  Book Your Session
-                  <span className="ml-2 text-2xl">→</span>
+                  Book Your Session <span className="ml-2 text-2xl">→</span>
                 </Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="bg-white/10 backdrop-blur-sm border-2 border-white text-white hover:bg-white hover:text-primary h-16 px-10 rounded-full font-bold shadow-xl hover:scale-105 transition-all duration-300"
-              >
+              <Button asChild size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-2 border-white text-white hover:bg-white hover:text-primary h-16 px-10 rounded-full font-bold shadow-xl hover:scale-105 transition-all duration-300">
                 <Link href="#special-offer">
-                  4-Ball Special: R150/person
-                  <span className="ml-2 text-xl">⚡</span>
+                  4-Ball Special: R150/person <span className="ml-2 text-xl">⚡</span>
                 </Link>
               </Button>
             </div>
 
-            {/* Social proof / trust indicators */}
+            {/* Trust Indicators */}
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm sm:text-base text-primary-foreground/80">
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-secondary" fill="currentColor" viewBox="0 0 20 20">
@@ -172,39 +213,22 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
+                <MapPin className="w-5 h-5 text-secondary" />
                 <span className="font-semibold">Vanderbijlpark SW5</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Decorative bottom wave */}
+        {/* Bottom Wave */}
         <div className="absolute bottom-0 left-0 right-0">
-          <svg
-            className="w-full h-16 sm:h-24 text-background"
-            viewBox="0 0 1440 120"
-            fill="currentColor"
-            preserveAspectRatio="none"
-          >
+          <svg className="w-full h-16 sm:h-24 text-background" viewBox="0 0 1440 120" fill="currentColor" preserveAspectRatio="none">
             <path d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z" />
           </svg>
         </div>
       </section>
 
+      {/* --- LIVE STATUS --- */}
       <section className="py-8 sm:py-12 bg-gradient-to-b from-background to-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -221,6 +245,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* --- SPECIAL OFFER --- */}
       <section id="special-offer" className="py-12 sm:py-16 md:py-20 bg-secondary/5">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="max-w-4xl mx-auto">
@@ -247,45 +272,25 @@ export default function HomePage() {
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-6 sm:pb-8">
                 <div className="grid gap-3 sm:gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 icon-badge-secondary">
-                      <Check className="w-4 h-4 sm:w-5 sm:h-5 text-secondary icon-enhanced" />
+                  {[
+                    { icon: Check, text: "4 Players Required", sub: "Minimum booking of 4 players" },
+                    { icon: Clock, text: "Minimum 3 Hours", sub: "Extended play for full 18-hole rounds" },
+                    { icon: MapPin, text: "World-Famous Courses", sub: "Augusta, Pebble Beach, Pine Valley & more" }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="flex-shrink-0 icon-badge-secondary">
+                        <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-secondary icon-enhanced" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground text-sm sm:text-base">{item.text}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{item.sub}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground text-sm sm:text-base">4 Players Required</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Minimum booking of 4 players</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 icon-badge-secondary">
-                      <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-secondary icon-enhanced" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground text-sm sm:text-base">Minimum 3 Hours</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                        Extended play for full 18-hole rounds
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 icon-badge-secondary">
-                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-secondary icon-enhanced" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground text-sm sm:text-base">World-Famous Courses</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                        Augusta, Pebble Beach, Pine Valley &amp; more
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 <div className="pt-2 sm:pt-4">
-                  <Button
-                    asChild
-                    size="lg"
-                    className="w-full bg-secondary hover:bg-secondary/90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] h-12 sm:h-14 text-base sm:text-lg mobile-touch-target"
-                  >
+                  <Button asChild size="lg" className="w-full bg-secondary hover:bg-secondary/90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] h-12 sm:h-14 text-base sm:text-lg mobile-touch-target">
                     <Link href="/booking">Book 4-Ball Special</Link>
                   </Button>
                   <p className="text-center text-xs sm:text-sm text-muted-foreground mt-3 sm:mt-4">
@@ -298,6 +303,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* --- HOW IT WORKS --- */}
       <section className="py-16 md:py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -309,21 +315,9 @@ export default function HomePage() {
             </div>
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {[
-                {
-                  step: "1",
-                  title: "Choose Your Experience",
-                  desc: "Select Famous Course 18-hole special or Quick Play for challenges and practice",
-                },
-                {
-                  step: "2",
-                  title: "Pick Your Time",
-                  desc: "Book online in 60 seconds or walk in and pay at terminal",
-                },
-                {
-                  step: "3",
-                  title: "Play & Compete",
-                  desc: "Enjoy Pro Tee precision and automatically enter monthly competitions",
-                },
+                { step: "1", title: "Choose Your Experience", desc: "Select Famous Course 18-hole special or Quick Play for challenges and practice" },
+                { step: "2", title: "Pick Your Time", desc: "Book online in 60 seconds or walk in and pay at terminal" },
+                { step: "3", title: "Play & Compete", desc: "Enjoy Pro Tee precision and automatically enter monthly competitions" },
               ].map((item) => (
                 <Card key={item.step} className="border-border text-center">
                   <CardContent className="pt-8 pb-6">
@@ -340,6 +334,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* --- FEATURES --- */}
       <section id="features" className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -348,57 +343,30 @@ export default function HomePage() {
               World-Class GS Pro Simulation
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Experience GS Pro's industry-leading golf simulation platform with 5000+ championship courses and
-              photorealistic graphics
+              Experience GS Pro's industry-leading golf simulation platform with 5000+ championship courses and photorealistic graphics
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-primary w-16 h-16 flex items-center justify-center mb-4">
-                    <Target className="w-8 h-8 text-white icon-enhanced" />
+            {FEATURES.map((feature, i) => (
+              <Card key={i} className="border-border">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="icon-container-primary w-16 h-16 flex items-center justify-center mb-4">
+                      <feature.icon className="w-8 h-8 text-white icon-enhanced" />
+                    </div>
+                    <h3 className="font-semibold text-xl mb-2 text-foreground">{feature.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {feature.description}
+                    </p>
                   </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">5000+ Championship Courses</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Play the world's most famous courses including Augusta National, Pebble Beach, and thousands more
-                    with GS Pro
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-primary w-16 h-16 flex items-center justify-center mb-4">
-                    <Sparkles className="w-8 h-8 text-white icon-sparkle-enhanced" />
-                  </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">Photorealistic Graphics</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Immersive 4K graphics with dynamic lighting, weather effects, and authentic course details powered
-                    by GS Pro
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-primary w-16 h-16 flex items-center justify-center mb-4">
-                    <Trophy className="w-8 h-8 text-white icon-trophy-enhanced" />
-                  </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">Advanced Shot Analytics</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Track every metric including carry distance, spin rates, ball speed, and launch angle with
-                    professional-grade accuracy
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
 
+      {/* --- PRICING --- */}
       <section id="pricing" className="py-16 sm:py-20 md:py-24 bg-gradient-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="text-center mb-10 sm:mb-14">
@@ -414,107 +382,54 @@ export default function HomePage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-7 max-w-6xl mx-auto">
-            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
-              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
-                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
-                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
-                </div>
-                <CardTitle className="text-2xl sm:text-3xl font-bold">1 Player</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
-                <div>
-                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R250</p>
-                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
-                </div>
-                <Separator className="my-3" />
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Perfect for focused solo practice and skill development
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
-              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
-                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
-                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
-                </div>
-                <CardTitle className="text-2xl sm:text-3xl font-bold">2 Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
-                <div>
-                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R180</p>
-                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
-                </div>
-                <Separator className="my-3" />
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-secondary">R360/hour total</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Great value for pairs and friendly competition
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
-              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
-                <div className="icon-container-accent w-14 h-14 mx-auto mb-4 flex items-center justify-center">
-                  <Users className="w-7 h-7 text-secondary icon-enhanced" />
-                </div>
-                <CardTitle className="text-2xl sm:text-3xl font-bold">3 Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
-                <div>
-                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R160</p>
-                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
-                </div>
-                <Separator className="my-3" />
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-secondary">R480/hour total</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Perfect for small group sessions and team play
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-secondary/40 hover:border-secondary transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br from-secondary/5 to-secondary/10 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-3 right-3">
-                <Badge className="bg-secondary text-white text-xs font-bold px-2 py-0.5">BEST VALUE</Badge>
-              </div>
-              <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
-                <div className="icon-container-secondary w-14 h-14 mx-auto mb-4 flex items-center justify-center">
-                  <Users className="w-7 h-7 text-white icon-enhanced" />
-                </div>
-                <CardTitle className="text-2xl sm:text-3xl font-bold">4+ Players</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
-                <div>
-                  <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R150</p>
-                  <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
-                </div>
-                <Separator className="my-3" />
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-secondary">R600/hour for 4 people</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Ultimate value for full groups and tournaments
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {PRICING_PLANS.map((plan, i) => (
+              <Card 
+                key={i} 
+                className={`border-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden backdrop-blur-sm ${
+                  plan.highlight 
+                    ? "border-secondary/40 hover:border-secondary bg-gradient-to-br from-secondary/5 to-secondary/10" 
+                    : "border-border hover:border-secondary/50 bg-card/50"
+                }`}
+              >
+                {plan.highlight && (
+                  <div className="absolute top-3 right-3">
+                    <Badge className="bg-secondary text-white text-xs font-bold px-2 py-0.5">BEST VALUE</Badge>
+                  </div>
+                )}
+                <CardHeader className="pb-4 pt-7 px-5 sm:px-7 text-center">
+                  <div className={`w-14 h-14 mx-auto mb-4 flex items-center justify-center ${plan.highlight ? 'icon-container-secondary' : 'icon-container-accent'}`}>
+                    <Users className={`w-7 h-7 icon-enhanced ${plan.highlight ? 'text-white' : 'text-secondary'}`} />
+                  </div>
+                  <CardTitle className="text-2xl sm:text-3xl font-bold">{plan.players} {plan.players > 3 ? '+' : ''} Players</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center space-y-3 px-5 sm:px-7 pb-7">
+                  <div>
+                    <p className="text-4xl sm:text-5xl font-bold text-secondary font-serif">R{plan.price}</p>
+                    <p className="text-sm text-muted-foreground mt-1">per person/hour</p>
+                  </div>
+                  <Separator className="my-3" />
+                  {plan.total ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-secondary">{plan.total}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{plan.note}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{plan.note}</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           <div className="mt-10 text-center">
-            <Button
-              asChild
-              size="lg"
-              className="bg-secondary hover:bg-secondary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 px-8 py-6 text-lg"
-            >
+            <Button asChild size="lg" className="bg-secondary hover:bg-secondary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 px-8 py-6 text-lg">
               <Link href="/booking">Book Your Session</Link>
             </Button>
           </div>
         </div>
       </section>
 
+      {/* --- COMPETITIONS --- */}
       <section id="competitions" className="py-12 md:py-20 bg-muted/30 shadow-md">
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
@@ -526,52 +441,33 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-secondary w-16 h-16 flex items-center justify-center mb-4">
-                    <Trophy className="w-8 h-8 text-white icon-trophy-enhanced" />
+            {COMPETITIONS.map((comp, i) => (
+              <Card key={i} className="border-border">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="icon-container-secondary w-16 h-16 flex items-center justify-center mb-4">
+                      <comp.icon className="w-8 h-8 text-white icon-enhanced" />
+                    </div>
+                    <h3 className="font-semibold text-xl mb-2 text-foreground">{comp.title}</h3>
+                    {comp.desc && <p className="text-muted-foreground leading-relaxed">{comp.desc}</p>}
                   </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">Longest Drive Challenge</h3>
-                  <p className="text-muted-foreground leading-relaxed"></p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-secondary w-16 h-16 flex items-center justify-center mb-4">
-                    <Star className="w-8 h-8 text-white icon-enhanced" />
-                  </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">Hole-in-One Challenge</h3>
-                  <p className="text-muted-foreground leading-relaxed"></p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className="icon-container-secondary w-16 h-16 flex items-center justify-center mb-4">
-                    <CheckCircle2 className="w-8 h-8 text-white icon-enhanced" />
-                  </div>
-                  <h3 className="font-semibold text-xl mb-2 text-foreground">Closest to Pin</h3>
-                  <p className="text-muted-foreground leading-relaxed">Free session for monthly champion</p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <div className="text-center">
+          <div className="text-center mt-12">
             <Image
               src="/images/footerimage.jpeg"
-              alt="indoor golf simulator Vanderbijlpark"
+              alt="Indoor Golf Simulator Vanderbijlpark"
               width={800}
               height={400}
-              className="rounded-lg mx-auto max-w-full h-auto"
+              className="rounded-lg mx-auto max-w-full h-auto shadow-2xl"
             />
           </div>
         </div>
       </section>
 
+      {/* --- LOCATION --- */}
       <section id="location" className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -626,11 +522,7 @@ export default function HomePage() {
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">Find us on Google Maps</p>
                       <Button asChild variant="outline" size="sm">
-                        <a
-                          href="https://maps.google.com/?q=38A+Chopin+St,+Vanderbijlpark+S.+W.+5,+Vanderbijlpark,+1911,+South+Africa"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
+                        <a href="https://maps.google.com/?q=38A+Chopin+St,+Vanderbijlpark+S.+W.+5,+Vanderbijlpark,+1911,+South+Africa" target="_blank" rel="noopener noreferrer">
                           Get Directions
                         </a>
                       </Button>
@@ -643,10 +535,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* --- BOTTOM CTA --- */}
       <section className="relative py-12 md:py-16 bg-primary text-primary-foreground overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/golf-simulator-bay-with-augusta-national-on-screen.jpg')] bg-cover bg-center opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/80 to-primary/60" />
+        {/* Optimized background */}
+        <div className="absolute inset-0 z-0">
+          <Image 
+            src="/golf-simulator-bay-with-augusta-national-on-screen.jpg" 
+            alt="Golf Simulator Bay" 
+            fill
+            className="object-cover opacity-20"
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/80 to-primary/60 z-0" />
+        
         <div className="container mx-auto px-4 text-center relative z-10">
           <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4">Ready to Experience Augusta National?</h2>
           <p className="text-lg mb-6 text-primary-foreground/90 max-w-2xl mx-auto">
@@ -658,6 +559,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* --- FOOTER --- */}
       <footer className="border-t border-border py-14 bg-gradient-to-b from-card to-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8 mb-10">

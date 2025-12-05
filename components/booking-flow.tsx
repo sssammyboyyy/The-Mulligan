@@ -2,19 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-// FIXED: Added Loader2 to the imports below
-import { ArrowLeft, ArrowRight, Users, CalendarIcon, Clock, Check, Trophy, Zap, Sparkles, Loader2 } from "lucide-react"
-import { format, addDays, startOfToday, isToday, isTomorrow, isWeekend, getDay } from "date-fns"
-
-const PRICING = {
-  1: 250,
-  2: 180,
-  3: 160,
-  4: 150,
-} as const
+import { 
+  ArrowLeft, ArrowRight, Users, Calendar as CalendarIcon, 
+  Clock, Trophy, Sparkles, Loader2, Target, CheckCircle2 
+} from "lucide-react"
+import { format, startOfToday, isToday, getDay } from "date-fns"
 
 // Operating hours by day of week
 const OPERATING_HOURS: Record<number, { open: number; close: number }> = {
@@ -27,154 +22,40 @@ const OPERATING_HOURS: Record<number, { open: number; close: number }> = {
   6: { open: 8, close: 20 }, // Saturday
 }
 
-interface BookingFlowProps {
-  onComplete?: (booking: BookingData) => void
-}
-
-interface BookingData {
-  sessionType: string
-  players: number
-  date: Date
-  timeSlot: string
-  duration: number
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  golfClubRental: boolean
-  coachingSession: boolean
-  totalPrice: number
-}
-
-export function BookingFlow({ onComplete }: BookingFlowProps) {
-  // --- REFS FOR AUTO-SCROLL ---
+export default function BookingFlow() {
   const topRef = useRef<HTMLDivElement>(null)
   const timeSlotsRef = useRef<HTMLDivElement>(null)
-  const footerRef = useRef<HTMLDivElement>(null)
 
-  // Form state
+  // --- STATE ---
   const [step, setStep] = useState(1)
   const [sessionType, setSessionType] = useState<"4ball" | "3ball" | "quick" | "">("")
   const [players, setPlayers] = useState(1)
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [timeSlot, setTimeSlot] = useState("")
   const [duration, setDuration] = useState(1)
+  
+  // Add-ons
   const [golfClubRental, setGolfClubRental] = useState(false)
   const [coachingSession, setCoachingSession] = useState(false)
 
-  // Availability state
+  // Async Data
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
+  const [serverPrice, setServerPrice] = useState<number>(0)
+  const [isCalculatingPrice, setIsCalculatingPrice] = useState(false)
 
-  // --- AUTO SCROLL LOGIC ---
-  
-  // 1. Scroll to top when Step changes
+  // --- SCROLL BEHAVIOR ---
   useEffect(() => {
-    if (topRef.current) {
-      topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+    if (topRef.current) topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [step])
 
-  // 2. Scroll to Time Slots when Date is selected
   useEffect(() => {
     if (date && timeSlotsRef.current) {
-      // Small delay to allow UI to render
-      setTimeout(() => {
-        timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 100)
+      setTimeout(() => timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
     }
   }, [date])
 
-  const calculatePrice = useCallback(() => {
-    let basePrice = 0
-
-    if (sessionType === "4ball") {
-      basePrice = 150 * 4 * duration
-    } else if (sessionType === "3ball") {
-      basePrice = 160 * 3 * duration
-    } else {
-      const pricePerPerson = PRICING[Math.min(players, 4) as keyof typeof PRICING]
-      basePrice = pricePerPerson * players * duration
-    }
-
-    if (golfClubRental) basePrice += 100
-    if (coachingSession) basePrice += 250
-
-    return basePrice
-  }, [sessionType, players, duration, golfClubRental, coachingSession])
-
-  const getPricePerPersonPerHour = useCallback(() => {
-    if (sessionType === "4ball") return 150
-    if (sessionType === "3ball") return 160
-    return PRICING[Math.min(players, 4) as keyof typeof PRICING]
-  }, [sessionType, players])
-
-  const getMinDuration = useCallback(() => {
-    if (sessionType === "4ball" || sessionType === "3ball") return 3
-    return 1
-  }, [sessionType])
-
-  const generateTimeSlots = useCallback((selectedDate: Date): string[] => {
-    const dayOfWeek = getDay(selectedDate)
-    const hours = OPERATING_HOURS[dayOfWeek]
-    const slots: string[] = []
-
-    for (let hour = hours.open; hour < hours.close; hour++) {
-      slots.push(`${hour.toString().padStart(2, "0")}:00`)
-      if (hour + 0.5 < hours.close) {
-        slots.push(`${hour.toString().padStart(2, "0")}:30`)
-      }
-    }
-    return slots
-  }, [])
-
-  const availableSlots = date ? generateTimeSlots(date) : []
-
-  const fetchBookedSlots = useCallback(async (selectedDate: Date) => {
-    setIsCheckingAvailability(true)
-    setAvailabilityError(null)
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const response = await fetch(`/api/bookings/availability?date=${dateStr}`)
-      const data = await response.json()
-
-      if (data.bookedSlots && Array.isArray(data.bookedSlots)) {
-        setBookedSlots(data.bookedSlots)
-      } else {
-        setBookedSlots([])
-      }
-
-      if (data.error) setAvailabilityError(data.error)
-    } catch (error) {
-      console.error("Error fetching availability:", error)
-      setBookedSlots([])
-      setAvailabilityError("Could not check availability")
-    } finally {
-      setIsCheckingAvailability(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (date) fetchBookedSlots(date)
-  }, [date, fetchBookedSlots])
-
-  useEffect(() => {
-    const minDur = getMinDuration()
-    if (duration < minDur) setDuration(minDur)
-  }, [sessionType, getMinDuration, duration])
-
-  const isSlotBooked = useCallback((slot: string) => {
-    if (bookedSlots.includes(slot)) return true
-    if (date && isToday(date)) {
-      const now = new Date()
-      const [hours, minutes] = slot.split(':').map(Number)
-      const slotDate = new Date(date)
-      slotDate.setHours(hours, minutes, 0, 0)
-      if (slotDate <= now) return true
-    }
-    return false
-  }, [bookedSlots, date])
-
+  // --- HANDLERS ---
   const handleSessionSelect = (type: "4ball" | "3ball" | "quick") => {
     setSessionType(type)
     if (type === "4ball") {
@@ -188,13 +69,81 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
     }
   }
 
-  const getNextWeekend = () => {
-    const today = startOfToday()
-    const dayOfWeek = today.getDay()
-    const daysUntilSaturday = dayOfWeek === 6 ? 0 : 6 - dayOfWeek
-    return addDays(today, daysUntilSaturday)
+  // --- PRICING ENGINE ---
+  useEffect(() => {
+    const fetchPrice = async () => {
+      if (!sessionType) return
+      setIsCalculatingPrice(true)
+      
+      try {
+        const res = await fetch("/api/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ players, duration, sessionType })
+        })
+        const data = await res.json()
+        
+        let total = Number(data.price) || 0
+        if (golfClubRental) total += 100
+        if (coachingSession) total += 250
+        
+        setServerPrice(total)
+      } catch (err) {
+        console.error("Pricing Error", err)
+      } finally {
+        setIsCalculatingPrice(false)
+      }
+    }
+    const timeout = setTimeout(fetchPrice, 300)
+    return () => clearTimeout(timeout)
+  }, [sessionType, players, duration, golfClubRental, coachingSession])
+
+
+  // --- AVAILABILITY ---
+  const generateTimeSlots = useCallback((selectedDate: Date): string[] => {
+    const dayOfWeek = getDay(selectedDate)
+    const hours = OPERATING_HOURS[dayOfWeek]
+    const slots: string[] = []
+    for (let hour = hours.open; hour < hours.close; hour++) {
+      slots.push(`${hour.toString().padStart(2, "0")}:00`)
+      if (hour + 0.5 < hours.close) slots.push(`${hour.toString().padStart(2, "0")}:30`)
+    }
+    return slots
+  }, [])
+
+  const availableSlots = date ? generateTimeSlots(date) : []
+
+  useEffect(() => {
+    if (!date) return
+    const fetchAvailability = async () => {
+      setIsCheckingAvailability(true)
+      try {
+        const dateStr = format(date, "yyyy-MM-dd")
+        const response = await fetch(`/api/bookings/availability?date=${dateStr}`)
+        const data = await response.json()
+        setBookedSlots(data.bookedSlots || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setIsCheckingAvailability(false)
+      }
+    }
+    fetchAvailability()
+  }, [date])
+
+  const isSlotBooked = (slot: string) => {
+    if (bookedSlots.includes(slot)) return true
+    if (date && isToday(date)) {
+      const now = new Date()
+      const [hours, minutes] = slot.split(':').map(Number)
+      const slotDate = new Date(date)
+      slotDate.setHours(hours, minutes, 0, 0)
+      if (slotDate <= now) return true
+    }
+    return false
   }
 
+  // --- NAVIGATION ---
   const canProceed = () => {
     switch (step) {
       case 1: return sessionType !== ""
@@ -204,9 +153,7 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
   }
 
   const handleNext = () => {
-    if (canProceed() && step < 2) {
-      setStep(step + 1)
-    } else if (step === 2 && canProceed()) {
+    if (step === 2 && canProceed()) {
       const params = new URLSearchParams({
         sessionType,
         players: players.toString(),
@@ -215,345 +162,338 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
         duration: duration.toString(),
         golfClubRental: golfClubRental.toString(),
         coachingSession: coachingSession.toString(),
+        totalPrice: serverPrice.toString()
       })
       window.location.href = `/booking/confirm?${params.toString()}`
+    } else if (step < 2) {
+      setStep(step + 1)
     }
   }
 
-  const handleBack = () => {
-    if (step > 1) setStep(step - 1)
-  }
-
   const durationOptions = [1, 1.5, 2, 2.5, 3, 3.5, 4]
-  const minDuration = getMinDuration()
 
   return (
-    <div className="w-full max-w-lg mx-auto pb-32" ref={topRef}>
-      <div className="text-center mb-6 pt-4">
-        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
-          <Sparkles className="w-4 h-4" />
-          Premium Experience
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Book Your Session</h1>
-        <p className="text-muted-foreground mt-1">
-          {step === 1 ? "Choose your experience" : "Select date & time"}
-        </p>
+    <div className="min-h-screen bg-muted/10 pb-32" ref={topRef}>
+      {/* Progress Bar */}
+      <div className="w-full h-2 bg-muted sticky top-0 z-50">
+        <div 
+          className="h-full bg-primary transition-all duration-500 ease-out" 
+          style={{ width: `${(step / 2) * 100}%` }} 
+        />
       </div>
 
-      <div className="flex items-center justify-center gap-2 mb-8">
-        {[1, 2].map((s) => (
-          <div key={s} className="flex items-center">
-            <div
+      <div className="w-full max-w-2xl mx-auto px-4 py-8">
+        
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 bg-secondary/10 text-secondary px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider mb-4 border border-secondary/20">
+            <Sparkles className="w-4 h-4" />
+            Premium Experience
+          </div>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground">
+            {step === 1 ? "Choose Your Game" : "Select Date & Time"}
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            {step === 1 ? "Experience world-class courses or practice your swing" : "Real-time availability"}
+          </p>
+        </div>
+
+        {/* STEP 1: SESSION TYPE */}
+        {step === 1 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* 4-BALL SPECIAL (HERO CARD) */}
+            <div 
+              onClick={() => handleSessionSelect("4ball")}
               className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all",
-                s < step
-                  ? "bg-primary text-primary-foreground"
-                  : s === step
-                    ? "bg-primary text-primary-foreground shadow-lg scale-110" // Visual Pop for active step
-                    : "bg-muted text-muted-foreground",
+                "group relative cursor-pointer overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:shadow-xl",
+                sessionType === "4ball" 
+                  ? "border-secondary bg-secondary/5 ring-1 ring-secondary" 
+                  : "border-border bg-card hover:border-secondary/50"
               )}
             >
-              {s < step ? <Check className="w-5 h-5" /> : s}
-            </div>
-            {s < 2 && <div className={cn("w-16 h-0.5 mx-2", s < step ? "bg-primary" : "bg-muted")} />}
-          </div>
-        ))}
-      </div>
-
-      {/* Step 1: Session Selection */}
-      {step === 1 && (
-        <div className="space-y-6 px-4">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Trophy className="w-5 h-5 text-amber-600" />
-              <h2 className="font-semibold text-foreground">Famous Courses</h2>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => handleSessionSelect("4ball")}
-                className={cn(
-                  "w-full p-4 rounded-xl border-2 text-left transition-all active:scale-[0.98]",
-                  "flex items-start gap-4",
-                  sessionType === "4ball" ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary" : "border-border hover:border-primary/50",
-                )}
-              >
-                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <Trophy className="w-6 h-6 text-amber-600" />
+              {sessionType === "4ball" && (
+                <div className="absolute top-0 right-0 bg-secondary text-white text-xs font-bold px-3 py-1 rounded-bl-xl">
+                  SELECTED
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground">4-Ball Special</span>
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Best Value</span>
+              )}
+              <div className="p-6 md:p-8 flex items-start gap-6">
+                <div className={cn(
+                  "p-4 rounded-2xl flex items-center justify-center transition-colors",
+                  sessionType === "4ball" ? "bg-secondary text-white" : "bg-secondary/10 text-secondary"
+                )}>
+                  <Trophy className="w-8 h-8" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xl font-bold">4-Ball Special</h3>
+                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">
+                      Best Value
+                    </span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">Play world-famous courses with 4 players</p>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-foreground">R150</span>
-                    <span className="text-muted-foreground text-sm"> /person/hour</span>
+                  <p className="text-muted-foreground mb-4">
+                    Play famous 18-hole courses like Augusta National. Perfect for groups.
+                  </p>
+                  <div className="flex flex-wrap gap-4 text-sm font-medium">
+                    <div className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md">
+                      <Users className="w-4 h-4 text-muted-foreground" /> 4 Players
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md">
+                      <Clock className="w-4 h-4 text-muted-foreground" /> 3 Hours
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md">
+                      <div className="font-bold text-primary">R150</div> <span className="text-xs text-muted-foreground">pp/hr</span>
+                    </div>
                   </div>
                 </div>
-              </button>
+              </div>
+            </div>
 
-              <button
+            {/* GRID FOR OTHER OPTIONS */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* 3-BALL */}
+              <div 
                 onClick={() => handleSessionSelect("3ball")}
                 className={cn(
-                  "w-full p-4 rounded-xl border-2 text-left transition-all active:scale-[0.98]",
-                  "flex items-start gap-4",
-                  sessionType === "3ball" ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary" : "border-border hover:border-primary/50",
+                  "cursor-pointer rounded-2xl border-2 p-6 transition-all duration-300 hover:shadow-lg",
+                  sessionType === "3ball" 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border bg-card hover:border-primary/50"
                 )}
               >
-                <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <Trophy className="w-6 h-6 text-teal-600" />
+                <div className="flex justify-between items-start mb-4">
+                   <div className={cn(
+                    "p-3 rounded-xl",
+                    sessionType === "3ball" ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                   )}>
+                     <Users className="w-6 h-6" />
+                   </div>
+                   {sessionType === "3ball" && <CheckCircle2 className="w-5 h-5 text-primary" />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-foreground">3-Ball Special</span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-foreground">R160</span>
-                    <span className="text-muted-foreground text-sm"> /person/hour</span>
-                  </div>
+                <h3 className="text-lg font-bold mb-2">3-Ball Special</h3>
+                <div className="space-y-1 text-sm text-muted-foreground mb-4">
+                   <p>• 18 Holes / Famous Courses</p>
+                   <p>• R160 per person / hour</p>
                 </div>
-              </button>
-            </div>
-          </div>
+              </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold text-foreground">Quick Play</h2>
-            </div>
-            <button
-              onClick={() => handleSessionSelect("quick")}
-              className={cn(
-                "w-full p-4 rounded-xl border-2 text-left transition-all active:scale-[0.98]",
-                "flex items-start gap-4",
-                sessionType === "quick" ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary" : "border-border hover:border-primary/50",
-              )}
-            >
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Zap className="w-6 h-6 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-foreground">Quick Play Session</span>
-                <div className="mt-2">
-                  <span className="text-lg font-bold text-foreground">From R150</span>
-                  <span className="text-muted-foreground text-sm"> /person/hour</span>
+              {/* QUICK PLAY */}
+              <div 
+                onClick={() => handleSessionSelect("quick")}
+                className={cn(
+                  "cursor-pointer rounded-2xl border-2 p-6 transition-all duration-300 hover:shadow-lg",
+                  sessionType === "quick" 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border bg-card hover:border-primary/50"
+                )}
+              >
+                <div className="flex justify-between items-start mb-4">
+                   <div className={cn(
+                    "p-3 rounded-xl",
+                    sessionType === "quick" ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                   )}>
+                     <Target className="w-6 h-6" />
+                   </div>
+                   {sessionType === "quick" && <CheckCircle2 className="w-5 h-5 text-primary" />}
                 </div>
-              </div>
-            </button>
-          </div>
-
-          {sessionType === "quick" && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">Number of Players</h2>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-4">
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setPlayers(num)}
-                      className={cn(
-                        "py-4 rounded-xl font-semibold transition-all flex flex-col items-center",
-                        players === num
-                          ? "bg-primary text-primary-foreground shadow-md scale-105"
-                          : "bg-muted/50 hover:bg-muted text-foreground",
-                      )}
-                    >
-                      <span className="text-xl">{num}</span>
-                    </button>
-                  ))}
+                <h3 className="text-lg font-bold mb-2">Quick Play</h3>
+                 <div className="space-y-1 text-sm text-muted-foreground mb-4">
+                   <p>• Driving Range or Course</p>
+                   <p>• Flexible time & players</p>
                 </div>
               </div>
             </div>
-          )}
 
-          {sessionType && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">Session Duration</h2>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-4">
-                <div className="flex flex-wrap gap-2">
-                  {durationOptions
-                    .filter((d) => d >= minDuration)
-                    .map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setDuration(d)}
-                        className={cn(
-                          "px-4 py-2.5 rounded-xl font-medium transition-all",
-                          duration === d
-                            ? "bg-primary text-primary-foreground shadow-md scale-105"
-                            : "bg-muted/50 hover:bg-muted text-foreground",
-                        )}
-                      >
-                        {d}h
-                      </button>
-                    ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Step 2: Date & Time Selection */}
-      {step === 2 && (
-        <div className="space-y-4 px-4">
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground pb-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-3">
-                <CalendarIcon className="w-5 h-5" />
-                Select Your Date
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="p-4 border-b border-border/50 bg-muted/30">
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {[
-                    { label: "Today", date: startOfToday(), check: isToday },
-                    { label: "Tomorrow", date: addDays(startOfToday(), 1), check: isTomorrow },
-                    {
-                      label: "This Weekend",
-                      date: getNextWeekend(),
-                      check: (d: Date) => isWeekend(d) && d <= addDays(startOfToday(), 7),
-                    },
-                  ].map((option) => (
-                    <button
-                      key={option.label}
-                      onClick={() => setDate(option.date)}
-                      className={cn(
-                        "flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-medium transition-all",
-                        "border-2 active:scale-95",
-                        date && option.check(date)
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                          : "bg-card border-border hover:border-primary/50",
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                  className="w-full"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Time Slots - Hidden until date selected */}
-          {date && (
-            <div ref={timeSlotsRef} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <Card className="border-0 shadow-lg ring-1 ring-primary/10">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-muted-foreground" />
-                    Available Times
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">{format(date, "EEEE, MMMM d")}</p>
-                </CardHeader>
-                <CardContent>
-                  {isCheckingAvailability ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                      <span className="ml-3 text-muted-foreground">Checking...</span>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {availableSlots.map((slot) => {
-                        const booked = isSlotBooked(slot)
-                        return (
+            {/* EXPANDABLE QUICK PLAY CONFIG */}
+            {sessionType === "quick" && (
+              <Card className="animate-in slide-in-from-top-2 border-dashed border-2 bg-muted/30">
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-muted-foreground mb-3 block">Number of Players</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3, 4].map(n => (
                           <button
-                            key={slot}
-                            onClick={() => !booked && setTimeSlot(slot)}
-                            disabled={booked}
+                            key={n}
+                            onClick={() => setPlayers(n)}
                             className={cn(
-                              "py-3 px-2 rounded-xl text-sm font-medium transition-all active:scale-95",
-                              booked
-                                ? "bg-muted/50 text-muted-foreground cursor-not-allowed line-through opacity-50"
-                                : timeSlot === slot
-                                  ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2"
-                                  : "bg-card border border-border hover:border-primary/50 hover:shadow-sm",
+                              "py-2.5 rounded-lg text-sm font-bold transition-all",
+                              players === n 
+                                ? "bg-primary text-white shadow-lg shadow-primary/30" 
+                                : "bg-white border hover:border-primary/50"
                             )}
                           >
-                            {slot}
+                            {n}
                           </button>
-                        )
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  )}
+                    <div>
+                      <label className="text-xs font-bold uppercase text-muted-foreground mb-3 block">Duration (Hours)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {durationOptions.slice(0, 4).map(d => (
+                          <button
+                            key={d}
+                            onClick={() => setDuration(d)}
+                            className={cn(
+                              "py-2.5 rounded-lg text-sm font-bold transition-all",
+                              duration === d
+                                ? "bg-primary text-white shadow-lg shadow-primary/30" 
+                                : "bg-white border hover:border-primary/50"
+                            )}
+                          >
+                            {d}h
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Add-ons - Always visible in step 2 */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Optional Add-ons</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <button
-                onClick={() => setGolfClubRental(!golfClubRental)}
-                className={cn(
-                  "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all",
-                  golfClubRental ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50",
-                )}
-              >
-                <span className="font-medium">Golf Club Rental</span>
-                <span className="text-primary font-bold">+R100</span>
-              </button>
-              {/* Add other add-ons here... */}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        {/* STEP 2: DATE & TIME */}
+        {step === 2 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+             <div className="grid md:grid-cols-2 gap-6">
+               <Card className="border-0 shadow-lg overflow-hidden h-fit">
+                 <div className="bg-primary px-6 py-4 flex items-center justify-between">
+                   <h3 className="text-white font-bold flex items-center gap-2">
+                     <CalendarIcon className="w-5 h-5" /> Select Date
+                   </h3>
+                 </div>
+                 <div className="p-4 flex justify-center bg-white">
+                   <Calendar
+                     mode="single"
+                     selected={date}
+                     onSelect={setDate}
+                     disabled={(d) => d < startOfToday()}
+                     className="rounded-md"
+                   />
+                 </div>
+               </Card>
 
-      {/* Footer */}
-      <div ref={footerRef} className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-primary via-primary to-primary/95 text-primary-foreground p-4 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 backdrop-blur-sm">
-        <div className="max-w-lg mx-auto">
-          {sessionType && (
-            <div className="flex items-center justify-between mb-3 animate-in slide-in-from-bottom-2">
-              <div>
-                <p className="text-xs opacity-80 font-medium tracking-wide uppercase">Estimated Total</p>
-                <p className="text-2xl font-bold tracking-tight">R{calculatePrice().toLocaleString()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs opacity-80">Per Person</p>
-                <p className="text-lg font-semibold">R{getPricePerPersonPerHour()}/hr</p>
-              </div>
-            </div>
-          )}
+               <div className="space-y-4">
+                 <Card className="border-0 shadow-lg h-full">
+                    <div className="bg-muted px-6 py-4 border-b">
+                      <h3 className="font-bold text-foreground flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-primary" /> 
+                        {date ? format(date, "EEEE, MMM do") : "Choose a Date"}
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      {!date ? (
+                        <div className="h-40 flex items-center justify-center text-muted-foreground text-sm italic">
+                          Please select a date from the calendar
+                        </div>
+                      ) : (
+                        <div ref={timeSlotsRef} className="animate-in fade-in">
+                           {isCheckingAvailability ? (
+                             <div className="h-40 flex items-center justify-center">
+                               <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                             </div>
+                           ) : (
+                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                               {availableSlots.map(slot => {
+                                 const booked = isSlotBooked(slot)
+                                 return (
+                                   <button
+                                     key={slot}
+                                     disabled={booked}
+                                     onClick={() => setTimeSlot(slot)}
+                                     className={cn(
+                                       "py-2.5 rounded-lg text-sm font-medium transition-all border",
+                                       booked 
+                                          ? "bg-muted/50 text-muted-foreground line-through decoration-destructive/50 opacity-60 cursor-not-allowed border-transparent" 
+                                          : timeSlot === slot 
+                                            ? "bg-primary text-white border-primary shadow-md ring-2 ring-primary/20" 
+                                            : "bg-white hover:border-primary hover:text-primary"
+                                     )}
+                                   >
+                                     {slot}
+                                   </button>
+                                 )
+                               })}
+                             </div>
+                           )}
+                        </div>
+                      )}
+                    </div>
+                 </Card>
+               </div>
+             </div>
 
+             {/* Extras */}
+             <div className="bg-white p-6 rounded-2xl border shadow-sm">
+                <h3 className="font-bold text-lg mb-4">Enhance Your Session</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div 
+                    onClick={() => setGolfClubRental(!golfClubRental)}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all hover:bg-muted/30",
+                      golfClubRental ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                       <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center", golfClubRental ? "bg-primary border-primary" : "border-muted-foreground")}>
+                          {golfClubRental && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                       </div>
+                       <span className="font-medium">Rent Full Club Set</span>
+                    </div>
+                    <span className="font-bold text-primary">+R100</span>
+                  </div>
+
+                  <div 
+                    onClick={() => setCoachingSession(!coachingSession)}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all hover:bg-muted/30",
+                      coachingSession ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                       <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center", coachingSession ? "bg-primary border-primary" : "border-muted-foreground")}>
+                          {coachingSession && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                       </div>
+                       <span className="font-medium">Pro Coaching (30m)</span>
+                    </div>
+                    <span className="font-bold text-primary">+R250</span>
+                  </div>
+                </div>
+             </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* STICKY FOOTER */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-40 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)]">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-6">
+          <div className="flex flex-col">
+             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Estimate</span>
+             <div className="flex items-end gap-1">
+               {isCalculatingPrice ? (
+                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
+               ) : (
+                 <span className="text-3xl font-serif font-bold text-primary">R{serverPrice}</span>
+               )}
+             </div>
+          </div>
+          
           <div className="flex gap-3">
             {step > 1 && (
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                className="flex-1 h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+              <Button variant="outline" size="lg" onClick={() => setStep(step - 1)} className="px-6 rounded-xl border-2">
+                <ArrowLeft className="w-5 h-5" />
               </Button>
             )}
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className={cn(
-                "flex-1 h-12 bg-white text-primary hover:bg-white/90 font-bold text-base transition-all",
-                canProceed() && "shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-pulse" // Subtle pulse when ready
-              )}
+            <Button 
+              size="lg"
+              onClick={handleNext} 
+              disabled={!canProceed() || isCalculatingPrice}
+              className="px-10 rounded-xl font-bold text-lg bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
             >
-              {step === 2 ? "Continue to Details" : "Continue"}
-              <ArrowRight className="w-4 h-4 ml-2" />
+              {step === 2 ? "Checkout" : "Next"} <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
         </div>
@@ -561,5 +501,3 @@ export function BookingFlow({ onComplete }: BookingFlowProps) {
     </div>
   )
 }
-
-export default BookingFlow
