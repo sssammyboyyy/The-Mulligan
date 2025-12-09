@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       guest_name,
       guest_email,
       guest_phone,
-      payment_status, 
+      payment_status,
     } = bookingData
 
     // 2. CALCULATE TIMES
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const reqEndMs = new Date(slotEndISO).getTime()
 
     // 3. CHECK AVAILABILITY (MULTI-BAY LOGIC)
-    
+
     // Fetch all active bookings for this day
     const { data: dailyBookings } = await supabase
       .from("bookings")
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Identify which bays are taken
     const takenBays = new Set<number>()
-    
+
     if (dailyBookings) {
       dailyBookings.forEach((b) => {
         // Safe Date Comparison (using .getTime())
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
         // Overlap Logic: (StartA < EndB) and (EndA > StartB)
         const isOverlapping = existStartMs < reqEndMs && existEndMs > reqStartMs
-        
+
         if (isOverlapping) {
           takenBays.add(b.simulator_id)
         }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     // If all are full, return 409
     if (assignedSimulatorId === 0) {
       return NextResponse.json(
-        { error: "All 3 Simulators are busy for this time slot." }, 
+        { error: "All 3 Simulators are busy for this time slot." },
         { status: 409 }
       )
     }
@@ -101,14 +101,15 @@ export async function POST(request: NextRequest) {
         slot_start: slotStartISO,
         slot_end: slotEndISO,
         duration_hours,
-        simulator_id: assignedSimulatorId, 
-        user_type: "walk_in", 
+        simulator_id: assignedSimulatorId,
+        user_type: "walk_in",
         guest_name: guest_name || "Walk-In Guest",
         guest_email,
         guest_phone,
         total_price,
         status: payment_status === "completed" ? "confirmed" : "pending",
         payment_status: payment_status === "completed" ? "paid_instore" : "pending",
+        booking_source: bookingData.booking_source || "walk_in",
         players: bookingData.players || 1,
         session_type: bookingData.session_type || "quick",
         created_at: new Date().toISOString(),
@@ -120,9 +121,9 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       // Return specific error so we know what broke
       console.error("Walk-in Insert Error:", insertError)
-      return NextResponse.json({ 
-        error: "Failed to create booking", 
-        details: insertError.message 
+      return NextResponse.json({
+        error: "Failed to create booking",
+        details: insertError.message
       }, { status: 500 })
     }
 
