@@ -19,12 +19,16 @@ function SuccessContent() {
     hasTriggered.current = true
 
     const finalizeBooking = async () => {
+      console.log(" finalizeBooking start. ID:", bookingId);
       try {
+        console.log(" Fetching /api/trigger-n8n...");
         const res = await fetch("/api/trigger-n8n", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ bookingId }),
         })
+        const data = await res.json();
+        console.log(" Trigger response:", data);
         setStatus("success")
       } catch (e) {
         console.error("Trigger error", e)
