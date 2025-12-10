@@ -128,7 +128,11 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(payload),
     }).catch(err => console.error("n8n Trigger Error:", err))
 
-    return NextResponse.json({ success: true, fixed_race_condition: dbPaid > 0 && booking.amount_paid === 0 })
+    return NextResponse.json({
+      success: true,
+      fixed_race_condition: dbPaid > 0 && booking.amount_paid === 0,
+      debug_target: n8nUrl
+    })
 
   } catch (error: any) {
     console.error("Critical Trigger Error:", error)
