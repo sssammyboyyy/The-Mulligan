@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         status: payment_status === "completed" ? "confirmed" : "pending",
         payment_status: payment_status === "completed" ? "paid_instore" : "pending",
         booking_source: bookingData.booking_source || "walk_in",
-        players: bookingData.players || 1,
+        player_count: bookingData.players || 1,
         session_type: bookingData.session_type || "quick",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       console.error("Walk-in Insert Error:", insertError)
       return NextResponse.json({
         error: "Failed to create booking",
-        details: insertError.message
+        details: insertError
       }, { status: 500 })
     }
 
