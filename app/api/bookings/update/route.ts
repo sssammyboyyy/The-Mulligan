@@ -3,6 +3,26 @@ import { NextResponse } from "next/server"
 
 export const runtime = "edge"
 
+// --- TIMESTAMP HELPERS (same as create route for consistency) ---
+function createSASTTimestamp(dateStr: string, timeStr: string): string {
+    const cleanTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr
+    return `${dateStr}T${cleanTime}+02:00`
+}
+
+function addHoursToTimestamp(timestamp: string, hours: number): string {
+    const date = new Date(timestamp)
+    date.setHours(date.getHours() + hours)
+    return date.toISOString()
+}
+
+function calculateEndTimeText(start: string, duration: number): string {
+    const [hours, minutes] = start.split(":").map(Number)
+    const date = new Date()
+    date.setHours(hours, minutes, 0, 0)
+    date.setHours(date.getHours() + duration)
+    return date.toTimeString().slice(0, 5)
+}
+
 export async function POST(req: Request) {
     try {
         const {
@@ -26,10 +46,52 @@ export async function POST(req: Request) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // 3. Update
+        // 3. Check if we need to recalculate timestamps
+        // This happens when start_time, duration_hours, or booking_date change
+        const needsTimestampRecalc =
+            updates.start_time !== undefined ||
+            updates.duration_hours !== undefined ||
+            updates.booking_date !== undefined
+
+        let finalUpdates = { ...updates }
+
+        if (needsTimestampRecalc) {
+            // Fetch current booking to get any missing values
+            const { data: currentBooking, error: fetchError } = await supabaseAdmin
+                .from("bookings")
+                .select("booking_date, start_time, duration_hours")
+                .eq("id", id)
+                .single()
+
+            if (fetchError || !currentBooking) {
+                console.error("Fetch Error:", fetchError)
+                return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+            }
+
+            // Merge current values with updates (updates take priority)
+            const bookingDate = updates.booking_date ?? currentBooking.booking_date
+            const startTime = updates.start_time ?? currentBooking.start_time
+            const durationHours = updates.duration_hours ?? currentBooking.duration_hours
+
+            // Recalculate timestamps
+            const slotStartISO = createSASTTimestamp(bookingDate, startTime)
+            const slotEndISO = addHoursToTimestamp(slotStartISO, durationHours)
+            const endTimeText = calculateEndTimeText(startTime, durationHours)
+
+            // Add recalculated fields to updates
+            finalUpdates = {
+                ...finalUpdates,
+                slot_start: slotStartISO,
+                slot_end: slotEndISO,
+                end_time: endTimeText,
+                updated_at: new Date().toISOString()
+            }
+        }
+
+        // 4. Apply Update
         const { error } = await supabaseAdmin
             .from("bookings")
-            .update(updates)
+            .update(finalUpdates)
             .eq("id", id)
 
         if (error) {
