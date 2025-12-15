@@ -197,6 +197,15 @@ export async function POST(request: NextRequest) {
 
     if (bookingError) {
       console.error("Booking Insert Error:", bookingError)
+
+      // Handle constraint violations gracefully (race condition protection)
+      if (bookingError.code === '23P01' || bookingError.message?.includes('exclusion constraint')) {
+        return NextResponse.json({
+          error: "Sorry, this time slot just became unavailable. Please select a different time.",
+          code: "SLOT_UNAVAILABLE"
+        }, { status: 409 })
+      }
+
       return NextResponse.json({ error: "Failed to create booking", details: bookingError }, { status: 500 })
     }
 
