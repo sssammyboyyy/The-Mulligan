@@ -57,9 +57,14 @@ export async function POST(request: NextRequest) {
           if (yocoData.status === 'successful') {
             console.log("[Race Condition Resolved] Payment was successful. Updating payload.")
 
-            // 1. Update local variables for the email
-            dbPaid = dbTotal // Assume full payment if successful (or parse yocoData.amount / 100)
-            paymentStatus = "paid_instore" // Or 'completed', keeping your convention
+            // 1. Get actual paid amount from Yoco (amount is in cents)
+            // Try metadata first, then fall back to Yoco's amount field
+            const yocoAmount = yocoData.metadata?.depositPaid
+              ? parseFloat(yocoData.metadata.depositPaid)
+              : (yocoData.amount ? yocoData.amount / 100 : dbTotal)
+
+            dbPaid = yocoAmount
+            paymentStatus = "completed"
 
             // 2. Self-Heal the Database (Don't wait for webhook)
             await supabaseAdmin
