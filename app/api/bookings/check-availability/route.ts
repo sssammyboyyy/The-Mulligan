@@ -4,6 +4,8 @@ import { type NextRequest, NextResponse } from "next/server"
 // 1. Force Edge Runtime
 export const runtime = 'edge';
 
+import { isClosedDay, getOperatingHours } from "@/lib/schedule-config"
+
 // Helper to match the rest of your app's logic
 function createSASTTimestamp(dateStr: string, timeStr: string): string {
   const cleanTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
@@ -23,6 +25,26 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
     const { booking_date, start_time, duration_hours } = await request.json()
+
+    // 0. CHECK SCHEDULE
+    if (isClosedDay(booking_date)) {
+      return NextResponse.json({
+        available: false,
+        reason: "closed",
+        message: "The Mulligan is closed on this date"
+      })
+    }
+
+    const operatingHours = getOperatingHours(new Date(booking_date))
+    if (!operatingHours) {
+      return NextResponse.json({ available: false, message: "Closed on this date" })
+    }
+
+    const startHour = parseInt(start_time.split(':')[0])
+    const endHour = startHour + duration_hours
+    if (startHour < operatingHours.open || endHour > operatingHours.close) {
+      return NextResponse.json({ available: false, message: "Outside operating hours" })
+    }
 
     // 1. Calculate Exact ISO Timestamps (Consistency is key!)
     const requestedStartISO = createSASTTimestamp(booking_date, start_time);

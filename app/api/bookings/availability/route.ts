@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 
 export const runtime = "edge"
 
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get("date")
@@ -27,9 +29,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // 2. Define operating hours
+  // 2. Check if day is closed
+  if (isClosedDay(date)) {
+    // Generate full day slots to force UI to grey them out (defensive)
+    const allSlots: string[] = []
+    for (let h = 6; h <= 22; h++) {
+      allSlots.push(`${h.toString().padStart(2, "0")}:00`)
+      allSlots.push(`${h.toString().padStart(2, "0")}:30`)
+    }
+    return NextResponse.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
+  }
+
+  // 3. Define operating hours dynamically
+  const hours = getOperatingHours(new Date(date))
+  if (!hours) {
+    // Same fallback if getOperatingHours returns null (implicit closed)
+    const allSlots: string[] = []
+    for (let h = 6; h <= 22; h++) {
+      allSlots.push(`${h.toString().padStart(2, "0")}:00`)
+      allSlots.push(`${h.toString().padStart(2, "0")}:30`)
+    }
+    return NextResponse.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
+  }
+
   const slots: string[] = []
-  for (let h = 9; h < 20; h++) {
+  for (let h = hours.open; h < hours.close; h++) {
     slots.push(`${h.toString().padStart(2, "0")}:00`)
     slots.push(`${h.toString().padStart(2, "0")}:30`)
   }
