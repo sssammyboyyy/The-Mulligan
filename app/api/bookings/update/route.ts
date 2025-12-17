@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 export const runtime = "edge"
 
@@ -69,9 +70,36 @@ export async function POST(req: Request) {
             }
 
             // Merge current values with updates (updates take priority)
+            // Merge current values with updates (updates take priority)
             const bookingDate = updates.booking_date ?? currentBooking.booking_date
             const startTime = updates.start_time ?? currentBooking.start_time
             const durationHours = updates.duration_hours ?? currentBooking.duration_hours
+
+            // VALIDATE SCHEDULE
+            if (isClosedDay(bookingDate)) {
+                return NextResponse.json(
+                    { error: "The Mulligan is closed on this date." },
+                    { status: 400 }
+                )
+            }
+
+            const operatingHours = getOperatingHours(new Date(bookingDate))
+            if (!operatingHours) {
+                return NextResponse.json(
+                    { error: "The Mulligan is closed on this date." },
+                    { status: 400 }
+                )
+            }
+
+            const startHour = parseInt(startTime.split(':')[0])
+            const endHour = startHour + durationHours
+
+            if (startHour < operatingHours.open || endHour > operatingHours.close) {
+                return NextResponse.json(
+                    { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
+                    { status: 400 }
+                )
+            }
 
             // Recalculate timestamps
             const slotStartISO = createSASTTimestamp(bookingDate, startTime)

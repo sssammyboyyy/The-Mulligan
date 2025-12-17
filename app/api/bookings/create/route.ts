@@ -24,6 +24,8 @@ function calculateEndTimeText(start: string, duration: number): string {
   return date.toTimeString().slice(0, 5)
 }
 
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient(
@@ -43,6 +45,32 @@ export async function POST(request: NextRequest) {
       guest_phone,
       payment_status,
     } = bookingData
+
+    // 2. VALIDATE SCHEDULE (Closed Days & Trading Hours)
+    if (isClosedDay(booking_date)) {
+      return NextResponse.json(
+        { error: "The Mulligan is closed on this date." },
+        { status: 400 }
+      )
+    }
+
+    const operatingHours = getOperatingHours(new Date(booking_date))
+    if (!operatingHours) {
+      return NextResponse.json(
+        { error: "The Mulligan is closed on this date." },
+        { status: 400 }
+      )
+    }
+
+    const startHour = parseInt(start_time.split(':')[0])
+    const endHour = startHour + duration_hours
+
+    if (startHour < operatingHours.open || endHour > operatingHours.close) {
+      return NextResponse.json(
+        { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
+        { status: 400 }
+      )
+    }
 
     // 2. CALCULATE TIMES
     const slotStartISO = createSASTTimestamp(booking_date, start_time)
