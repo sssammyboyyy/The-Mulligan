@@ -98,12 +98,22 @@ export async function POST(request: NextRequest) {
       guest_phone: booking.guest_phone,
       booking_date: booking.booking_date,
       start_time: booking.start_time,
+      end_time: booking.end_time,
       simulator_id: booking.simulator_id,
+
+      // Session Details (NEW - for store clarity)
+      player_count: booking.player_count || 1,
+      duration_hours: booking.duration_hours || 1,
+      session_type: booking.session_type || "quick",
 
       // Financials (Corrected)
       total_price: dbTotal.toFixed(2),
-      amount_paid: dbPaid.toFixed(2), // Now guaranteed to be correct
+      amount_paid: dbPaid.toFixed(2),
       amount_due: outstanding.toFixed(2),
+
+      // Payment Clarity (NEW - deposit vs full)
+      payment_type: outstanding > 0 ? "deposit" : "full",
+      is_fully_paid: outstanding === 0,
 
       // Legacy Support
       totalPrice: dbTotal.toFixed(2),
