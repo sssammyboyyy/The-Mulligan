@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Store Email Preview - Complete Version</title>
+    <style>
+        body {
+            background: #f5f5f5;
+            padding: 40px;
+        }
+
+        .email-container {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            max-width: 600px;
+            margin: auto;
+            padding: 0;
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1a472a;
+            color: white;
+            padding: 20px 25px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            color: #a3d9a5;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .section {
+            padding: 20px 25px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .data-table {
+            width: 100%;
+        }
+
+        .data-table td {
+            padding: 8px 0;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        .data-table .label {
+            color: #666;
+            width: 35%;
+        }
+
+        .data-table .value {
+            font-weight: 600;
+            color: #222;
+            text-align: right;
+        }
+
+        .highlight-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .payment-grid {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .payment-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .payment-item.total {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+        }
+
+        .payment-item.paid {
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+        }
+
+        .payment-item.due {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+        }
+
+        .payment-item .amount {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        .payment-item.total .amount {
+            color: #1565c0;
+        }
+
+        .payment-item.paid .amount {
+            color: #2e7d32;
+        }
+
+        .payment-item.due .amount {
+            color: #ef6c00;
+        }
+
+        .payment-item .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-paid {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-deposit {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .status-pending {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .bay-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .bay-1 {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .bay-2 {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .bay-3 {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .addon-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .addon-row .name {
+            color: #444;
+        }
+
+        .addon-row .qty {
+            font-weight: 600;
+            color: #222;
+        }
+
+        .btn {
+            display: block;
+            text-align: center;
+            padding: 14px;
+            background: #1a472a;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            margin: 20px 25px;
+        }
+
+        .footer {
+            background: #fafafa;
+            padding: 15px 25px;
+            text-align: center;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-actions a {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: #f5f5f5;
+            color: #333;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🏌️ New Booking Received</h1>
+            <div class="subtitle">Booking ID: abc12345 • Just now</div>
+        </div>
+
+        <!-- GUEST INFO -->
+        <div class="section">
+            <div class="section-title">👤 Guest Information</div>
+            <table class="data-table">
+                <tr>
+                    <td class="label">Name</td>
+                    <td class="value">John Smith</td>
+                </tr>
+                <tr>
+                    <td class="label">Phone</td>
+                    <td class="value">082 555 1234</td>
+                </tr>
+                <tr>
+                    <td class="label">Email</td>
+                    <td class="value">john@example.com</td>
+                </tr>
+                <tr>
+                    <td class="label">Source</td>
+                    <td class="value">Online Booking</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- SESSION DETAILS -->
+        <div class="section">
+            <div class="section-title">📅 Session Details</div>
+            <div class="highlight-box">
+                <table class="data-table">
+                    <tr>
+                        <td class="label">Date</td>
+                        <td class="value">Monday, 30 Dec 2025</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Time</td>
+                        <td class="value">10:00 - 12:00 (2 hours)</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Bay</td>
+                        <td class="value"><span class="bay-badge bay-1">Lounge Bay</span></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Players</td>
+                        <td class="value">4 Players</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Session Type</td>
+                        <td class="value">Quick Play</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- PAYMENT BREAKDOWN -->
+        <div class="section">
+            <div class="section-title">💰 Payment Breakdown</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div class="payment-item total" style="flex:1;">
+                    <div class="label">Total</div>
+                    <div class="amount">R1,250</div>
+                </div>
+                <div class="payment-item paid" style="flex:1;">
+                    <div class="label">Paid</div>
+                    <div class="amount">R500</div>
+                </div>
+                <div class="payment-item due" style="flex:1;">
+                    <div class="label">Balance Due</div>
+                    <div class="amount">R750</div>
+                </div>
+            </div>
+            <table class="data-table">
+                <tr>
+                    <td class="label">Payment Type</td>
+                    <td class="value"><span class="status-badge status-deposit">Deposit</span></td>
+                </tr>
+                <tr>
+                    <td class="label">Payment Status</td>
+                    <td class="value">Completed Online</td>
+                </tr>
+            </table>
+        </div>
+
+
+        <!-- ACTION BUTTON -->
+        <a href="https://themulligan.org/admin" class="btn">Open Dashboard</a>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            The Mulligan Golf Lounge • Vanderbijlpark<br>
+            This is an automated booking notification
+        </div>
+    </div>
+</body>
+
+</html>

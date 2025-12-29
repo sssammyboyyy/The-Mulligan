@@ -9,7 +9,7 @@ import {
   Trash2, CheckCircle, Clock, DollarSign, Users, Calendar as CalendarIcon,
   Search, RefreshCw, LogOut, CreditCard, Target, Trophy, Loader2,
   AlertCircle, XCircle, Edit, ChevronLeft, ChevronRight,
-  Smartphone, Globe, Lock, MapPin
+  Smartphone, Globe, Lock, MapPin, Package
 } from "lucide-react"
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns"
 
@@ -21,6 +21,9 @@ const BAY_NAMES: Record<number, string> = {
 }
 
 const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4]
+
+// Default add-on prices (admin can customize, saved to localStorage)
+const DEFAULT_ADDON_PRICES = { water: 15, gloves: 50, balls: 75 }
 
 // --- PRICING LOGIC ---
 const calculateTotal = (players: number, duration: number) => {
@@ -69,8 +72,37 @@ export default function AdminDashboard() {
   const [walkInPlayers, setWalkInPlayers] = useState(1)
   const [walkInAmountPaid, setWalkInAmountPaid] = useState("")
 
+  // Walk-in Add-ons
+  const [walkInWaterQty, setWalkInWaterQty] = useState(0)
+  const [walkInGlovesQty, setWalkInGlovesQty] = useState(0)
+  const [walkInBallsQty, setWalkInBallsQty] = useState(0)
+
   // Edit Modal
   const [editingBooking, setEditingBooking] = useState<any | null>(null)
+
+  // Add-on Prices (persisted to localStorage)
+  const [addonPrices, setAddonPrices] = useState(DEFAULT_ADDON_PRICES)
+
+  // Load saved add-on prices from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mulligan_addon_prices')
+      if (saved) {
+        try {
+          setAddonPrices({ ...DEFAULT_ADDON_PRICES, ...JSON.parse(saved) })
+        } catch (e) {
+          console.error('Failed to parse saved addon prices')
+        }
+      }
+    }
+  }, [])
+
+  // Helper to save addon prices
+  const saveAddonPrice = (key: 'water' | 'gloves' | 'balls', value: number) => {
+    const newPrices = { ...addonPrices, [key]: value }
+    setAddonPrices(newPrices)
+    localStorage.setItem('mulligan_addon_prices', JSON.stringify(newPrices))
+  }
 
   // --- AUTH ---
   const handleLogin = (e: React.FormEvent) => {
@@ -155,7 +187,9 @@ export default function AdminDashboard() {
           total_price: total,
           amount_paid: paidAmount,
           payment_status: isFullyPaid ? "paid_instore" : "pending",
-          booking_source: "walk_in"
+          booking_source: "walk_in",
+          // Add-ons
+          // Add-ons included in total_price only
         })
       })
 
@@ -167,6 +201,9 @@ export default function AdminDashboard() {
       setWalkInName("")
       setWalkInPhone("")
       setWalkInAmountPaid("")
+      setWalkInWaterQty(0)
+      setWalkInGlovesQty(0)
+      setWalkInBallsQty(0)
       setActiveTab("dashboard")
       fetchBookings()
 
@@ -206,7 +243,9 @@ export default function AdminDashboard() {
             amount_paid: paid,
             payment_status: newPaymentStatus,
             simulator_id: editingBooking.simulator_id,
-            status: "confirmed" // Ensure booking is counted in availability
+            status: "confirmed",
+            // Add-ons
+            // Add-ons included in total_price only
           }
         })
       })
@@ -378,6 +417,97 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* ADD-ONS SECTION */}
+                <div className="bg-zinc-900/50 p-5 rounded-xl border border-zinc-800 space-y-4">
+                  <label className="text-sm font-bold text-white flex items-center gap-2">
+                    <Package className="w-4 h-4 text-blue-500" /> Add-ons (Bookkeeping)
+                  </label>
+
+                  {/* Water */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Water Qty</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_water_qty || 0}
+                        onChange={e => handleEditChange('addon_water_qty', parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_water_price || addonPrices.water}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0
+                          handleEditChange('addon_water_price', val)
+                          if (val > 0) saveAddonPrice('water', val)
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Gloves */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Gloves Qty</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_gloves_qty || 0}
+                        onChange={e => handleEditChange('addon_gloves_qty', parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_gloves_price || addonPrices.gloves}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0
+                          handleEditChange('addon_gloves_price', val)
+                          if (val > 0) saveAddonPrice('gloves', val)
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Balls */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Balls Qty</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_balls_qty || 0}
+                        onChange={e => handleEditChange('addon_balls_qty', parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
+                        value={editingBooking.addon_balls_price || addonPrices.balls}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0
+                          handleEditChange('addon_balls_price', val)
+                          if (val > 0) saveAddonPrice('balls', val)
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-2">
                   <button type="submit" disabled={isActionLoading} className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-zinc-200 transition-colors shadow-lg">
                     {isActionLoading ? "Saving Changes..." : "Save Updates"}
@@ -495,6 +625,60 @@ export default function AdminDashboard() {
                         {h}h
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* ADD-ONS SECTION */}
+                <div className="bg-zinc-900/50 p-5 rounded-xl border border-zinc-800 space-y-3 mt-6">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-blue-400" /> Add-ons (Optional)
+                  </label>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Water */}
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-medium">Water</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
+                          value={walkInWaterQty}
+                          onChange={e => setWalkInWaterQty(parseInt(e.target.value) || 0)}
+                        />
+                        <span className="text-zinc-500 text-xs">× R{addonPrices.water}</span>
+                      </div>
+                    </div>
+
+                    {/* Gloves */}
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-medium">Gloves</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
+                          value={walkInGlovesQty}
+                          onChange={e => setWalkInGlovesQty(parseInt(e.target.value) || 0)}
+                        />
+                        <span className="text-zinc-500 text-xs">× R{addonPrices.gloves}</span>
+                      </div>
+                    </div>
+
+                    {/* Balls */}
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-medium">Balls</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
+                          value={walkInBallsQty}
+                          onChange={e => setWalkInBallsQty(parseInt(e.target.value) || 0)}
+                        />
+                        <span className="text-zinc-500 text-xs">× R{addonPrices.balls}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

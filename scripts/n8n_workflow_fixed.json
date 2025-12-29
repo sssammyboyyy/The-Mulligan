@@ -1,0 +1,234 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={ \"from\": \"The Mulligan <bookings@themulligan.org>\", \"to\": [$('Validate & Prep1').item.json.guest_email], \"subject\": \"✅ Booking Confirmed: \" + $('Validate & Prep1').item.json.booking_date + \" at \" + $('Validate & Prep1').item.json.start_time, \"html\": \"<div style=\\\"font-family:sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.05);\\\"><div style=\\\"background-color:#1a472a;background-image:linear-gradient(135deg,#1a472a 0%,#0d2a19 100%);padding:60px 40px;text-align:center;\\\"><div style=\\\"display:inline-block;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:20px;\\\">SESSION CONFIRMED</div><p style=\\\"color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;margin:0 0 8px;\\\">The Mulligan</p><p style=\\\"color:#fbbf24;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px;margin:0 0 30px;opacity:0.9;\\\">The Simulator Never Judges</p><h1 style=\\\"color:#fff;font-size:32px;font-weight:700;margin:0;line-height:1.2;\\\">You're Teeing Off!</h1><p style=\\\"color:#a3d9a5;font-size:16px;margin:12px 0 0;opacity:0.8;\\\">See you on the green, \" + $('Validate & Prep1').item.json.guest_name + \".</p></div><div style=\\\"padding:40px;\\\"><p style=\\\"font-size:18px;color:#111827;font-weight:600;margin:0 0 16px;\\\">Exciting news, \" + $('Validate & Prep1').item.json.guest_name + \"!</p><p style=\\\"font-size:15px;color:#4b5563;line-height:1.6;margin:0 0 32px;\\\">Your booking at The Mulligan is confirmed. We've reserved the <strong>\" + ({1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'}[$('Validate & Prep1').item.json.simulator_id] || 'Bay ' + $('Validate & Prep1').item.json.simulator_id) + \"</strong> exclusively for your group. Fasten your spikes and get ready for a world-class indoor golf experience.</p><div style=\\\"background-color:#f9fafb;border:1px solid #f3f4f6;border-radius:12px;padding:24px;margin-bottom:32px;\\\"><span style=\\\"font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;display:block;\\\">Booking Specifications</span><table style=\\\"width:100%;border-collapse:collapse;\\\"><tr><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\\\">Date</td><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;\\\">\" + $('Validate & Prep1').item.json.booking_date + \"</td></tr><tr><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\\\">Start Time</td><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;\\\">\" + $('Validate & Prep1').item.json.start_time + \"</td></tr><tr><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\\\">Duration</td><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;\\\">\" + ($('Validate & Prep1').item.json.duration_hours || 1) + \" Hours</td></tr><tr><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\\\">Bay Location</td><td style=\\\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;\\\">\" + ({1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'}[$('Validate & Prep1').item.json.simulator_id] || 'Bay ' + $('Validate & Prep1').item.json.simulator_id) + \"</td></tr><tr><td style=\\\"padding:12px 0;font-size:14px;color:#6b7280;text-align:left;\\\">Players</td><td style=\\\"padding:12px 0;font-size:14px;color:#111827;font-weight:600;text-align:right;\\\">\" + ($('Validate & Prep1').item.json.player_count || 1) + \" Players</td></tr></table></div><div style=\\\"background-color:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;\\\"><span style=\\\"font-size:13px;color:#065f46;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;\\\">SECURED VIA DEPOSIT</span><p style=\\\"font-size:28px;font-weight:700;color:#065f46;margin:0;\\\">R\" + $('Validate & Prep1').item.json.depositPaid + \" Paid</p><div style=\\\"margin-top:16px;padding-top:16px;border-top:1px solid rgba(6,95,70,0.1);display:flex;justify-content:center;align-items:center;gap:8px;\\\"><span style=\\\"font-size:14px;color:#065f46;font-weight:500;\\\">Balance Due at Venue:</span><span style=\\\"font-size:18px;font-weight:700;color:#92400e;\\\">R\" + $('Validate & Prep1').item.json.outstandingBalance + \"</span></div></div><div style=\\\"margin-bottom:32px;\\\"><h3 style=\\\"font-size:16px;font-weight:700;color:#1a472a;margin:0 0 16px;\\\">Session Prep</h3><div style=\\\"margin-bottom:12px;font-size:14px;color:#4b5563;line-height:1.5;\\\"><span style=\\\"color:#059669;font-weight:bold;margin-right:10px;\\\">✓</span><strong>Arrive 10 mins early</strong> — Grab a coffee and settle in before tee-off.</div><div style=\\\"margin-bottom:12px;font-size:14px;color:#4b5563;line-height:1.5;\\\"><span style=\\\"color:#059669;font-weight:bold;margin-right:10px;\\\">✓</span><strong>The Gear</strong> — Club rentals are available at R100/hr, or bring your own free of charge.</div><div style=\\\"margin-bottom:12px;font-size:14px;color:#4b5563;line-height:1.5;\\\"><span style=\\\"color:#059669;font-weight:bold;margin-right:10px;\\\">✓</span><strong>Clean Play</strong> — Ensure your gear is clean; sharpie marks damage our screens.</div></div><div style=\\\"text-align:center;margin-top:40px;\\\"><a href=\\\"https://maps.google.com/?q=38A+Chopin+St+Vanderbijlpark\\\" style=\\\"display:inline-block;background-color:#1a472a;color:#ffffff;padding:18px 36px;border-radius:12px;text-decoration:none;font-weight:700;font-size:16px;box-shadow:0 4px 12px rgba(26,71,42,0.2);\\\">Get Directions</a></div></div><div style=\\\"background-color:#f9fafb;padding:40px;text-align:center;border-top:1px solid #f3f4f6;\\\"><div style=\\\"color:#1a472a;font-size:18px;font-weight:800;margin-bottom:12px;\\\">The Mulligan</div><div style=\\\"font-size:13px;color:#9ca3af;margin-bottom:24px;line-height:1.5;\\\">38A Chopin St, Vanderbijlpark S.W. 5<br>Gauteng, South Africa</div><div style=\\\"font-size:11px;color:#9ca3af;\\\">&copy; 2025 The Mulligan Golf Lounge. All rights reserved.</div></div></div>\" }",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                304,
+                1360
+            ],
+            "id": "fffb3e4e-6d97-423c-8975-5b87ca872c63",
+            "name": "Customer Email",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "manual-confirm",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -560,
+                1360
+            ],
+            "id": "a2f3e764-ccd0-4e80-a50c-22a603f99a67",
+            "name": "Receive Frontend Trigger1",
+            "webhookId": "f714f85f-9584-457b-84f1-a1aa9ac8d671"
+        },
+        {
+            "parameters": {
+                "jsCode": "// CONFIG\nconst EXPECTED_SECRET = 'mulligan-secure-8821'; \nconst input = items[0].json;\n\n// 1. HUNT FOR DATA (The \"Finder\" Logic)\nlet data = {};\n\n// Strategy A: Is it at the root?\nif (input.bookingId) {\n    data = input;\n} \n// Strategy B: Is it inside 'body'?\nelse if (input.body && input.body.bookingId) {\n    data = input.body;\n}\n// Strategy C: Is 'body' a string we need to parse?\nelse if (input.body && typeof input.body === 'string') {\n    try {\n        const parsed = JSON.parse(input.body);\n        if (parsed.bookingId) data = parsed;\n    } catch (e) {}\n}\n\n// 2. VALIDATION (Stop immediately if missing)\nif (!data.bookingId) {\n    // This logs EXACTLY what keys we found, so we can debug if it fails again\n    const foundKeys = Object.keys(input).join(\", \");\n    throw new Error(`CRITICAL: Could not find 'bookingId'. Available keys: [${foundKeys}]`);\n}\n\n// 3. SECURITY CHECK\nconst receivedSecret = data.secret || (input.headers ? input.headers['x-secret'] : '');\nif (receivedSecret !== EXPECTED_SECRET) {\n     throw new Error(`UNAUTHORIZED: Invalid Secret. Got: ${receivedSecret}`);\n}\n\n// 4. RETURN CLEAN DATA\nreturn {\n  json: {\n    valid: true,\n    bookingId: data.bookingId,\n    yocoId: data.yocoId,\n    paymentStatus: data.paymentStatus || 'paid',\n    guest_name: data.guest_name,\n    guest_email: data.guest_email,\n    guest_phone: data.guest_phone,\n    booking_date: data.booking_date,\n    start_time: data.start_time,\n    simulator_id: data.simulator_id,\n    player_count: data.player_count,\n    duration_hours: data.duration_hours,\n    depositPaid: data.depositPaid,\n    outstandingBalance: data.outstandingBalance,\n    totalPrice: data.totalPrice\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -336,
+                1360
+            ],
+            "id": "d6dc1a65-bd6e-4593-8c9c-454b607040ce",
+            "name": "Validate & Prep1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.valid }}",
+                            "value2": true
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                -128,
+                1360
+            ],
+            "id": "1225838f-6027-4c1b-87c9-dab856939856",
+            "name": "Is Authorized?1"
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "bookings",
+                "matchType": "allFilters",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $json.bookingId }}"
+                        }
+                    ]
+                },
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "status",
+                            "fieldValue": "confirmed"
+                        },
+                        {
+                            "fieldId": "payment_status",
+                            "fieldValue": "={{ $json.paymentStatus }}"
+                        },
+                        {
+                            "fieldId": "yoco_payment_id",
+                            "fieldValue": "={{ $json.yocoId }}"
+                        },
+                        {
+                            "fieldId": "confirmed_at",
+                            "fieldValue": "={{ new Date().toISOString() }}"
+                        },
+                        {
+                            "fieldId": "updated_at",
+                            "fieldValue": "={{ new Date().toISOString() }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                96,
+                1360
+            ],
+            "id": "d2d98eb5-7ba6-49ad-a3f7-2c03510affd0",
+            "name": "Update Booking1",
+            "alwaysOutputData": true,
+            "credentials": {
+                "supabaseApi": {
+                    "id": "GeCSBGdV5ds3IcZc",
+                    "name": "Supabase Admin"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={ \"from\": \"The Mulligan <bookings@themulligan.org>\", \"to\": [\"themulligan.store@gmail.com\"], \"subject\": \"⛳ NEW BOOKING: \" + ($('Validate & Prep1').item.json.guest_name || 'New Guest') + \" - \" + ({1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'}[$('Validate & Prep1').item.json.simulator_id] || 'Bay'), \"html\": \"<div style=\\\"font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;line-height:1.5;\\\"><div style=\\\"background-color:#1a472a;padding:30px;text-align:center;border-radius:12px 12px 0 0;\\\"><h1 style=\\\"color:#ffffff;margin:0;font-size:24px;letter-spacing:1px;\\\">BOOKING ALERT</h1><p style=\\\"color:#a3d9a5;margin:5px 0 0 0;font-size:12px;text-transform:uppercase;\\\">Store Operations Notification</p></div><div style=\\\"padding:30px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;background-color:#ffffff;\\\"><div style=\\\"margin-bottom:25px;\\\"><h2 style=\\\"font-size:14px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;border-bottom:1px solid #f3f4f6;padding-bottom:5px;\\\">👤 Guest Details</h2><table style=\\\"width:100%;border-collapse:collapse;\\\"><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Name</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.guest_name || 'N/A') + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Phone</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.guest_phone || 'N/A') + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Email</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.guest_email || 'N/A') + \"</td></tr></table></div><div style=\\\"background-color:#f9fafb;border-radius:8px;padding:20px;margin-bottom:25px;\\\"><h2 style=\\\"font-size:14px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;border-bottom:1px solid #e5e7eb;padding-bottom:5px;\\\">🕒 Session Info</h2><table style=\\\"width:100%;border-collapse:collapse;\\\"><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Date</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.booking_date || 'N/A') + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Time</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.start_time || 'N/A') + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Duration</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.duration_hours || 0) + \" Hours</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Bay</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#1a472a;\\\">\" + ({1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'}[$('Validate & Prep1').item.json.simulator_id] || 'N/A') + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Players</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">\" + ($('Validate & Prep1').item.json.player_count || 0) + \" Players</td></tr></table></div><div style=\\\"border:2px solid #e5e7eb;border-radius:8px;padding:20px;\\\"><h2 style=\\\"font-size:14px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;\\\">💰 Financial Summary</h2><table style=\\\"width:100%;border-collapse:collapse;\\\"><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Total Amount</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#111827;\\\">R\" + ($('Validate & Prep1').item.json.totalPrice || 0) + \"</td></tr><tr><td style=\\\"padding:8px 0;color:#6b7280;\\\">Paid Online</td><td style=\\\"padding:8px 0;text-align:right;font-weight:700;color:#15803d;\\\">R\" + ($('Validate & Prep1').item.json.depositPaid || 0) + \"</td></tr><tr style=\\\"font-size:18px;\\\"><td style=\\\"padding:15px 0 0 0;border-top:2px solid #e5e7eb;font-weight:800;color:#111827;\\\">BALANCE DUE</td><td style=\\\"padding:15px 0 0 0;border-top:2px solid #e5e7eb;text-align:right;font-weight:800;color:#b45309;\\\">R\" + ($('Validate & Prep1').item.json.outstandingBalance || 0) + \"</td></tr></table></div><div style=\\\"margin-top:30px;text-align:center;\\\"><a href=\\\"https://themulligan.org/admin\\\" style=\\\"display:inline-block;background-color:#1a472a;color:#ffffff;padding:15px 30px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 6px rgba(0,0,0,0.1);\\\">OPEN ADMIN DASHBOARD</a></div><p style=\\\"margin-top:25px;font-size:12px;color:#9ca3af;text-align:center;\\\">This is an automated operational notification.<br>The Mulligan Golf Lounge</p></div></div>\" }",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                528,
+                1360
+            ],
+            "id": "0b384b76-d7d4-4757-a0da-d365e4e433b6",
+            "name": "Notify Store1"
+        }
+    ],
+    "connections": {
+        "Customer Email": {
+            "main": [
+                [
+                    {
+                        "node": "Notify Store1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Receive Frontend Trigger1": {
+            "main": [
+                [
+                    {
+                        "node": "Validate & Prep1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate & Prep1": {
+            "main": [
+                [
+                    {
+                        "node": "Is Authorized?1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Authorized?1": {
+            "main": [
+                [
+                    {
+                        "node": "Update Booking1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Booking1": {
+            "main": [
+                [
+                    {
+                        "node": "Customer Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "f1ed9e4669e54648854088f468fe6047c6adac42b3948f2218583bfcf0c4de88"
+    }
+}

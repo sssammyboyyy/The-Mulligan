@@ -3,6 +3,18 @@ import { createClient } from "@supabase/supabase-js"
 
 export const runtime = "edge"
 
+// Bay name mapping for human-readable emails
+const BAY_NAMES: Record<number, string> = {
+  1: "Lounge Bay",
+  2: "Middle Bay",
+  3: "Window Bay"
+}
+
+function getBayName(simulatorId: number | null): string {
+  if (!simulatorId) return "Unassigned"
+  return BAY_NAMES[simulatorId] || `Bay ${simulatorId}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -86,36 +98,55 @@ export async function POST(request: NextRequest) {
 
     const outstanding = dbTotal - dbPaid
 
-    // 4. Prepare Payload for n8n
+    // 4. Prepare Payload for n8n (ENHANCED for store clarity)
     const payload = {
       secret: "mulligan-secure-8821",
       bookingId: booking.id,
       yocoId: booking.yoco_payment_id || "manual",
       paymentStatus: paymentStatus,
 
+      // Guest Info
       guest_name: booking.guest_name,
       guest_email: booking.guest_email,
       guest_phone: booking.guest_phone,
+
+      // Booking Details
       booking_date: booking.booking_date,
       start_time: booking.start_time,
       end_time: booking.end_time,
       simulator_id: booking.simulator_id,
 
-      // Session Details (NEW - for store clarity)
+      // Human-readable fields for store emails
+      bay_name: getBayName(booking.simulator_id),
+      time_slot: `${(booking.start_time || "").slice(0, 5)} - ${(booking.end_time || "").slice(0, 5)}`,
+
+      // Session Details
       player_count: booking.player_count || 1,
       duration_hours: booking.duration_hours || 1,
       session_type: booking.session_type || "quick",
+      session_type_label: booking.session_type === "famous-course" ? "Famous Course" : "Quick Play",
 
-      // Financials (Corrected)
+      // Financials (Clear breakdown)
       total_price: dbTotal.toFixed(2),
       amount_paid: dbPaid.toFixed(2),
       amount_due: outstanding.toFixed(2),
 
-      // Payment Clarity (NEW - deposit vs full)
+      // Payment Clarity
       payment_type: outstanding > 0 ? "deposit" : "full",
       is_fully_paid: outstanding === 0,
+      payment_summary: outstanding > 0
+        ? `Deposit: R${dbPaid.toFixed(2)} | Balance Due: R${outstanding.toFixed(2)}`
+        : `Paid in Full: R${dbTotal.toFixed(2)}`,
 
-      // Legacy Support
+      // Add-ons (for bookkeeping)
+      addon_water_qty: booking.addon_water_qty || 0,
+      addon_water_price: booking.addon_water_price || 0,
+      addon_gloves_qty: booking.addon_gloves_qty || 0,
+      addon_gloves_price: booking.addon_gloves_price || 0,
+      addon_balls_qty: booking.addon_balls_qty || 0,
+      addon_balls_price: booking.addon_balls_price || 0,
+
+      // Legacy Support (for backward compatibility)
       totalPrice: dbTotal.toFixed(2),
       depositPaid: dbPaid.toFixed(2),
       outstandingBalance: outstanding.toFixed(2)

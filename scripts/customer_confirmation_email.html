@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Customer Confirmation Email - Premium</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #f3f4f6;
+            padding: 40px;
+            margin: 0;
+        }
+
+        .wrapper {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Hero Section - Premium Styling */
+        .hero-container {
+            background-color: #1a472a;
+            background-image: linear-gradient(135deg, #1a472a 0%, #0d2a19 100%);
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-text {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin: 0;
+            margin-bottom: 8px;
+        }
+
+        .tagline {
+            color: #fbbf24;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .hero-title {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            color: #a3d9a5;
+            font-size: 16px;
+            margin: 12px 0 0 0;
+            opacity: 0.8;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            backdrop-filter: blur(4px);
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: #111827;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        .intro-text {
+            font-size: 15px;
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0 0 32px 0;
+        }
+
+        /* Booking Card */
+        .booking-card {
+            background-color: #f9fafb;
+            border: 1px solid #f3f4f6;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .card-header {
+            font-size: 12px;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .detail-table td {
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .detail-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 14px;
+            color: #6b7280;
+            text-align: left;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            color: #111827;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        /* Payment Summary */
+        .payment-box {
+            background-color: #ecfdf5;
+            border: 1px solid #d1fae5;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .paid-amount {
+            font-size: 28px;
+            font-weight: 700;
+            color: #065f46;
+            margin: 0;
+        }
+
+        .payment-label {
+            font-size: 13px;
+            color: #065f46;
+            opacity: 0.7;
+            margin-bottom: 12px;
+            display: block;
+            font-weight: 500;
+        }
+
+        .balance-row {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(6, 95, 70, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .balance-text {
+            font-size: 14px;
+            color: #065f46;
+            font-weight: 500;
+        }
+
+        .balance-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #92400e;
+        }
+
+        /* House Rules & Location */
+        .guide-section {
+            margin-bottom: 32px;
+        }
+
+        .guide-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a472a;
+            margin: 0 0 16px 0;
+        }
+
+        .guide-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .guide-item {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.5;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .bullet {
+            color: #059669;
+            font-weight: bold;
+        }
+
+        /* Buttons */
+        .cta-container {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .btn-primary {
+            display: inline-block;
+            background-color: #1a472a;
+            color: #ffffff;
+            padding: 18px 36px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(26, 71, 42, 0.2);
+        }
+
+        .footer {
+            background-color: #f9fafb;
+            padding: 40px;
+            text-align: center;
+            border-top: 1px solid #f3f4f6;
+        }
+
+        .footer-logo {
+            color: #1a472a;
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .address {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .social-links {
+            margin-bottom: 24px;
+        }
+
+        .social-link {
+            color: #6b7280;
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .copyright {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+
+        <!-- PREMUM HERO -->
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="status-badge">SESSION CONFIRMED</div>
+                <p class="logo-text">The Mulligan</p>
+                <p class="tagline">The Simulator Never Judges</p>
+                <h1 class="hero-title">You're Teeing Off!</h1>
+                <p class="hero-subtitle">See you on the green, John.</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="greeting">Exciting news, John!</p>
+            <p class="intro-text">
+                Your booking at The Mulligan is confirmed. We've reserved the <strong>Lounge Bay</strong> exclusively
+                for your group. Fasten your spikes and get ready for a world-class indoor golf experience.
+            </p>
+
+            <!-- SESSION CARD -->
+            <div class="booking-card">
+                <span class="card-header">Booking Specifications</span>
+                <table class="detail-table">
+                    <tr>
+                        <td class="detail-label">Date</td>
+                        <td class="detail-value">Monday, 30 Dec 2025</td>
+                    </tr>
+                    <tr>
+                        <td class="detail-label">Start Time</td>
+                        <td class="detail-value">10:00 AM</td>
+                    </tr>
+                    <tr>
+                        <td class="detail-label">Duration</td>
+                        <td class="detail-value">2 Hours</td>
+                    </tr>
+                    <tr>
+                        <td class="detail-label">Bay Location</td>
+                        <td class="detail-value">Lounge Bay</td>
+                    </tr>
+                    <tr>
+                        <td class="detail-label">Players</td>
+                        <td class="detail-value">4 Players</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- PAYMENT -->
+            <div class="payment-box">
+                <span class="payment-label">SECURED VIA DEPOSIT</span>
+                <p class="paid-amount">R500.00 Paid</p>
+
+                <div class="balance-row">
+                    <span class="balance-text">Balance Due at Venue:</span>
+                    <span class="balance-value">R750.00</span>
+                </div>
+            </div>
+
+            <!-- GUIDELINES -->
+            <div class="guide-section">
+                <h3 class="guide-title">Session Prep</h3>
+                <div class="guide-list">
+                    <div class="guide-item">
+                        <span class="bullet">✓</span>
+                        <span><strong>Arrive 10 mins early</strong> — Grab a coffee and settle in before tee-off.</span>
+                    </div>
+                    <div class="guide-item">
+                        <span class="bullet">✓</span>
+                        <span><strong>The Gear</strong> — Club rentals are available at R100/hr, or bring your own free
+                            of charge.</span>
+                    </div>
+                    <div class="guide-item">
+                        <span class="bullet">✓</span>
+                        <span><strong>Clean Play</strong> — Ensure your gear is clean; sharpie marks damage our
+                            screens.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cta-container">
+                <a href="https://maps.google.com/?q=38A+Chopin+St+Vanderbijlpark" class="btn-primary">Get Directions</a>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <div class="footer-logo">The Mulligan</div>
+            <div class="address">
+                38A Chopin St, Vanderbijlpark S.W. 5<br>
+                Gauteng, South Africa
+            </div>
+
+            <div class="social-links">
+                <a href="#" class="social-link">Instagram</a>
+                <a href="#" class="social-link">Facebook</a>
+                <a href="#" class="social-link">Website</a>
+            </div>
+
+            <div class="copyright">
+                &copy; 2025 The Mulligan Golf Lounge. All rights reserved.
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
