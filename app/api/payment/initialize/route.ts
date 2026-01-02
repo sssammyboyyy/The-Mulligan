@@ -161,7 +161,21 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 4. CREATE DB ROW
+    // 4. DEPOSIT LOGIC (Calculate BEFORE creating booking)
+    // ---------------------------------------------------------
+    let amountToCharge = dbTotalPrice;
+    const sessionStr = String(session_type || "").toLowerCase();
+    const optionStr = String(famous_course_option || "").toLowerCase();
+    const isDepositEligible = sessionStr.includes("famous") || sessionStr.includes("ball") || optionStr.includes("ball");
+
+    if (isDepositEligible && !pay_full_amount) {
+      amountToCharge = Math.ceil(dbTotalPrice * 0.40);
+    }
+
+    const outstandingBalance = dbTotalPrice - amountToCharge;
+
+    // ---------------------------------------------------------
+    // 5. CREATE DB ROW
     // ---------------------------------------------------------
     const slotStartISO = createSASTTimestamp(booking_date, start_time);
     const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours);
@@ -183,6 +197,10 @@ export async function POST(request: NextRequest) {
         famous_course_option,
         base_price,
         total_price: dbTotalPrice,
+        // FIX: Set amount_paid to the amount being charged to Yoco
+        // This ensures payment info is correct even if webhook fails
+        amount_paid: skipYoco ? dbTotalPrice : amountToCharge,
+        payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
         status: dbStatus,
         payment_status: dbPaymentStatus,
         guest_name,
@@ -217,19 +235,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // ---------------------------------------------------------
-    // 5. DEPOSIT LOGIC
-    // ---------------------------------------------------------
-    let amountToCharge = dbTotalPrice;
-    const sessionStr = String(session_type || "").toLowerCase();
-    const optionStr = String(famous_course_option || "").toLowerCase();
-    const isDepositEligible = sessionStr.includes("famous") || sessionStr.includes("ball") || optionStr.includes("ball");
-
-    if (isDepositEligible && !pay_full_amount) {
-      amountToCharge = Math.ceil(dbTotalPrice * 0.40);
-    }
-
-    const outstandingBalance = dbTotalPrice - amountToCharge;
+    // (Deposit logic moved to before booking insert)
 
     // ---------------------------------------------------------
     // 6. YOCO CHECKOUT
