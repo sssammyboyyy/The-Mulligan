@@ -22,7 +22,7 @@ export function BookingsTable() {
   }, [])
 
   const fetchBookings = async () => {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data, error } = await supabase
       .from("bookings")
       .select("*")
@@ -41,7 +41,7 @@ export function BookingsTable() {
   const handleCancelBooking = async (bookingId: string) => {
     if (!confirm("Are you sure you want to cancel this booking?")) return
 
-    const supabase = createClient()
+    const supabase = await createClient()
     const { error } = await supabase
       .from("bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })

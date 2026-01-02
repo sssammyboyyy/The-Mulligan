@@ -151,11 +151,24 @@ export default function AdminDashboard() {
 
     const newBooking = { ...editingBooking, [field]: value }
 
-    // Auto-calculate price if players or duration change
-    if (field === 'player_count' || field === 'duration_hours') {
-      const p = field === 'player_count' ? Number(value) : Number(editingBooking.player_count)
-      const d = field === 'duration_hours' ? Number(value) : Number(editingBooking.duration_hours)
-      newBooking.total_price = calculateTotal(p, d)
+    // Fields that affect total price calculation
+    const priceFields = ['player_count', 'duration_hours', 'addon_water_qty', 'addon_water_price', 'addon_gloves_qty', 'addon_gloves_price', 'addon_balls_qty', 'addon_balls_price']
+
+    if (priceFields.includes(field)) {
+      // Get current values (use new value if this field is changing)
+      const p = field === 'player_count' ? Number(value) : Number(newBooking.player_count || 1)
+      const d = field === 'duration_hours' ? Number(value) : Number(newBooking.duration_hours || 1)
+
+      // Calculate session base price
+      const sessionPrice = calculateTotal(p, d)
+
+      // Calculate add-ons total
+      const waterTotal = (newBooking.addon_water_qty || 0) * (newBooking.addon_water_price || addonPrices.water)
+      const glovesTotal = (newBooking.addon_gloves_qty || 0) * (newBooking.addon_gloves_price || addonPrices.gloves)
+      const ballsTotal = (newBooking.addon_balls_qty || 0) * (newBooking.addon_balls_price || addonPrices.balls)
+
+      // Sum everything
+      newBooking.total_price = sessionPrice + waterTotal + glovesTotal + ballsTotal
     }
 
     setEditingBooking(newBooking)
