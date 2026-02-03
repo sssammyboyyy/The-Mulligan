@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/utils"
 
 // 1. Force Edge Runtime
 export const runtime = "edge"
@@ -10,11 +11,19 @@ function createSASTTimestamp(dateStr: string, timeStr: string): string {
   return `${dateStr}T${cleanTime}+02:00`;
 }
 
-// Helper: Add hours to a timestamp for the end time
+// Helper: Add hours to a timestamp for the end time (preserves SAST offset)
 function addHoursToTimestamp(timestamp: string, hours: number): string {
   const date = new Date(timestamp);
-  date.setHours(date.getHours() + hours);
-  return date.toISOString();
+  date.setTime(date.getTime() + hours * 60 * 60 * 1000);
+  // Return in SAST format to maintain consistency
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}+02:00`;
 }
 
 // Helper: Calculate text end time
@@ -27,7 +36,26 @@ function calculateEndTimeText(start: string, duration: number): string {
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = getCorrelationId(request)
+  const idempotencyKey = request.headers.get("x-idempotency-key")
+
+  logEvent("booking_initialize_start", { correlationId, idempotencyKey })
+
   try {
+    // Validate required environment variables
+    const envCheck = validateEnvVars([
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "YOCO_SECRET_KEY"
+    ])
+    if (envCheck) {
+      logEvent("env_validation_failed", { correlationId, missing: envCheck.missing }, "error")
+      return NextResponse.json(
+        { error: "Server configuration error", error_code: "MISSING_ENV", correlation_id: correlationId },
+        { status: 500 }
+      )
+    }
+
     const body = await request.json()
 
     // --- MAPPING VARIABLES ---
@@ -115,6 +143,20 @@ export async function POST(request: NextRequest) {
     const requestedStartISO = createSASTTimestamp(booking_date, start_time);
     const requestedEndISO = addHoursToTimestamp(requestedStartISO, duration_hours);
 
+    // CRITICAL FIX: Fetch simulator inventory from DB (source of truth)
+    const { data: simulators, error: simError } = await supabase
+      .from("simulators")
+      .select("id")
+      .order("id", { ascending: true })
+
+    if (simError) {
+      logEvent("simulator_fetch_error", { correlationId, error: simError.message }, "error")
+    }
+
+    // Fallback to [1, 2, 3] if no simulators table exists (backward compatibility)
+    const simulatorIds = simulators?.length ? simulators.map(s => s.id) : [1, 2, 3]
+    logEvent("simulators_loaded", { correlationId, simulatorIds, fromDb: !!simulators?.length })
+
     // Fetch ALL active bookings
     const { data: dailyBookings } = await supabase
       .from("bookings")
@@ -151,14 +193,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // CRITICAL FIX: Use actual simulator IDs from DB, not hardcoded 1/2/3
     let assignedSimulatorId = 0
-    if (!takenBays.has(1)) assignedSimulatorId = 1
-    else if (!takenBays.has(2)) assignedSimulatorId = 2
-    else if (!takenBays.has(3)) assignedSimulatorId = 3
+    for (const id of simulatorIds) {
+      if (!takenBays.has(id)) {
+        assignedSimulatorId = id
+        break
+      }
+    }
 
     if (assignedSimulatorId === 0) {
-      return NextResponse.json({ error: "Sorry, all bays are full for this time duration." }, { status: 409 })
+      logEvent("slot_unavailable", { correlationId, booking_date, start_time, takenBays: Array.from(takenBays) }, "warn")
+      return NextResponse.json(
+        { error: "Sorry, all bays are full for this time duration.", error_code: "SLOT_UNAVAILABLE", correlation_id: correlationId },
+        { status: 409 }
+      )
     }
+
+    logEvent("bay_assigned", { correlationId, assignedSimulatorId })
 
     // ---------------------------------------------------------
     // 4. DEPOSIT LOGIC (Calculate BEFORE creating booking)
@@ -214,18 +266,33 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (bookingError) {
-      console.error("Booking Insert Error:", bookingError)
+      logEvent("booking_insert_error", { correlationId, error: bookingError.message, code: bookingError.code }, "error")
+
+      // CRITICAL FIX: Handle FK violations (simulator doesn't exist)
+      if (bookingError.code === "23503") {
+        return NextResponse.json({
+          error: "Invalid simulator configuration. Please contact support.",
+          error_code: "SIMULATOR_FK_VIOLATION",
+          correlation_id: correlationId
+        }, { status: 500 })
+      }
 
       // Handle constraint violations gracefully (race condition protection)
       if (bookingError.code === '23P01' || bookingError.message?.includes('exclusion constraint')) {
         return NextResponse.json({
           error: "Sorry, this time slot just became unavailable. Please select a different time.",
-          code: "SLOT_UNAVAILABLE"
+          error_code: "SLOT_UNAVAILABLE",
+          correlation_id: correlationId
         }, { status: 409 })
       }
 
-      return NextResponse.json({ error: "Failed to create booking", details: bookingError }, { status: 500 })
+      return NextResponse.json(
+        { error: "Failed to create booking", error_code: "BOOKING_INSERT_FAILED", correlation_id: correlationId },
+        { status: 500 }
+      )
     }
+
+    logEvent("booking_created", { correlationId, bookingId: booking.id, simulatorId: assignedSimulatorId })
 
     if (skipYoco) {
       return NextResponse.json({
@@ -285,7 +352,10 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Server Error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    logEvent("booking_initialize_error", { correlationId, error: error.message }, "error")
+    return NextResponse.json(
+      { error: error.message || "Internal server error", error_code: "INTERNAL_ERROR", correlation_id: correlationId },
+      { status: 500 }
+    )
   }
 }

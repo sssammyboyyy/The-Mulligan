@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/utils"
 
 export const runtime = "edge"
 
@@ -16,16 +17,34 @@ function getBayName(simulatorId: number | null): string {
 }
 
 export async function POST(request: NextRequest) {
+  const correlationId = getCorrelationId(request)
+
   try {
+    // CRITICAL FIX: Validate required env vars
+    const envCheck = validateEnvVars([
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ])
+    if (envCheck) {
+      logEvent("env_validation_failed", { correlationId, missing: envCheck.missing }, "error")
+      return NextResponse.json(
+        { success: false, error: "Server configuration error", error_code: "MISSING_ENV", correlation_id: correlationId },
+        { status: 500 }
+      )
+    }
+
     const body = await request.json()
     const { bookingId } = body
 
     if (!bookingId) {
-      console.error(" Error: Missing Booking ID in payload");
-      return NextResponse.json({ error: "Missing Booking ID" }, { status: 400 })
+      logEvent("missing_booking_id", { correlationId }, "error")
+      return NextResponse.json(
+        { success: false, error: "Missing Booking ID", error_code: "MISSING_BOOKING_ID", correlation_id: correlationId },
+        { status: 400 }
+      )
     }
 
-    console.log(`[API] Triggering n8n for booking: ${bookingId}`);
+    logEvent("trigger_n8n_start", { correlationId, bookingId })
 
     // 1. Initialize Supabase Admin
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -41,7 +60,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error || !booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+      logEvent("booking_not_found", { correlationId, bookingId, error: error?.message }, "error")
+      return NextResponse.json(
+        { success: false, error: "Booking not found", error_code: "BOOKING_NOT_FOUND", correlation_id: correlationId },
+        { status: 404 }
+      )
     }
 
     // --- 3. RACE CONDITION GUARD (CRITICAL FIX) ---
@@ -188,16 +211,33 @@ export async function POST(request: NextRequest) {
       n8nText = err.message;
     }
 
+    // CRITICAL FIX: Return actual success/failure status based on n8n response
+    const isSuccess = n8nStatus !== "error" && !n8nStatus.startsWith("5")
+
+    logEvent("trigger_n8n_complete", {
+      correlationId,
+      bookingId,
+      success: isSuccess,
+      n8nStatus,
+      fixedRaceCondition: dbPaid > 0 && booking.amount_paid === 0
+    })
+
     return NextResponse.json({
-      success: true,
+      success: isSuccess,
       fixed_race_condition: dbPaid > 0 && booking.amount_paid === 0,
       debug_target: n8nUrl,
       n8n_status: n8nStatus,
-      n8n_response: n8nText
+      n8n_response: n8nText,
+      correlation_id: correlationId,
+      // Include message for client error handling
+      message: isSuccess ? "Confirmation sent" : "Confirmation delivery failed. Please contact support."
     })
 
   } catch (error: any) {
-    console.error("Critical Trigger Error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logEvent("trigger_n8n_error", { correlationId, error: error.message }, "error")
+    return NextResponse.json(
+      { success: false, error: error.message, error_code: "TRIGGER_ERROR", correlation_id: correlationId },
+      { status: 500 }
+    )
   }
 }
