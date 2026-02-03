@@ -229,41 +229,96 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 5. CREATE DB ROW
     // ---------------------------------------------------------
+    // ---------------------------------------------------------
+    // 5. CREATE DB ROW (ATOMIC / IDEMPOTENT)
+    // ---------------------------------------------------------
     const slotStartISO = createSASTTimestamp(booking_date, start_time);
     const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours);
     const endTimeText = calculateEndTimeText(start_time, duration_hours);
 
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert({
-        booking_date,
-        start_time,
-        end_time: endTimeText,
-        slot_start: slotStartISO,
-        slot_end: slotEndISO,
-        duration_hours,
-        player_count,
-        simulator_id: assignedSimulatorId,
-        user_type: "guest",
-        session_type,
-        famous_course_option,
-        base_price,
-        total_price: dbTotalPrice,
-        // FIX: Set amount_paid to the amount being charged to Yoco
-        // This ensures payment info is correct even if webhook fails
-        amount_paid: skipYoco ? dbTotalPrice : amountToCharge,
-        payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
-        status: dbStatus,
-        payment_status: dbPaymentStatus,
-        guest_name,
-        guest_email,
-        guest_phone,
-        accept_whatsapp,
-        enter_competition,
-        coupon_code: couponApplied,
+    // Fallback: If no ID sent (legacy frontend), generate one
+    const bookingRequestId = body.booking_request_id || crypto.randomUUID()
+
+    // Payload for RPC or Insert
+    const bookingPayload = {
+      booking_request_id: bookingRequestId,
+      booking_date,
+      start_time: start_time + ":00", // Ensure HH:MM:SS format
+      duration_hours,
+      simulator_id: assignedSimulatorId,
+      slot_start: slotStartISO,
+      slot_end: slotEndISO,
+      guest_name,
+      guest_email,
+      guest_phone,
+      total_price: dbTotalPrice,
+      amount_paid: skipYoco ? dbTotalPrice : amountToCharge,
+      payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
+      payment_status: dbPaymentStatus,
+      status: dbStatus,
+      session_type,
+      coupon_code: couponApplied,
+      correlation_id: correlationId
+    }
+
+    let booking = null;
+    let bookingError = null;
+
+    // TRY ATOMIC RPC FIRST
+    const { data: atomicBooking, error: atomicError } = await supabase
+      .rpc('create_booking_atomic', {
+        p_booking_request_id: bookingRequestId,
+        p_booking_date: booking_date,
+        p_start_time: start_time,
+        p_duration_hours: duration_hours,
+        p_simulator_id: assignedSimulatorId,
+        p_slot_start: slotStartISO,
+        p_slot_end: slotEndISO,
+        p_guest_details: { name: guest_name, email: guest_email, phone: guest_phone },
+        p_payment_details: {
+          total_price: dbTotalPrice,
+          amount_paid: skipYoco ? dbTotalPrice : amountToCharge,
+          payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
+          payment_status: dbPaymentStatus,
+          status: dbStatus
+        },
+        p_metadata: {
+          session_type,
+          coupon_code: couponApplied,
+          correlation_id: correlationId
+        }
       })
-      .select()
       .single()
+
+    if (atomicBooking) {
+      booking = atomicBooking
+    } else if (atomicError) {
+      // If function missing, fall back to legacy INSERT
+      if (atomicError.message?.includes('function') && atomicError.message?.includes('does not exist')) {
+        logEvent("atomic_rpc_missing_fallback", { correlationId }, "warn")
+
+        const { data: fallbackBooking, error: fallbackError } = await supabase
+          .from("bookings")
+          .insert({
+            ...bookingPayload,
+            // Ensure start_time is just HH:MM
+            start_time: start_time,
+            end_time: endTimeText,
+            user_type: "guest",
+            famous_course_option,
+            accept_whatsapp,
+            enter_competition
+          })
+          .select()
+          .single()
+
+        booking = fallbackBooking
+        bookingError = fallbackError
+      } else {
+        // Real error from RPC (e.g. constraint violation)
+        bookingError = atomicError
+      }
+    }
 
     if (bookingError) {
       logEvent("booking_insert_error", { correlationId, error: bookingError.message, code: bookingError.code }, "error")

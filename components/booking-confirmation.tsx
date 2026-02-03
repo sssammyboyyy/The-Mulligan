@@ -18,6 +18,10 @@ export default function BookingConfirmation() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [payFullAmount, setPayFullAmount] = useState(false)
 
+  // -- IDEMPOTENCY --
+  // Generate a unique ID when the component mounts to track this specific booking attempt
+  const [bookingRequestId] = useState(() => crypto.randomUUID())
+
   // -- INPUTS --
   const [guestName, setGuestName] = useState("")
   const [guestEmail, setGuestEmail] = useState("")
@@ -53,8 +57,12 @@ export default function BookingConfirmation() {
     try {
       const response = await fetch("/api/payment/initialize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": bookingRequestId
+        },
         body: JSON.stringify({
+          booking_request_id: bookingRequestId, // Pass explicit ID
           booking_date: date,
           start_time: timeSlot,
           duration_hours: duration,

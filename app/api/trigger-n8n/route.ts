@@ -219,6 +219,17 @@ export async function POST(request: NextRequest) {
     // CRITICAL FIX: Return actual success/failure status based on n8n response
     const isSuccess = n8nStatus !== "error" && !n8nStatus.startsWith("5")
 
+    // --- 7. UPDATE N8N TRACKING IN DB ---
+    // Update the booking row with the result of this attempt
+    await supabaseAdmin
+      .from("bookings")
+      .update({
+        n8n_status: isSuccess ? 'sent' : 'error',
+        n8n_response: n8nText.slice(0, 1000), // Truncate to avoid overflow
+        n8n_last_attempt_at: new Date().toISOString()
+      })
+      .eq("id", bookingId)
+
     logEvent("trigger_n8n_complete", {
       correlationId,
       bookingId,
