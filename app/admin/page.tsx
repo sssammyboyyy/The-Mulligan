@@ -311,8 +311,8 @@ export default function AdminDashboard() {
     return searchMatch && statusMatch
   })
 
-  const totalRev = bookings.reduce((acc, b) => acc + (b.amount_paid || 0), 0)
-  const outstanding = bookings.reduce((acc, b) => acc + (b.total_price - (b.amount_paid || 0)), 0)
+  const totalRev = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.amount_paid || 0), 0)
+  const outstanding = bookings.filter(b => b.status !== 'cancelled').reduce((acc, b) => acc + (b.total_price - (b.amount_paid || 0)), 0)
 
   // Helper to check if booking is a walk-in
   const isWalkIn = (b: any) => b.booking_source === 'walk_in' || b.user_type === 'walk_in'
@@ -814,17 +814,21 @@ export default function AdminDashboard() {
                           <div className="text-xs text-zinc-500 font-medium mt-0.5">{b.player_count} Players</div>
                         </td>
                         <td className="px-6 py-5 text-right">
-                          <div className={`font-mono font-bold ${balance > 0 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                            {balance > 0 ? `R${balance}` : '-'}
+                          <div className={`font-mono font-bold ${balance > 0 && b.status !== 'cancelled' ? 'text-amber-400' : 'text-zinc-600'}`}>
+                            {b.status === 'cancelled' ? '-' : balance > 0 ? `R${balance}` : '-'}
                           </div>
-                          {balance > 0 && (
+                          {balance > 0 && b.status !== 'cancelled' && (
                             <button onClick={() => handleQuickSettle(b)} className="text-[10px] bg-amber-500/10 text-amber-500 px-2.5 py-1 rounded-md border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all mt-1.5 font-bold tracking-wide">
                               SETTLE
                             </button>
                           )}
                         </td>
                         <td className="px-6 py-5 text-center">
-                          {balance <= 0 ? (
+                          {b.status === 'cancelled' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/20 uppercase tracking-wider">
+                              <XCircle className="w-3 h-3" /> Cancelled
+                            </span>
+                          ) : balance <= 0 ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 uppercase tracking-wider">
                               <CheckCircle className="w-3 h-3" /> Paid
                             </span>
