@@ -119,18 +119,24 @@ export async function POST(request: NextRequest) {
 
 
     // ---------------------------------------------------------
-    // 3. ROBUST DATE CALCULATION (Moved Up)
+    // 3. ROBUST DATE CALCULATION (Literal Storage)
     // ---------------------------------------------------------
-    // We assume input date/time are SAST. We construct the ISO string with +02:00 explicitly.
-    // This creates a Date object representing the correct absolute instant.
-    const cleanTime = (start_time || "").length === 5 ? `${start_time}:00` : start_time;
-    const baseISO = `${booking_date}T${cleanTime}+02:00`;
+    // The DB stores slot_start/end as timestamp with time zone, but Supabase UI reads them as UTC.
+    // If we pass a proper ISO with +02:00, Supabase UI strips 2 hours.
+    // To prevent this specifically, we give Postgres local time *without* the offset,
+    // so it treats the input literally as the local time shown.
 
-    const startDate = new Date(baseISO);
+    const cleanTime = (start_time || "").length === 5 ? `${start_time}:00` : start_time;
+    // Format: YYYY-MM-DDTHH:mm:SS (no Z, no offset!)
+    const localStartStr = `${booking_date}T${cleanTime}`;
+
+    // We still use JS Date to add hours cleanly
+    // JS Date will assume this localStartStr is in the server's local timezone.
     const durationNum = Number(duration_hours);
+    const startDate = new Date(localStartStr);
 
     if (isNaN(startDate.getTime()) || isNaN(durationNum)) {
-      console.error("Invalid Date/Duration", { baseISO, duration_hours });
+      console.error("Invalid Date/Duration", { localStartStr, duration_hours });
       return NextResponse.json({
         error: "Invalid date or duration format",
         error_code: "INVALID_DATE",
@@ -138,33 +144,33 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Calculate End Date safely using millisecond math
     const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
 
-    // Store as standard ISO (UTC) - Postgres handles this perfectly
-    const slotStartISO = startDate.toISOString();
-    const slotEndISO = endDate.toISOString();
+    // Pad function for manual ISO rebuilding
+    const pad = (n: number) => n.toString().padStart(2, '0');
+
+    // Build literal strings formatted precisely for Postgres
+    // This forcibly prevents Postgres from doing UTC math
+    const slotStartLiteral = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`;
+    const slotEndLiteral = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
 
     // Calculate text display time (SAST based)
     const endTimeText = calculateEndTimeText(start_time, durationNum);
 
     logEvent("date_debug", {
       correlationId,
-      baseISO,
-      slotStartISO,
-      slotEndISO,
-      durationNum,
-      startOb: startDate.toString(),
-      endOb: endDate.toString()
+      slotStartLiteral,
+      slotEndLiteral,
+      durationNum
     });
 
     // ---------------------------------------------------------
     // 3b. MULTI-BAY ASSIGNMENT LOGIC (With Ghost Filter)
     // ---------------------------------------------------------
 
-    // Use the robustly calculated ISOs for availability checking
-    const requestedStartISO = slotStartISO;
-    const requestedEndISO = slotEndISO;
+    // Use the robustly calculated literal times for availability checking
+    const requestedStartStr = slotStartLiteral;
+    const requestedEndStr = slotEndLiteral;
 
     // CRITICAL FIX: Fetch simulator inventory from DB (source of truth)
     const { data: simulators, error: simError } = await supabase
@@ -204,8 +210,10 @@ export async function POST(request: NextRequest) {
         if (isActive) {
           const bStart = new Date(b.slot_start).getTime();
           const bEnd = new Date(b.slot_end).getTime();
-          const reqStart = new Date(requestedStartISO).getTime(); // Use robust ISO
-          const reqEnd = new Date(requestedEndISO).getTime();     // Use robust ISO
+          // Because b.slot_start comes back as '2025-12-25T14:00:00.000Z' (even though it's local)
+          // we just do a straight numeric comparison here
+          const reqStart = new Date(requestedStartStr).getTime();
+          const reqEnd = new Date(requestedEndStr).getTime();
 
           const isOverlapping = (bStart < reqEnd) && (bEnd > reqStart);
 
@@ -277,8 +285,8 @@ export async function POST(request: NextRequest) {
           booking_date,
           start_time,
           end_time: endTimeText,
-          slot_start: slotStartISO,
-          slot_end: slotEndISO,
+          slot_start: slotStartLiteral,
+          slot_end: slotEndLiteral,
           duration_hours,
           player_count,
           simulator_id: assignedSimulatorId,
