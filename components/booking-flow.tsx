@@ -47,6 +47,31 @@ export default function BookingFlow() {
     }
   }, [date])
 
+  // --- REAP ABANDONED BOOKINGS ---
+  // If the user cancelled checkout on Yoco, they'll land here with ?cancelled=true&reference=xyz
+  // We want to immediately free up that slot in the DB so they can re-book.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const isCancelled = searchParams.get("cancelled") === "true";
+    const ref = searchParams.get("reference");
+
+    if (isCancelled && ref) {
+      console.log("Reaping abandoned booking:", ref);
+      fetch("/api/payment/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: ref })
+      }).catch(err => console.error("Failed to reap booking:", err));
+
+      // Clean URL without reloading page
+      const url = new URL(window.location.href);
+      url.searchParams.delete("cancelled");
+      url.searchParams.delete("reference");
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+
   // --- HANDLERS ---
   const handleSessionSelect = (type: "4ball" | "3ball" | "quick") => {
     setSessionType(type)

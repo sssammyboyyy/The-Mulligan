@@ -387,10 +387,9 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         amount: Math.round(amountToCharge * 100),
         currency: "ZAR",
-        cancelUrl: `${appUrl}/booking?cancelled=true`,
-        // FIXED URL HERE:
+        cancelUrl: `${appUrl}/booking?cancelled=true&reference=${booking.id}`,
         successUrl: `${appUrl}/booking/success?bookingId=${booking.id}`,
-        failureUrl: `${appUrl}/booking?error=payment_failed`,
+        failureUrl: `${appUrl}/booking?error=payment_failed&reference=${booking.id}`,
         metadata: {
           bookingId: booking.id,
           totalPrice: dbTotalPrice.toFixed(2),
