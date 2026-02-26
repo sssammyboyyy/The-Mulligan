@@ -60,10 +60,19 @@ export async function POST(request: NextRequest) {
       pay_full_amount
     } = body
 
+    // Standard client for reads and inserts (anon key — RLS allows these)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
+
+    // Admin client for ghost cleanup DELETE operations (service role bypasses RLS)
+    // RLS blocks DELETE with the anon key — .delete() silently returns 0 rows affected.
+    // This was the root cause of the persistent 409 exclusion constraint violations.
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseAdmin = serviceRoleKey
+      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
+      : supabase // Fallback to anon if service role is unavailable
 
     // ---------------------------------------------------------
     // 2. ROBUST COUPON & PRICE LOGIC
@@ -119,17 +128,9 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 3. ROBUST DATE CALCULATION (Literal Storage)
     // ---------------------------------------------------------
-    // The DB stores slot_start/end as timestamp with time zone, but Supabase UI reads them as UTC.
-    // If we pass a proper ISO with +02:00, Supabase UI strips 2 hours.
-    // To prevent this specifically, we give Postgres local time *without* the offset,
-    // so it treats the input literally as the local time shown.
-
     const cleanTime = (start_time || "").length === 5 ? `${start_time}:00` : start_time;
-    // Format: YYYY-MM-DDTHH:mm:SS (no Z, no offset!)
     const localStartStr = `${booking_date}T${cleanTime}`;
 
-    // We still use JS Date to add hours cleanly
-    // JS Date will assume this localStartStr is in the server's local timezone.
     const durationNum = Number(duration_hours);
     const startDate = new Date(localStartStr);
 
@@ -144,15 +145,11 @@ export async function POST(request: NextRequest) {
 
     const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
 
-    // Pad function for manual ISO rebuilding
     const pad = (n: number) => n.toString().padStart(2, '0');
 
-    // Build literal strings formatted precisely for Postgres
-    // This forcibly prevents Postgres from doing UTC math
     const slotStartLiteral = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`;
     const slotEndLiteral = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
 
-    // Calculate text display time (SAST based)
     const endTimeText = calculateEndTimeText(start_time, durationNum);
 
     logEvent("date_debug", {
@@ -165,12 +162,10 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 3b. MULTI-BAY ASSIGNMENT LOGIC (With Ghost Cleanup)
     // ---------------------------------------------------------
-
-    // Use the robustly calculated literal times for availability checking
     const requestedStartStr = slotStartLiteral;
     const requestedEndStr = slotEndLiteral;
 
-    // CRITICAL FIX: Fetch simulator inventory from DB (source of truth)
+    // Fetch simulator inventory from DB
     const { data: simulators, error: simError } = await supabase
       .from("simulators")
       .select("id")
@@ -180,14 +175,13 @@ export async function POST(request: NextRequest) {
       logEvent("simulator_fetch_error", { correlationId, error: simError.message }, "error")
     }
 
-    // Fallback to [1, 2, 3] if no simulators table exists (backward compatibility)
     const simulatorIds = simulators?.length ? simulators.map(s => s.id) : [1, 2, 3]
     logEvent("simulators_loaded", { correlationId, simulatorIds, fromDb: !!simulators?.length })
 
-    // SURGICAL FIX: Fetch ALL bookings for the date — INCLUDING cancelled ones.
+    // Fetch ALL bookings for the date — INCLUDING cancelled ones.
     // The PostgreSQL exclusion constraint has no WHERE clause, so cancelled rows
     // still physically block slot inserts. We MUST fetch them to delete them.
-    const { data: dailyBookings } = await supabase
+    const { data: dailyBookings } = await supabaseAdmin
       .from("bookings")
       .select("id, simulator_id, slot_start, slot_end, status, created_at, yoco_payment_id, payment_status")
       .eq("booking_date", booking_date)
@@ -206,21 +200,18 @@ export async function POST(request: NextRequest) {
         // A row is ACTIVE (blocks the bay) only if it is confirmed or a fresh pending checkout.
 
         if (b.status === 'cancelled') {
-          // Already cancelled — delete to free the exclusion constraint
           deleteIds.push(b.id);
-          return; // skip to next
+          return;
         }
 
         if (b.status === 'pending') {
           const createdTime = new Date(b.created_at).getTime();
           const ageMs = now - createdTime;
 
-          // No yoco_payment_id = user never even got to Yoco — definitely a ghost
           if (!b.yoco_payment_id) {
             deleteIds.push(b.id);
             return;
           }
-          // Has yoco_payment_id but older than 5 mins and still pending = abandoned
           if (ageMs > 300000) { // 5 mins
             deleteIds.push(b.id);
             return;
@@ -241,20 +232,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // HARD DELETE all ghost/cancelled rows to free exclusion constraint locks
+    // HARD DELETE all ghost/cancelled rows using the ADMIN client (bypasses RLS)
     if (deleteIds.length > 0) {
-      logEvent("ghost_cleanup", { correlationId, action: "hard_delete", deleteIds, count: deleteIds.length })
-      const { error: deleteError } = await supabase
+      logEvent("ghost_cleanup", {
+        correlationId,
+        action: "hard_delete_admin",
+        deleteIds,
+        count: deleteIds.length,
+        usingServiceRole: !!serviceRoleKey
+      })
+      const { error: deleteError, count: deleteCount } = await supabaseAdmin
         .from("bookings")
-        .delete()
+        .delete({ count: 'exact' })
         .in("id", deleteIds)
 
       if (deleteError) {
-        logEvent("ghost_cleanup_error", { correlationId, error: deleteError.message }, "error")
+        logEvent("ghost_cleanup_error", { correlationId, error: deleteError.message, code: deleteError.code }, "error")
+      } else {
+        logEvent("ghost_cleanup_success", { correlationId, requested: deleteIds.length, deleted: deleteCount })
       }
     }
 
-    // CRITICAL FIX: Use actual simulator IDs from DB, not hardcoded 1/2/3
+    // Use actual simulator IDs from DB
     let assignedSimulatorId = 0
     for (const id of simulatorIds) {
       if (!takenBays.has(id)) {
@@ -296,11 +295,9 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 5. CREATE DB ROW (WITH IDEMPOTENCY)
     // ---------------------------------------------------------
-
-    // Generate or reuse idempotency key
     const bookingRequestId = body.booking_request_id || idempotencyKey || crypto.randomUUID()
 
-    // A. IDEMPOTENCY CHECK: If this request ID was already processed, return existing booking
+    // A. IDEMPOTENCY CHECK
     const { data: existingBooking } = await supabase
       .from("bookings")
       .select("*")
@@ -350,7 +347,8 @@ export async function POST(request: NextRequest) {
           assignedSimulatorId,
           slotStartLiteral,
           slotEndLiteral,
-          deletedGhosts: deleteIds.length
+          deletedGhosts: deleteIds.length,
+          usingServiceRole: !!serviceRoleKey
         }, "error")
 
         // Handle FK violations (simulator doesn't exist)
@@ -363,19 +361,76 @@ export async function POST(request: NextRequest) {
           }, { status: 500 })
         }
 
-        // Handle constraint violations (race condition - slot taken)
+        // Handle constraint violations (exclusion constraint — slot overlap)
         if (bookingError.code === '23P01' || bookingError.message?.includes('exclusion constraint')) {
-          return NextResponse.json({
-            error: "This time slot was just booked by another customer. Please select a different time.",
-            error_code: "SLOT_RACE_CONDITION",
-            correlation_id: correlationId,
-            debug_error: bookingError.message,
-            debug: { assignedSimulatorId, deletedGhosts: deleteIds.length }
-          }, { status: 409 })
+          // RETRY ONCE: Force-delete the conflicting row on this specific simulator, then re-insert
+          logEvent("exclusion_constraint_retry", { correlationId, assignedSimulatorId }, "warn")
+
+          const { error: forceDeleteError } = await supabaseAdmin
+            .from("bookings")
+            .delete()
+            .eq("booking_date", booking_date)
+            .eq("simulator_id", assignedSimulatorId)
+            .neq("status", "confirmed")
+
+          if (!forceDeleteError) {
+            // Retry the insert after force cleanup
+            const { data: retryBooking, error: retryError } = await supabase
+              .from("bookings")
+              .insert({
+                booking_request_id: bookingRequestId,
+                booking_date,
+                start_time,
+                end_time: endTimeText,
+                slot_start: slotStartLiteral,
+                slot_end: slotEndLiteral,
+                duration_hours,
+                player_count,
+                simulator_id: assignedSimulatorId,
+                user_type: "guest",
+                session_type,
+                famous_course_option,
+                base_price,
+                total_price: dbTotalPrice,
+                amount_paid: skipYoco ? dbTotalPrice : 0,
+                payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
+                status: dbStatus,
+                payment_status: dbPaymentStatus,
+                guest_name,
+                guest_email,
+                guest_phone,
+                accept_whatsapp,
+                enter_competition,
+                coupon_code: couponApplied,
+              })
+              .select()
+              .single()
+
+            if (retryBooking && !retryError) {
+              logEvent("exclusion_constraint_retry_success", { correlationId, bookingId: retryBooking.id })
+              booking = retryBooking
+            } else {
+              return NextResponse.json({
+                error: "This time slot is currently unavailable. Please select a different time.",
+                error_code: "SLOT_RACE_CONDITION",
+                correlation_id: correlationId,
+                debug_error: retryError?.message || bookingError.message,
+                debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, retryFailed: true }
+              }, { status: 409 })
+            }
+          } else {
+            return NextResponse.json({
+              error: "This time slot is currently unavailable. Please select a different time.",
+              error_code: "SLOT_RACE_CONDITION",
+              correlation_id: correlationId,
+              debug_error: bookingError.message,
+              debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, forceDeleteFailed: forceDeleteError.message }
+            }, { status: 409 })
+          }
         }
 
         // Handle unique constraint on booking_request_id (concurrent duplicate)
-        if (bookingError.code === '23505' && bookingError.message?.includes('booking_request_id')) {
+        if (!booking && bookingError.code === '23505' && bookingError.message?.includes('booking_request_id')) {
           const { data: retryBooking } = await supabase
             .from("bookings")
             .select("*")
@@ -385,7 +440,6 @@ export async function POST(request: NextRequest) {
             booking = retryBooking
           }
         }
-
 
         if (!booking) {
           return NextResponse.json(
