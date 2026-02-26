@@ -234,12 +234,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // CRITICAL FIX: Actually cancel ghost bookings in DB so the exclusion constraint doesn't block new inserts
+    // CRITICAL FIX: Hard delete ghost bookings in DB so the exclusion constraint doesn't block new inserts.
+    // Setting status='cancelled' doesn't free the slot because the exclusion constraint applies to all rows.
     if (ghostIds.length > 0) {
-      logEvent("ghost_cleanup", { correlationId, ghostIds, count: ghostIds.length })
+      logEvent("ghost_cleanup", { correlationId, action: "hard_delete", ghostIds, count: ghostIds.length })
       await supabase
         .from("bookings")
-        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .delete()
         .in("id", ghostIds)
     }
 
@@ -345,7 +346,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             error: "Sorry, this time slot just became unavailable. Please select a different time.",
             error_code: "SLOT_UNAVAILABLE",
-            correlation_id: correlationId
+            correlation_id: correlationId,
+            debug_error: bookingError.message
           }, { status: 409 })
         }
 
