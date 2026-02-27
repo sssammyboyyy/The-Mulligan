@@ -126,16 +126,22 @@ export async function POST(request: NextRequest) {
 
 
     // ---------------------------------------------------------
-    // 3. ROBUST DATE CALCULATION (Literal Storage)
+    // 3. ROBUST DATE CALCULATION (Explicit SAST +02:00)
     // ---------------------------------------------------------
+    // Cloudflare Workers run in UTC, and Supabase stores timestamp with time zone.
+    // To prevent any timezone shifting, we explicitly append the South African Standard Time
+    // offset (+02:00) to the requested times. This forces both Javascript and Postgres
+    // to interpret the exact same moment in time, regardless of the runtime environment.
+
     const cleanTime = (start_time || "").length === 5 ? `${start_time}:00` : start_time;
-    const localStartStr = `${booking_date}T${cleanTime}`;
+    // Format: YYYY-MM-DDTHH:mm:SS+02:00
+    const sastStartIso = `${booking_date}T${cleanTime}+02:00`;
 
     const durationNum = Number(duration_hours);
-    const startDate = new Date(localStartStr);
+    const startDate = new Date(sastStartIso);
 
     if (isNaN(startDate.getTime()) || isNaN(durationNum)) {
-      console.error("Invalid Date/Duration", { localStartStr, duration_hours });
+      console.error("Invalid Date/Duration", { sastStartIso, duration_hours });
       return NextResponse.json({
         error: "Invalid date or duration format",
         error_code: "INVALID_DATE",
@@ -145,15 +151,23 @@ export async function POST(request: NextRequest) {
 
     const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
+    // For inserts, we use proper ISO strings. Postgres handles these perfectly because
+    // they represent exact moments in time, resolving all DST/UTC discrepancies.
+    const slotStartLiteral = sastStartIso;
 
-    const slotStartLiteral = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`;
-    const slotEndLiteral = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
+    // Construct the end time with the exact same +02:00 formatter to keep it readable in the DB
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    // We cannot use endDate.getHours() because Cloudflare is UTC.
+    // Instead, we just take the JS timestamp string in ISO and replace the Z with +02:00 math if we wanted to,
+    // BUT we can just let toISOString() handle it for Supabase since it's a confirmed absolute point in time.
+    // Supabase will automatically format the output as +02 when requested.
+    const slotEndLiteral = endDate.toISOString();
 
     const endTimeText = calculateEndTimeText(start_time, durationNum);
 
     logEvent("date_debug", {
       correlationId,
+      sastStartIso,
       slotStartLiteral,
       slotEndLiteral,
       durationNum
@@ -162,8 +176,9 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 3b. MULTI-BAY ASSIGNMENT LOGIC (With Ghost Cleanup)
     // ---------------------------------------------------------
-    const requestedStartStr = slotStartLiteral;
-    const requestedEndStr = slotEndLiteral;
+    // Absolute Unix timestamps for perfect math against DB
+    const reqStartMs = startDate.getTime();
+    const reqEndMs = endDate.getTime();
 
     // Fetch simulator inventory from DB
     const { data: simulators, error: simError } = await supabase
@@ -221,10 +236,8 @@ export async function POST(request: NextRequest) {
         // This row is ACTIVE — check if it overlaps with the requested slot
         const bStart = new Date(b.slot_start).getTime();
         const bEnd = new Date(b.slot_end).getTime();
-        const reqStart = new Date(requestedStartStr).getTime();
-        const reqEnd = new Date(requestedEndStr).getTime();
 
-        const isOverlapping = (bStart < reqEnd) && (bEnd > reqStart);
+        const isOverlapping = (bStart < reqEndMs) && (bEnd > reqStartMs);
 
         if (isOverlapping) {
           takenBays.add(b.simulator_id);
