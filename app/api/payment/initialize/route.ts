@@ -68,8 +68,8 @@ export async function POST(request: NextRequest) {
 
     // Admin client for ghost cleanup DELETE operations (service role bypasses RLS)
     // RLS blocks DELETE with the anon key — .delete() silently returns 0 rows affected.
-    // This was the root cause of the persistent 409 exclusion constraint violations.
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Try both env var names: Cloudflare has SUPABASE_SERVICE_ROLE, code historically used SUPABASE_SERVICE_ROLE_KEY
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE
     const supabaseAdmin = serviceRoleKey
       ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
       : supabase // Fallback to anon if service role is unavailable
