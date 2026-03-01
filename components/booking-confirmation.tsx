@@ -37,6 +37,8 @@ export default function BookingConfirmation() {
   const timeSlot = searchParams.get("timeSlot") || ""
   const duration = parseFloat(searchParams.get("duration") || "1")
   const passedTotalPrice = parseFloat(searchParams.get("totalPrice") || "0")
+  const addonCoaching = searchParams.get("coachingSession") === "true"
+  const addonClubRental = searchParams.get("golfClubRental") === "true"
 
   // -- CALCULATIONS --
   const totalPrice = passedTotalPrice > 0 ? passedTotalPrice : 0
@@ -76,6 +78,8 @@ export default function BookingConfirmation() {
           total_price: totalPrice,
           pay_full_amount: payFullAmount,
           coupon_code: couponCode || null,
+          addon_coaching: addonCoaching,
+          addon_club_rental: addonClubRental,
         }),
       })
 
