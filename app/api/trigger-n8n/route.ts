@@ -162,13 +162,9 @@ export async function POST(request: NextRequest) {
         ? `Deposit: R${dbPaid.toFixed(2)} | Balance Due: R${outstanding.toFixed(2)}`
         : `Paid in Full: R${dbTotal.toFixed(2)}`,
 
-      // Add-ons (for bookkeeping)
-      addon_water_qty: booking.addon_water_qty || 0,
-      addon_water_price: booking.addon_water_price || 0,
-      addon_gloves_qty: booking.addon_gloves_qty || 0,
-      addon_gloves_price: booking.addon_gloves_price || 0,
-      addon_balls_qty: booking.addon_balls_qty || 0,
-      addon_balls_price: booking.addon_balls_price || 0,
+      // Add-ons (bookable via website UI)
+      addon_coaching: booking.addon_coaching || false,
+      addon_club_rental: booking.addon_club_rental || false,
 
       // Legacy Support (for backward compatibility)
       totalPrice: dbTotal.toFixed(2),
