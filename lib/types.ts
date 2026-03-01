@@ -48,13 +48,15 @@ export interface Booking {
   guest_phone?: string;
   special_requests?: string;
 
-  // Add-ons (Consumables & Services)
+  // Add-ons (Consumables — admin walk-in only)
   addon_water_qty?: number;
   addon_water_price?: number;
   addon_gloves_qty?: number;
   addon_gloves_price?: number;
   addon_balls_qty?: number;
   addon_balls_price?: number;
+
+  // Add-ons (Services — online bookings)
   addon_coaching?: boolean;
   addon_club_rental?: boolean;
 

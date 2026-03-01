@@ -23,7 +23,13 @@ const BAY_NAMES: Record<number, string> = {
 const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4]
 
 // Default add-on prices (admin can customize, saved to localStorage)
-const DEFAULT_ADDON_PRICES = { water: 15, gloves: 50, balls: 75 }
+const DEFAULT_ADDON_PRICES = {
+  water: 15,
+  gloves: 50,
+  balls: 75,
+  coaching: 250,
+  club_rental: 100
+}
 
 // --- PRICING LOGIC ---
 const calculateTotal = (players: number, duration: number) => {
@@ -72,10 +78,13 @@ export default function AdminDashboard() {
   const [walkInPlayers, setWalkInPlayers] = useState(1)
   const [walkInAmountPaid, setWalkInAmountPaid] = useState("")
 
-  // Walk-in Add-ons
+  // Walk-in Add-ons (consumables)
   const [walkInWaterQty, setWalkInWaterQty] = useState(0)
   const [walkInGlovesQty, setWalkInGlovesQty] = useState(0)
   const [walkInBallsQty, setWalkInBallsQty] = useState(0)
+  // Walk-in Add-ons (services)
+  const [walkInCoaching, setWalkInCoaching] = useState(false)
+  const [walkInClubRental, setWalkInClubRental] = useState(false)
 
   // Edit Modal
   const [editingBooking, setEditingBooking] = useState<any | null>(null)
@@ -98,7 +107,7 @@ export default function AdminDashboard() {
   }, [])
 
   // Helper to save addon prices
-  const saveAddonPrice = (key: 'water' | 'gloves' | 'balls', value: number) => {
+  const saveAddonPrice = (key: 'water' | 'gloves' | 'balls' | 'coaching' | 'club_rental', value: number) => {
     const newPrices = { ...addonPrices, [key]: value }
     setAddonPrices(newPrices)
     localStorage.setItem('mulligan_addon_prices', JSON.stringify(newPrices))
@@ -152,7 +161,7 @@ export default function AdminDashboard() {
     const newBooking = { ...editingBooking, [field]: value }
 
     // Fields that affect total price calculation
-    const priceFields = ['player_count', 'duration_hours', 'addon_water_qty', 'addon_water_price', 'addon_gloves_qty', 'addon_gloves_price', 'addon_balls_qty', 'addon_balls_price']
+    const priceFields = ['player_count', 'duration_hours', 'addon_water_qty', 'addon_water_price', 'addon_gloves_qty', 'addon_gloves_price', 'addon_balls_qty', 'addon_balls_price', 'addon_coaching', 'addon_club_rental']
 
     if (priceFields.includes(field)) {
       // Get current values (use new value if this field is changing)
@@ -162,13 +171,17 @@ export default function AdminDashboard() {
       // Calculate session base price
       const sessionPrice = calculateTotal(p, d)
 
-      // Calculate add-ons total
+      // Calculate consumable add-ons
       const waterTotal = (newBooking.addon_water_qty || 0) * (newBooking.addon_water_price || addonPrices.water)
       const glovesTotal = (newBooking.addon_gloves_qty || 0) * (newBooking.addon_gloves_price || addonPrices.gloves)
       const ballsTotal = (newBooking.addon_balls_qty || 0) * (newBooking.addon_balls_price || addonPrices.balls)
 
+      // Calculate service add-ons
+      const coachingTotal = (newBooking.addon_coaching ? 1 : 0) * addonPrices.coaching
+      const clubTotal = (newBooking.addon_club_rental ? 1 : 0) * addonPrices.club_rental
+
       // Sum everything
-      newBooking.total_price = sessionPrice + waterTotal + glovesTotal + ballsTotal
+      newBooking.total_price = sessionPrice + waterTotal + glovesTotal + ballsTotal + coachingTotal + clubTotal
     }
 
     setEditingBooking(newBooking)
@@ -217,6 +230,8 @@ export default function AdminDashboard() {
       setWalkInWaterQty(0)
       setWalkInGlovesQty(0)
       setWalkInBallsQty(0)
+      setWalkInCoaching(false)
+      setWalkInClubRental(false)
       setActiveTab("dashboard")
       fetchBookings()
 
@@ -258,7 +273,14 @@ export default function AdminDashboard() {
             simulator_id: editingBooking.simulator_id,
             status: "confirmed",
             // Add-ons
-            // Add-ons included in total_price only
+            addon_water_qty: editingBooking.addon_water_qty || 0,
+            addon_water_price: editingBooking.addon_water_price || addonPrices.water,
+            addon_gloves_qty: editingBooking.addon_gloves_qty || 0,
+            addon_gloves_price: editingBooking.addon_gloves_price || addonPrices.gloves,
+            addon_balls_qty: editingBooking.addon_balls_qty || 0,
+            addon_balls_price: editingBooking.addon_balls_price || addonPrices.balls,
+            addon_coaching: editingBooking.addon_coaching || false,
+            addon_club_rental: editingBooking.addon_club_rental || false,
           }
         })
       })
@@ -440,27 +462,11 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Water Qty</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_water_qty || 0}
-                        onChange={e => handleEditChange('addon_water_qty', parseInt(e.target.value) || 0)}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_water_qty || 0} onChange={e => handleEditChange('addon_water_qty', parseInt(e.target.value) || 0)} />
                     </div>
                     <div className="col-span-2">
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_water_price || addonPrices.water}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value) || 0
-                          handleEditChange('addon_water_price', val)
-                          if (val > 0) saveAddonPrice('water', val)
-                        }}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_water_price || addonPrices.water} onChange={e => { const val = parseFloat(e.target.value) || 0; handleEditChange('addon_water_price', val); if (val > 0) saveAddonPrice('water', val) }} />
                     </div>
                   </div>
 
@@ -468,27 +474,11 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Gloves Qty</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_gloves_qty || 0}
-                        onChange={e => handleEditChange('addon_gloves_qty', parseInt(e.target.value) || 0)}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_gloves_qty || 0} onChange={e => handleEditChange('addon_gloves_qty', parseInt(e.target.value) || 0)} />
                     </div>
                     <div className="col-span-2">
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_gloves_price || addonPrices.gloves}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value) || 0
-                          handleEditChange('addon_gloves_price', val)
-                          if (val > 0) saveAddonPrice('gloves', val)
-                        }}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_gloves_price || addonPrices.gloves} onChange={e => { const val = parseFloat(e.target.value) || 0; handleEditChange('addon_gloves_price', val); if (val > 0) saveAddonPrice('gloves', val) }} />
                     </div>
                   </div>
 
@@ -496,27 +486,28 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Balls Qty</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_balls_qty || 0}
-                        onChange={e => handleEditChange('addon_balls_qty', parseInt(e.target.value) || 0)}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_balls_qty || 0} onChange={e => handleEditChange('addon_balls_qty', parseInt(e.target.value) || 0)} />
                     </div>
                     <div className="col-span-2">
                       <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Price/Unit (R)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono"
-                        value={editingBooking.addon_balls_price || addonPrices.balls}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value) || 0
-                          handleEditChange('addon_balls_price', val)
-                          if (val > 0) saveAddonPrice('balls', val)
-                        }}
-                      />
+                      <input type="number" min={0} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 mt-1 font-mono" value={editingBooking.addon_balls_price || addonPrices.balls} onChange={e => { const val = parseFloat(e.target.value) || 0; handleEditChange('addon_balls_price', val); if (val > 0) saveAddonPrice('balls', val) }} />
+                    </div>
+                  </div>
+
+                  {/* Service Add-ons */}
+                  <div className="border-t border-zinc-800 pt-3 mt-2 space-y-3">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Services</label>
+                    <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-700 rounded-lg">
+                      <label className="text-xs text-white font-medium flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" className="accent-purple-500 w-4 h-4 cursor-pointer" checked={editingBooking.addon_coaching || false} onChange={e => handleEditChange('addon_coaching', e.target.checked)} />
+                        PGA Coaching Session <span className="text-zinc-500 text-[10px] ml-1">R{addonPrices.coaching}</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-700 rounded-lg">
+                      <label className="text-xs text-white font-medium flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" className="accent-purple-500 w-4 h-4 cursor-pointer" checked={editingBooking.addon_club_rental || false} onChange={e => handleEditChange('addon_club_rental', e.target.checked)} />
+                        Premium Club Hire <span className="text-zinc-500 text-[10px] ml-1">R{addonPrices.club_rental}</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -652,44 +643,49 @@ export default function AdminDashboard() {
                     <div>
                       <label className="text-[10px] text-zinc-500 font-medium">Water</label>
                       <div className="flex items-center gap-2 mt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
-                          value={walkInWaterQty}
-                          onChange={e => setWalkInWaterQty(parseInt(e.target.value) || 0)}
-                        />
+                        <input type="number" min={0} className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center" value={walkInWaterQty} onChange={e => setWalkInWaterQty(parseInt(e.target.value) || 0)} />
                         <span className="text-zinc-500 text-xs">× R{addonPrices.water}</span>
                       </div>
                     </div>
-
                     {/* Gloves */}
                     <div>
                       <label className="text-[10px] text-zinc-500 font-medium">Gloves</label>
                       <div className="flex items-center gap-2 mt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
-                          value={walkInGlovesQty}
-                          onChange={e => setWalkInGlovesQty(parseInt(e.target.value) || 0)}
-                        />
+                        <input type="number" min={0} className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center" value={walkInGlovesQty} onChange={e => setWalkInGlovesQty(parseInt(e.target.value) || 0)} />
                         <span className="text-zinc-500 text-xs">× R{addonPrices.gloves}</span>
                       </div>
                     </div>
-
                     {/* Balls */}
                     <div>
                       <label className="text-[10px] text-zinc-500 font-medium">Balls</label>
                       <div className="flex items-center gap-2 mt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center"
-                          value={walkInBallsQty}
-                          onChange={e => setWalkInBallsQty(parseInt(e.target.value) || 0)}
-                        />
+                        <input type="number" min={0} className="w-16 bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-sm font-mono text-center" value={walkInBallsQty} onChange={e => setWalkInBallsQty(parseInt(e.target.value) || 0)} />
                         <span className="text-zinc-500 text-xs">× R{addonPrices.balls}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Service Add-ons */}
+                  <div className="border-t border-zinc-800 pt-3 mt-2">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2 block">Services</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-700 rounded-lg hover:border-zinc-500 transition-colors cursor-pointer" onClick={() => setWalkInCoaching(!walkInCoaching)}>
+                        <div className="flex flex-col">
+                          <label className="text-xs text-white font-medium flex items-center gap-2 cursor-pointer pointer-events-none">
+                            <input type="checkbox" checked={walkInCoaching} readOnly className="accent-purple-500 w-4 h-4" />
+                            PGA Coaching
+                          </label>
+                          <span className="text-[10px] text-zinc-500 ml-6 mt-0.5">+ R{addonPrices.coaching}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-700 rounded-lg hover:border-zinc-500 transition-colors cursor-pointer" onClick={() => setWalkInClubRental(!walkInClubRental)}>
+                        <div className="flex flex-col">
+                          <label className="text-xs text-white font-medium flex items-center gap-2 cursor-pointer pointer-events-none">
+                            <input type="checkbox" checked={walkInClubRental} readOnly className="accent-purple-500 w-4 h-4" />
+                            Club Hire
+                          </label>
+                          <span className="text-[10px] text-zinc-500 ml-6 mt-0.5">+ R{addonPrices.club_rental}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -812,6 +808,12 @@ export default function AdminDashboard() {
                         <td className="px-6 py-5">
                           <div className="font-bold text-white">{b.guest_name}</div>
                           <div className="text-xs text-zinc-500 font-medium mt-0.5">{b.player_count} Players</div>
+                          {(b.addon_coaching || b.addon_club_rental) && (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {b.addon_coaching && <span className="text-[9px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">Coaching</span>}
+                              {b.addon_club_rental && <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">Club Hire</span>}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className={`font-mono font-bold ${balance > 0 && b.status !== 'cancelled' ? 'text-amber-400' : 'text-zinc-600'}`}>
