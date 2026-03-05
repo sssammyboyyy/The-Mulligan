@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
     // still physically block slot inserts. We MUST fetch them to delete them.
     const { data: dailyBookings } = await supabaseAdmin
       .from("bookings")
-      .select("id, simulator_id, slot_start, slot_end, status, created_at, yoco_payment_id, payment_status, booking_request_id")
+      .select("id, simulator_id, start_time, slot_start, slot_end, status, created_at, yoco_payment_id, payment_status, booking_request_id, guest_email")
       .eq("booking_date", booking_date)
 
     const takenBays = new Set<number>();
@@ -242,11 +242,13 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // --- IDEMPOTENCY FIREWALL ---
-        // If this row belongs to our CURRENT booking request, it CANNOT block us.
-        // This solves the bug where a rapid double-click on a bypassed checkout
-        // causes the second click to think "all bays are full".
-        if (b.booking_request_id === bookingRequestId) {
+        // --- IDEMPOTENCY / SELF-RECOVERY FIREWALL ---
+        // A row DOES NOT block us if:
+        // 1. It matches our specific transient booking_request_id (double-click/retry)
+        // 2. OR it belongs to our SAME EMAIL for the SAME START TIME (page refresh recovery)
+        const isSelfRecovery = (b.guest_email === guest_email && b.start_time === start_time && b.status === 'confirmed');
+
+        if (b.booking_request_id === bookingRequestId || isSelfRecovery) {
           return;
         }
 
