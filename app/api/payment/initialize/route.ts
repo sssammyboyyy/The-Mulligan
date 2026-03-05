@@ -159,11 +159,12 @@ export async function POST(request: NextRequest) {
     // Ensure the session does not extend past the venue's closing time.
     const operatingHours = getOperatingHours(startDate);
     if (operatingHours) {
-      const closeTimeMs = new Date(startDate);
-      closeTimeMs.setHours(operatingHours.close, 0, 0, 0);
+      // SAST-safe close time (ignores server local time)
+      const closeIso = `${booking_date}T${operatingHours.close.toString().padStart(2, '0')}:00:00+02:00`;
+      const closeTimeMs = new Date(closeIso).getTime();
 
       // We use <= because 20:00 means the LAST session must END by 20:00
-      if (endDate.getTime() > closeTimeMs.getTime()) {
+      if (endDate.getTime() > closeTimeMs) {
         const readableClose = `${operatingHours.close}:00`;
         return NextResponse.json({
           error: `The venue closes at ${readableClose}. Please shorten your session or choose an earlier slot.`,

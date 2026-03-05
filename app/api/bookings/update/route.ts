@@ -100,10 +100,13 @@ export async function POST(req: Request) {
             const reqEndMs = new Date(slotEndISO).getTime()
 
             // VALIDATE OPERATING HOURS (Hard Close)
-            const closeTimeMs = new Date(reqStartMs)
-            closeTimeMs.setHours(operatingHours.close, 0, 0, 0)
+            // SAST-safe open/close times
+            const openIso = `${bookingDate}T${operatingHours.open.toString().padStart(2, '0')}:00:00+02:00`
+            const closeIso = `${bookingDate}T${operatingHours.close.toString().padStart(2, '0')}:00:00+02:00`
+            const openTimeMs = new Date(openIso).getTime()
+            const closeTimeMs = new Date(closeIso).getTime()
 
-            if (reqStartMs < new Date(reqStartMs).setHours(operatingHours.open, 0, 0, 0) || reqEndMs > closeTimeMs.getTime()) {
+            if (reqStartMs < openTimeMs || reqEndMs > closeTimeMs) {
                 return NextResponse.json(
                     { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
                     { status: 400 }

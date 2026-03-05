@@ -194,6 +194,16 @@ export default function AdminDashboard() {
     setIsActionLoading(true)
 
     try {
+      const hours = getOperatingHours(new Date(currentDate))
+      if (hours) {
+        const [h, m] = walkInTime.split(':').map(Number)
+        const startDecimal = h + (m / 60)
+        const endDecimal = startDecimal + walkInDuration
+        if (endDecimal > hours.close) {
+          throw new Error(`Session exceeds closing time of ${hours.close}:00`)
+        }
+      }
+
       const total = calculateTotal(walkInPlayers, walkInDuration)
 
       const paidAmount = walkInAmountPaid ? parseFloat(walkInAmountPaid) : 0
@@ -249,6 +259,16 @@ export default function AdminDashboard() {
     setIsActionLoading(true)
 
     try {
+      const hours = getOperatingHours(new Date(editingBooking.booking_date))
+      if (hours) {
+        const [h, m] = editingBooking.start_time.split(':').map(Number)
+        const startDecimal = h + (m / 60)
+        const endDecimal = startDecimal + Number(editingBooking.duration_hours)
+        if (endDecimal > hours.close) {
+          throw new Error(`Session exceeds closing time of ${hours.close}:00`)
+        }
+      }
+
       const total = parseFloat(editingBooking.total_price)
       const paid = parseFloat(editingBooking.amount_paid || 0)
 
@@ -640,10 +660,10 @@ export default function AdminDashboard() {
                           disabled={isPastClose}
                           onClick={() => setWalkInDuration(h)}
                           className={`py-3.5 rounded-xl text-sm font-bold border transition-all ${walkInDuration === h
-                              ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20'
-                              : isPastClose
-                                ? 'bg-zinc-950 border-zinc-900 text-zinc-800 cursor-not-allowed'
-                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'
+                            ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20'
+                            : isPastClose
+                              ? 'bg-zinc-950 border-zinc-900 text-zinc-800 cursor-not-allowed'
+                              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'
                             }`}
                         >
                           {h}h
