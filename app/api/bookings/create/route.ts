@@ -62,16 +62,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const startHour = parseInt(start_time.split(':')[0])
-    const endHour = startHour + duration_hours
-
-    if (startHour < operatingHours.open || endHour > operatingHours.close) {
-      return NextResponse.json(
-        { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
-        { status: 400 }
-      )
-    }
-
     // 2. CALCULATE TIMES
     const slotStartISO = createSASTTimestamp(booking_date, start_time)
     const slotEndISO = addHoursToTimestamp(slotStartISO, duration_hours)
@@ -80,6 +70,17 @@ export async function POST(request: NextRequest) {
     // Convert requested times to Milliseconds for safe comparison
     const reqStartMs = new Date(slotStartISO).getTime()
     const reqEndMs = new Date(slotEndISO).getTime()
+
+    // 2b. VALIDATE OPERATING HOURS (Hard Close)
+    const closeTimeMs = new Date(reqStartMs)
+    closeTimeMs.setHours(operatingHours.close, 0, 0, 0)
+
+    if (reqStartMs < new Date(reqStartMs).setHours(operatingHours.open, 0, 0, 0) || reqEndMs > closeTimeMs.getTime()) {
+      return NextResponse.json(
+        { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
+        { status: 400 }
+      )
+    }
 
     // 3. CHECK AVAILABILITY (MULTI-BAY LOGIC)
 

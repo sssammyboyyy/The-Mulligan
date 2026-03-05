@@ -91,20 +91,24 @@ export async function POST(req: Request) {
                 )
             }
 
-            const startHour = parseInt(startTime.split(':')[0])
-            const endHour = startHour + durationHours
+            // Recalculate timestamps
+            const slotStartISO = createSASTTimestamp(bookingDate, startTime)
+            const slotEndISO = addHoursToTimestamp(slotStartISO, durationHours)
+            const endTimeText = calculateEndTimeText(startTime, durationHours)
 
-            if (startHour < operatingHours.open || endHour > operatingHours.close) {
+            const reqStartMs = new Date(slotStartISO).getTime()
+            const reqEndMs = new Date(slotEndISO).getTime()
+
+            // VALIDATE OPERATING HOURS (Hard Close)
+            const closeTimeMs = new Date(reqStartMs)
+            closeTimeMs.setHours(operatingHours.close, 0, 0, 0)
+
+            if (reqStartMs < new Date(reqStartMs).setHours(operatingHours.open, 0, 0, 0) || reqEndMs > closeTimeMs.getTime()) {
                 return NextResponse.json(
                     { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
                     { status: 400 }
                 )
             }
-
-            // Recalculate timestamps
-            const slotStartISO = createSASTTimestamp(bookingDate, startTime)
-            const slotEndISO = addHoursToTimestamp(slotStartISO, durationHours)
-            const endTimeText = calculateEndTimeText(startTime, durationHours)
 
             // Add recalculated fields to updates
             finalUpdates = {

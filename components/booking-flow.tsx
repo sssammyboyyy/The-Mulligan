@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -117,18 +117,29 @@ export default function BookingFlow() {
 
 
   // --- AVAILABILITY ---
-  const generateTimeSlots = useCallback((selectedDate: Date): string[] => {
-    const hours = getOperatingHours(selectedDate)
-    if (!hours) return [] // Closed day
-    const slots: string[] = []
-    for (let hour = hours.open; hour < hours.close; hour++) {
-      slots.push(`${hour.toString().padStart(2, "0")}:00`)
-      if (hour + 0.5 < hours.close) slots.push(`${hour.toString().padStart(2, "0")}:30`)
-    }
-    return slots
-  }, [])
+  // Calculate available slots based on operating hours and duration
+  const availableSlots = useMemo(() => {
+    const hours = date ? getOperatingHours(date) : null
+    if (!hours) return []
 
-  const availableSlots = date ? generateTimeSlots(date) : []
+    const slots: string[] = []
+    for (let h = hours.open; h < hours.close; h++) {
+      slots.push(`${h.toString().padStart(2, '0')}:00`)
+      slots.push(`${h.toString().padStart(2, '0')}:30`)
+    }
+
+    // Filter slots based on duration and hard close
+    return slots.filter(slot => {
+      const [slotH, slotM] = slot.split(':').map(Number)
+      const startDecimal = slotH + (slotM / 60)
+      const endDecimal = startDecimal + duration
+
+      // If the session would end after closing time, hide the slot entirely
+      if (endDecimal > hours.close) return false
+
+      return true
+    })
+  }, [date, duration])
 
   useEffect(() => {
     if (!date) return
@@ -149,12 +160,37 @@ export default function BookingFlow() {
   }, [date])
 
   const isSlotBooked = (slot: string) => {
-    if (bookedSlots.includes(slot)) return true
+    // A. Operational Hours / Hard Close Check
+    const hours = date ? getOperatingHours(date) : null
+    if (hours) {
+      const [startH, startM] = slot.split(':').map(Number)
+      const startDecimal = startH + (startM / 60)
+      const endDecimal = startDecimal + duration
+
+      if (endDecimal > hours.close) return true // Session exceeds closing time
+    }
+
+    // B. Real-Time Occupancy Check (Duration Aware)
+    // A slot is "booked" if ANY 30-minute interval within its duration is fully occupied (>= 3 bays)
+    const [h, m] = slot.split(':').map(Number)
+    const slotStartDecimal = h + (m / 60)
+
+    // Check every 30m window within the requested duration
+    for (let intervalOffset = 0; intervalOffset < duration; intervalOffset += 0.5) {
+      const intervalDecimal = slotStartDecimal + intervalOffset
+      const iH = Math.floor(intervalDecimal)
+      const iM = (intervalDecimal % 1) * 60
+      const intervalKey = `${iH.toString().padStart(2, '0')}:${iM.toString().padStart(2, '0')}`
+
+      if (bookedSlots.includes(intervalKey)) return true
+    }
+
+    // C. Past Time Check (for Today)
     if (date && isToday(date)) {
       const now = new Date()
-      const [hours, minutes] = slot.split(':').map(Number)
+      const [hoursSlot, minutesSlot] = slot.split(':').map(Number)
       const slotDate = new Date(date)
-      slotDate.setHours(hours, minutes, 0, 0)
+      slotDate.setHours(hoursSlot, minutesSlot, 0, 0)
       if (slotDate <= now) return true
     }
     return false
@@ -413,7 +449,7 @@ export default function BookingFlow() {
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {availableSlots.map(slot => {
+                            {availableSlots.map((slot: string) => {
                               const booked = isSlotBooked(slot)
                               return (
                                 <button

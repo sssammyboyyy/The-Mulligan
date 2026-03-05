@@ -12,6 +12,7 @@ import {
   Smartphone, Globe, Lock, MapPin, Package
 } from "lucide-react"
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns"
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 // --- CONSTANTS ---
 const BAY_NAMES: Record<number, string> = {
@@ -624,11 +625,32 @@ export default function AdminDashboard() {
                 <div>
                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3 block">Duration</label>
                   <div className="grid grid-cols-4 gap-3">
-                    {DURATION_OPTIONS.map(h => (
-                      <button key={h} onClick={() => setWalkInDuration(h)} className={`py-3.5 rounded-xl text-sm font-bold border transition-all ${walkInDuration === h ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
-                        {h}h
-                      </button>
-                    ))}
+                    {DURATION_OPTIONS.map(h => {
+                      // Hard Close Restriction
+                      const [startH, startM] = walkInTime.split(':').map(Number)
+                      const startDecimal = startH + (startM / 60)
+                      const endDecimal = startDecimal + h
+
+                      const hours = getOperatingHours(new Date(currentDate))
+                      const isPastClose = hours ? endDecimal > hours.close : false
+
+                      return (
+                        <button
+                          key={h}
+                          disabled={isPastClose}
+                          onClick={() => setWalkInDuration(h)}
+                          className={`py-3.5 rounded-xl text-sm font-bold border transition-all ${walkInDuration === h
+                              ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20'
+                              : isPastClose
+                                ? 'bg-zinc-950 border-zinc-900 text-zinc-800 cursor-not-allowed'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'
+                            }`}
+                        >
+                          {h}h
+                          {isPastClose && <div className="text-[8px] opacity-40 mt-0.5 whitespace-nowrap">EXT CLOSES</div>}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 

@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/utils"
 
+import { getOperatingHours } from "@/lib/schedule-config"
+
 // 1. Force Edge Runtime
 export const runtime = "edge"
 
@@ -152,6 +154,24 @@ export async function POST(request: NextRequest) {
     }
 
     const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
+
+    // --- HARD CLOSE VALIDATION ---
+    // Ensure the session does not extend past the venue's closing time.
+    const operatingHours = getOperatingHours(startDate);
+    if (operatingHours) {
+      const closeTimeMs = new Date(startDate);
+      closeTimeMs.setHours(operatingHours.close, 0, 0, 0);
+
+      // We use <= because 20:00 means the LAST session must END by 20:00
+      if (endDate.getTime() > closeTimeMs.getTime()) {
+        const readableClose = `${operatingHours.close}:00`;
+        return NextResponse.json({
+          error: `The venue closes at ${readableClose}. Please shorten your session or choose an earlier slot.`,
+          error_code: "PAST_CLOSING_TIME",
+          correlation_id: correlationId
+        }, { status: 400 });
+      }
+    }
 
     // For inserts, we use proper ISO strings. Postgres handles these perfectly because
     // they represent exact moments in time, resolving all DST/UTC discrepancies.
