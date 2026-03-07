@@ -1,325 +1,254 @@
 {
-  "id": "8KK7CUeXhAYKbzZC",
-  "name": "Manual Confirmation (Intelligent)",
-  "active": true,
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Africa/Johannesburg",
-    "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": true
-  },
-  "connections": {
-    "Receive Frontend Trigger": {
-      "main": [
-        [
-          {
-            "node": "Validate & Prep",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate & Prep": {
-      "main": [
-        [
-          {
-            "node": "Is Authorized?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Is Authorized?": {
-      "main": [
-        [
-          {
-            "node": "Update Booking",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update Booking": {
-      "main": [
-        [
-          {
-            "node": "Gemini: Personalized Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini: Personalized Message": {
-      "main": [
-        [
-          {
-            "node": "Prepare Customer Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Customer Email": {
-      "main": [
-        [
-          {
-            "node": "Send Customer Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Customer Email": {
-      "main": [
-        [
-          {
-            "node": "Prepare Store Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Store Email": {
-      "main": [
-        [
-          {
-            "node": "Notify Store",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "name": "Manual Confirmation (Premium - Literal Keys)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "manual-confirm",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ],
+            "id": "webhook-trigger",
+            "name": "Receive Frontend Trigger"
+        },
+        {
+            "parameters": {
+                "jsCode": "// CONFIG - Literal Secret\nvar EXPECTED_SECRET = 'mulligan-secure-8821';\nvar input = items[0].json;\n\n// 1. DATA EXTRACTION\nvar data = input.bookingId ? input : (input.body || {});\nif (typeof data === 'string') {\n  try { data = JSON.parse(data); } catch(e) {}\n}\n\n// 2. VALIDATION\nif (!data.bookingId) {\n  throw new Error('CRITICAL: Missing bookingId');\n}\n\nreturn {\n  json: { ...data, valid: (data.secret === EXPECTED_SECRET) }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ],
+            "id": "validate-prep",
+            "name": "Validate & Prep"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $json.bookingId }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"status\": \"confirmed\",\n  \"payment_status\": \"{{ $json.paymentStatus }}\",\n  \"yoco_payment_id\": \"{{ $json.yocoId }}\",\n  \"confirmed_at\": \"{{ new Date().toISOString() }}\",\n  \"updated_at\": \"{{ new Date().toISOString() }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                800,
+                300
+            ],
+            "id": "supabase-update",
+            "name": "Update Booking"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyD8roavPep-IdZJ-rCOGSXmrP1D-XGNDuM",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are an intelligent booking assistant for The Mulligan Golf Lounge. \\nAnalyze the following booking and generate a 1-sentence friendly, personalized welcome message for the customer email.\\n\\nBooking Details:\\nGuest: {{ $('Validate & Prep').item.json.guest_name }}\\nDuration: {{ $('Validate & Prep').item.json.duration_hours }}h\\nBay: {{ $('Validate & Prep').item.json.bay_name }}\\nPayment: {{ $('Validate & Prep').item.json.payment_summary }}\\n\\nRules:\\n- If it's a 1h 'Short Session', emphasize it's a quick and fun visit.\\n- If they paid in full, thank them for the upfront payment.\\n- Be premium and enthusiastic.\"\n        }\n      ]\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1000,
+                300
+            ],
+            "id": "gemini-msg",
+            "name": "Gemini: Personalized Message"
+        },
+        {
+            "parameters": {
+                "jsCode": "var booking = $('Validate & Prep').item.json;\nvar gemini = $('Gemini: Personalized Message').item.json;\nvar message = (gemini.candidates && gemini.candidates[0].content.parts[0].text) || \"Your booking is confirmed!\";\n\n// Premium Layout with Mulligan Branding\nvar html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;\">\n    <div style=\"background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 25px; text-align: center;\">\n        <h1 style=\"color: white; margin: 0; font-size: 24px;\">\u26f3 Booking Confirmed!</h1>\n        <p style=\"color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;\">The Simulator Never Judges!</p>\n    </div>\n    <div style=\"padding: 25px;\">\n        <p style=\"font-size: 16px; margin: 0 0 15px;\">Hi <strong>${booking.guest_name}</strong>,</p>\n        <p style=\"color: #6b7280; line-height: 1.6; margin: 0 0 20px;\">${message}</p>\n        \n        <div style=\"background: #f0fdf4; border-left: 4px solid #22c55e; padding: 18px; border-radius: 8px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 4px; font-size: 14px; color: #166534; font-weight: 600;\">YOUR SLOT</p>\n            <p style=\"margin: 0 0 8px; font-size: 20px; font-weight: bold; color: #166534;\">\ud83d\udcc5 ${booking.booking_date} | \ud83d\udd50 ${booking.start_time}</p>\n            <p style=\"margin: 0; font-size: 16px; color: #6b7280;\">\ud83d\udccd ${booking.bay_name}</p>\n        </div>\n\n        <div style=\"background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 12px; font-weight: bold; color: #b45309; font-size: 14px;\">\ud83d\udccb PLAYER BASICS</p>\n            <ul style=\"margin: 0; padding-left: 18px; color: #6b7280; line-height: 1.6; font-size: 13px;\">\n                <li><strong>8:00 PM Sharp</strong>: Venue closes strictly at 8 PM</li>\n                <li><strong>Golf Glove</strong>: Compulsory for all players</li>\n                <li><strong>Shoes</strong>: Flat-soled only (no cleats)</li>\n                <li><strong>Arrival</strong>: 15 mins early is recommended</li>\n            </ul>\n        </div>\n\n        <p style=\"text-align: center; color: #9ca3af; font-size: 12px; margin-top: 30px;\">38A Chopin St, Vanderbijlpark</p>\n    </div>\n</div>`;\n\nreturn { json: { from: \"The Mulligan <bookings@themulligan.org>\", to: [booking.guest_email], subject: \"Booking Confirmed: \" + booking.booking_date, html: html } };"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                300
+            ],
+            "id": "prepare-customer-email",
+            "name": "Prepare Customer Email"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1400,
+                300
+            ],
+            "id": "send-customer-email",
+            "name": "Send Customer Email"
+        },
+        {
+            "parameters": {
+                "jsCode": "var booking = $('Validate & Prep').item.json;\n\n// Intelligent Add-on Detection\nvar addonList = [];\nif (booking.addon_coaching) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f PRO COACHING BOOKED</li>');\nif (booking.addon_club_rental) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f CLUB RENTAL BOOKED</li>');\nvar addonsHtml = addonList.length > 0 ? `<ul style=\"margin: 10px 0; padding-left: 20px;\">${addonList.join('')}</ul>` : '<p style=\"color: #9ca3af; font-style: italic;\">No add-ons selected</p>';\n\n// Premium Alert Template\nvar html = `\n<div style=\"font-family: sans-serif; max-width: 500px; margin: 0 auto; border: 2px solid #dc2626; border-radius: 12px; overflow: hidden;\">\n    <div style=\"background: #dc2626; color: white; padding: 15px; text-align: center;\">\n        <h2 style=\"margin: 0; font-size: 20px;\">\u26a0\ufe0f NEW BOOKING ALERT</h2>\n    </div>\n    <div style=\"padding: 20px; background: #fff;\">\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Guest Details</p>\n            <p style=\"margin: 0; font-size: 18px; font-weight: bold; color: #111827;\">${booking.guest_name}</p>\n            <p style=\"margin: 5px 0 0; color: #4b5563;\">${booking.guest_phone || 'No phone'}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Slot & Bay</p>\n            <p style=\"margin: 0; font-size: 16px; color: #111827;\">\ud83d\udcc5 <strong>${booking.booking_date}</strong> | \ud83d\udd50 <strong>${booking.start_time}</strong></p>\n            <p style=\"margin: 5px 0 0; color: #111827;\">\ud83d\udccd ${booking.bay_name}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fee2e2;\">\n            <p style=\"margin: 0 0 8px; color: #991b1b; font-size: 12px; font-weight: bold; text-transform: uppercase;\">\ud83d\udce6 ADD-ONS & SERVICES</p>\n            ${addonsHtml}\n        </div>\n\n        <div style=\"background: #f9fafb; padding: 15px; border-radius: 8px;\">\n            <table style=\"width: 100%; border-collapse: collapse;\">\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Total Price</td><td style=\"text-align: right; font-weight: bold;\">R${booking.total_price}</td></tr>\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Amt Paid</td><td style=\"text-align: right; color: #059669; font-weight: bold;\">R${booking.amount_paid}</td></tr>\n                <tr style=\"border-top: 1px solid #e5e7eb;\"><td style=\"padding: 8px 0; font-weight: bold;\">Balance Due</td><td style=\"text-align: right; padding: 8px 0; font-weight: bold; color: #dc2626; font-size: 18px;\">R${booking.amount_due}</td></tr>\n            </table>\n            <p style=\"margin: 10px 0 0; font-size: 12px; color: #6b7280; text-align: center;\">Status: ${booking.paymentStatus.toUpperCase()}</p>\n        </div>\n    </div>\n</div>`;\n\nreturn { json: { from: \"Mulligan Notifications <alerts@themulligan.org>\", to: [\"themulligan.store@gmail.com\"], subject: \"\ud83d\udcc5 NEW: \" + booking.guest_name + \" (\" + booking.bay_name + \")\", html: html } };"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1600,
+                300
+            ],
+            "id": "prepare-store-email",
+            "name": "Prepare Store Email"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1800,
+                300
+            ],
+            "id": "notify-store",
+            "name": "Notify Store"
+        }
+    ],
+    "connections": {
+        "Receive Frontend Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Validate & Prep",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate & Prep": {
+            "main": [
+                [
+                    {
+                        "node": "Update Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Gemini: Personalized Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini: Personalized Message": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Customer Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Customer Email": {
+            "main": [
+                [
+                    {
+                        "node": "Send Customer Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Customer Email": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Store Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Store Email": {
+            "main": [
+                [
+                    {
+                        "node": "Notify Store",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
     }
-  },
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "manual-confirm",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        4128,
-        1264
-      ],
-      "id": "55e8ab8b-208f-4a89-b975-8cddb8fc8bff",
-      "name": "Receive Frontend Trigger"
-    },
-    {
-      "parameters": {
-        "jsCode": "// CONFIG\nvar EXPECTED_SECRET = 'mulligan-secure-8821';\nvar input = items[0].json;\n\n// 1. HUNT FOR DATA (The \"Finder\" Logic)\nvar data = {};\n\n// Strategy A: Is it at the root?\nif (input.bookingId) {\n    data = input;\n}\n// Strategy B: Is it inside 'body'?\nelse if (input.body && input.body.bookingId) {\n    data = input.body;\n}\n// Strategy C: Is 'body' a string we need to parse?\nelse if (input.body && typeof input.body === 'string') {\n    try {\n        var parsed = JSON.parse(input.body);\n        if (parsed.bookingId) data = parsed;\n    } catch (e) {}\n}\n\n// 2. VALIDATION (Stop immediately if missing)\nif (!data.bookingId) {\n    var foundKeys = Object.keys(input).join(\", \");\n    throw new Error(`CRITICAL: Could not find 'bookingId'. Available keys: [${foundKeys}]`);\n}\n\n// 3. SECURITY CHECK\nvar receivedSecret = data.secret || (input.headers ? input.headers['x-secret'] : '');\nif (receivedSecret !== EXPECTED_SECRET) {\n     throw new Error(`UNAUTHORIZED: Invalid Secret. Got: ${receivedSecret}`);\n}\n\n// 4. RETURN CLEAN DATA (Modern fields from trigger-n8n API)\nreturn {\n  json: {\n    valid: true,\n    bookingId: data.bookingId,\n    yocoId: data.yocoId,\n    paymentStatus: data.paymentStatus || 'paid',\n    guest_name: data.guest_name,\n    guest_email: data.guest_email,\n    guest_phone: data.guest_phone,\n    booking_date: data.booking_date,\n    start_time: data.start_time,\n    end_time: data.end_time,\n    simulator_id: data.simulator_id,\n    bay_name: data.bay_name,\n    time_slot: data.time_slot,\n    player_count: data.player_count || 1,\n    duration_hours: data.duration_hours || 1,\n    session_type: data.session_type || 'quick',\n    session_type_label: data.session_type_label || 'Quick Play',\n    addon_coaching: data.addon_coaching || false,\n    addon_club_rental: data.addon_club_rental || false,\n    total_price: data.total_price || data.totalPrice || '0.00',\n    amount_paid: data.amount_paid || data.depositPaid || '0.00',\n    amount_due: data.amount_due || data.outstandingBalance || '0.00',\n    payment_type: data.payment_type || (data.is_fully_paid ? 'full' : 'deposit'),\n    is_fully_paid: data.is_fully_paid || false,\n    is_short_session: data.is_short_session || (data.duration_hours <= 1),\n    payment_summary: data.payment_summary || ''\n  }\n};"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4352,
-        1264
-      ],
-      "id": "4b82149f-d5f1-4930-8f08-4c0e99171dfd",
-      "name": "Validate & Prep"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ $json.valid }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        4560,
-        1264
-      ],
-      "id": "c13c0c2a-db29-4922-8cb5-8a213c048834",
-      "name": "Is Authorized?"
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "tableId": "bookings",
-        "matchType": "allFilters",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "id",
-              "condition": "eq",
-              "keyValue": "={{ $json.bookingId }}"
-            }
-          ]
-        },
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "status",
-              "fieldValue": "confirmed"
-            },
-            {
-              "fieldId": "payment_status",
-              "fieldValue": "={{ $json.paymentStatus }}"
-            },
-            {
-              "fieldId": "yoco_payment_id",
-              "fieldValue": "={{ $json.yocoId }}"
-            },
-            {
-              "fieldId": "confirmed_at",
-              "fieldValue": "={{ new Date().toISOString() }}"
-            },
-            {
-              "fieldId": "updated_at",
-              "fieldValue": "={{ new Date().toISOString() }}"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        4784,
-        1264
-      ],
-      "id": "61e63ea0-a88f-42c8-89a4-4a9760d399b0",
-      "name": "Update Booking",
-      "alwaysOutputData": true,
-      "credentials": {
-        "supabaseApi": {
-          "id": "GeCSBGdV5ds3IcZc",
-          "name": "Supabase Admin"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$env.GEMINI_API_KEY}}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are an intelligent booking assistant for The Mulligan Golf Lounge. \\nAnalyze the following booking and generate a 1-sentence friendly, personalized welcome message for the customer email.\\n\\nBooking Details:\\nGuest: {{ $('Validate & Prep').item.json.guest_name }}\\nDuration: {{ $('Validate & Prep').item.json.duration_hours }}h\\nBay: {{ $('Validate & Prep').item.json.bay_name }}\\nPayment: {{ $('Validate & Prep').item.json.payment_summary }}\\n\\nRules:\\n- If it's a 1h 'Short Session', emphasize it's a quick and fun visit.\\n- If they paid in full, thank them for the upfront payment.\\n- Be premium and enthusiastic.\\n- Output ONLY the 1-sentence message.\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.7\n  }\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        4880,
-        1400
-      ],
-      "id": "gemini-personalization",
-      "name": "Gemini: Personalized Message"
-    },
-    {
-      "parameters": {
-        "jsCode": "var booking = $('Validate & Prep').item.json;\nvar simulatorMap = {1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'};\nvar bayName = booking.bay_name || simulatorMap[booking.simulator_id] || ('Bay ' + booking.simulator_id);\n\nvar addonRows = [];\nif (booking.addon_coaching) addonRows.push(`<tr><td style=\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\">Coaching Session</td><td style=\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#059669;font-weight:600;text-align:right;\">\\u2713 Included</td></tr>`);\nif (booking.addon_club_rental) addonRows.push(`<tr><td style=\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;text-align:left;\">Club Hire</td><td style=\"padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#059669;font-weight:600;text-align:right;\">\\u2713 Included</td></tr>`);\nvar addonsHtml = addonRows.length > 0 ? addonRows.join('') : '';\n\nvar totalPrice = booking.total_price || '0.00';\nvar amountPaid = booking.amount_paid || '0.00';\nvar amountDue = booking.amount_due || '0.00';\nvar isFullyPaid = booking.is_fully_paid || false;\nvar isShort = booking.is_short_session || false;\n\nvar paymentBlock = '';\nif (isFullyPaid) {\n  paymentBlock = `<div style=\"background-color:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;\"><span style=\"font-size:13px;color:#065f46;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;\">PAYMENT COMPLETE</span><p style=\"font-size:28px;font-weight:700;color:#065f46;margin:0;\">R${totalPrice} Paid in Full</p></div>`;\n} else if (parseFloat(amountPaid) > 0) {\n  var label = isShort ? \"PAYMENT RECEIVED\" : \"SECURED VIA DEPOSIT\";\n  paymentBlock = `<div style=\"background-color:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;\"><span style=\"font-size:13px;color:#065f46;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;\">${label}</span><p style=\"font-size:28px;font-weight:700;color:#065f46;margin:0;\">R${amountPaid} Paid</p><div>Balance Due: R${amountDue}</div></div>`;\n} else {\n  paymentBlock = `<div style=\"background-color:#fff7ed;border:1px solid #ffedd5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;\"><span style=\"font-size:13px;color:#9a3412;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;\">PAYMENT PENDING</span><p style=\"font-size:28px;font-weight:700;color:#9a3412;margin:0;\">R${totalPrice} Due at Venue</p></div>`;\n}\n\nvar geminiResponse = $('Gemini: Personalized Message').item.json;\nvar personalizedMsg = (geminiResponse.candidates && geminiResponse.candidates[0] && geminiResponse.candidates[0].content && geminiResponse.candidates[0].content.parts && geminiResponse.candidates[0].content.parts[0]) ? geminiResponse.candidates[0].content.parts[0].text : `Your booking at The Mulligan is confirmed. We've reserved the ${bayName} for you.`;\n\nvar html = `<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;background:#fff;padding:40px;\"><h1>The Mulligan</h1><p>${personalizedMsg}</p>${paymentBlock}<table style=\"width:100%;\"><tr><td>Date</td><td>${booking.booking_date}</td></tr><tr><td>Time</td><td>${booking.start_time}</td></tr><tr><td>Duration</td><td>${booking.duration_hours}h</td></tr></table></div>`;\n\nreturn {\n  json: {\n    from: \"The Mulligan <bookings@themulligan.org>\",\n    to: [booking.guest_email],\n    subject: `Booking Confirmed: ${booking.booking_date}`,\n    html: html\n  }\n};"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4992,
-        1264
-      ],
-      "id": "737de637-488e-4dc0-8ca5-79c4e9cb92fb",
-      "name": "Prepare Customer Email"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.resend.com/emails",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [
-        5216,
-        1264
-      ],
-      "id": "643ab461-e0a1-4659-9143-4faeb235f6f9",
-      "name": "Send Customer Email"
-    },
-    {
-      "parameters": {
-        "jsCode": "var booking = $('Validate & Prep').item.json;\nvar simulatorMap = {1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'};\nvar bayName = booking.bay_name || simulatorMap[booking.simulator_id] || ('Bay ' + booking.simulator_id);\n\nvar addonRows = [];\nif (booking.addon_coaching) addonRows.push(`<tr><td>Coaching</td><td>Booked</td></tr>`);\nif (booking.addon_club_rental) addonRows.push(`<tr><td>Club Hire</td><td>Booked</td></tr>`);\n\nvar totalPrice = booking.total_price || '0.00';\nvar amountPaid = booking.amount_paid || '0.00';\nvar amountDue = booking.amount_due || '0.00';\nvar isFullyPaid = booking.is_fully_paid || false;\nvar isShort = booking.is_short_session || false;\n\nvar paymentLabel = isFullyPaid ? 'PAID IN FULL' : (parseFloat(amountPaid) > 0 ? (isShort ? 'PARTIAL' : 'DEPOSIT') : 'PENDING');\n\nvar html = `<div><h2>NEW BOOKING ALERT</h2><p>Guest: ${booking.guest_name}</p><p>Bay: ${bayName}</p><p>Status: ${paymentLabel}</p><p>Balance: R${amountDue}</p></div>`;\n\nreturn {\n  json: {\n    from: \"The Mulligan <bookings@themulligan.org>\",\n    to: [\"themulligan.store@gmail.com\"],\n    subject: `NEW BOOKING: ${booking.guest_name} - ${bayName}`,\n    html: html\n  }\n};"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        5440,
-        1264
-      ],
-      "id": "89942a80-1edf-4146-bff0-25fa1f5479f2",
-      "name": "Prepare Store Email"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.resend.com/emails",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [
-        5648,
-        1264
-      ],
-      "id": "2fd32080-efe2-4ded-807d-06bc6b37fedd",
-      "name": "Notify Store"
-    }
-  ],
-  "tags": [],
-  "meta": {
-    "templateCredsSetupCompleted": true
-  }
 }
