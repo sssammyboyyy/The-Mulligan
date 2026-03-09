@@ -30,23 +30,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/booking?error=booking_not_found", request.url))
     }
 
-    // 3. AGGRESSIVE SYNC: If Yoco ID exists but amount_paid is 0, they just returned from checkout
-    // We must manually trigger the verification here on the server side to guarantee state.
-    if (booking.yoco_payment_id && Number(booking.amount_paid) === 0) {
-
-      // Let our own robust n8n trigger route handle the Yoco check and DB update
-      const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.themulligan.org";
-      try {
-        await fetch(`${appUrl}/api/trigger-n8n`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: booking.id })
-        });
-        console.log(`[Verify Route] Automatically synced payment via trigger-n8n for ${booking.id}`);
-      } catch (syncError) {
-        console.error("[Verify Route] Aggressive sync failed:", syncError);
-      }
-    }
+    // 3. LEGACY SYNC (Removed in v4 in favor of Webhook-Only + Polling)
+    // We now rely on the Yoco Webhook triggering trigger-n8n.
+    // The success page polls /api/booking-status for the result.
 
     // 4. Smart Redirect
     // They are sent to success page, where the frontend will also pull the latest DB state.

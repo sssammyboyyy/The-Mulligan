@@ -9,7 +9,7 @@ import {
   Trash2, CheckCircle, Clock, DollarSign, Users, Calendar as CalendarIcon,
   Search, RefreshCw, LogOut, CreditCard, Target, Trophy, Loader2,
   AlertCircle, XCircle, Edit, ChevronLeft, ChevronRight,
-  Smartphone, Globe, Lock, MapPin, Package
+  Smartphone, Globe, Lock, MapPin, Package, Mail
 } from "lucide-react"
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns"
 import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
@@ -70,6 +70,7 @@ export default function AdminDashboard() {
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [syncingId, setSyncingId] = useState<string | null>(null)
 
   // Walk-in Form
   const [walkInName, setWalkInName] = useState("")
@@ -131,7 +132,7 @@ export default function AdminDashboard() {
     setIsLoading(true)
     try {
 
-      let query = supabase.from("bookings").select("*").order("start_time", { ascending: true })
+      let query = supabase.from("booking_dashboard").select("*").order("start_time", { ascending: true })
 
       if (activeTab !== 'calendar') {
         query = query.eq("booking_date", currentDate)
@@ -273,8 +274,9 @@ export default function AdminDashboard() {
       const paid = parseFloat(editingBooking.amount_paid || 0)
 
       let newPaymentStatus = editingBooking.payment_status
-      if (paid >= total) newPaymentStatus = "paid_instore"
-      else if (paid > 0) newPaymentStatus = "pending"
+      if (paid >= total - 0.01) newPaymentStatus = "paid_instore"
+      else if (paid > 0) newPaymentStatus = "deposit_paid"
+      else newPaymentStatus = "pending"
 
       const res = await fetch("/api/bookings/update", {
         method: "POST",
@@ -340,12 +342,24 @@ export default function AdminDashboard() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Permanently delete this booking?")) return
-    await fetch("/api/bookings/delete", {
-      method: "POST",
-      body: JSON.stringify({ id, pin: "8821" })
-    })
     setBookings(prev => prev.filter(b => b.id !== id))
+  }
+
+  const handleSyncPayment = async (id: string) => {
+    setSyncingId(id)
+    try {
+      const res = await fetch(`/api/reconcile-payments?bookingId=${id}`)
+      const data = await res.json()
+      if (data.success) {
+        await fetchBookings()
+      } else {
+        alert("Sync failed: " + (data.error || "Unknown error"))
+      }
+    } catch (err) {
+      alert("Sync error")
+    } finally {
+      setSyncingId(null)
+    }
   }
 
   const filteredBookings = bookings.filter(b => {
@@ -812,7 +826,7 @@ export default function AdminDashboard() {
                     <th className="px-6 py-5">Source</th>
                     <th className="px-6 py-5">Guest</th>
                     <th className="px-6 py-5 text-right">Balance</th>
-                    <th className="px-6 py-5 text-center">Status</th>
+                    <th className="px-6 py-5 text-center">Payment</th>
                     <th className="px-6 py-5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -868,22 +882,37 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="px-6 py-5 text-center">
-                          {b.status === 'cancelled' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/20 uppercase tracking-wider">
-                              <XCircle className="w-3 h-3" /> Cancelled
-                            </span>
-                          ) : balance <= 0 ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 uppercase tracking-wider">
-                              <CheckCircle className="w-3 h-3" /> Paid
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold border border-amber-500/20 uppercase tracking-wider">
-                              <Clock className="w-3 h-3" /> Pending
-                            </span>
-                          )}
+                          <div className="flex flex-col items-center gap-1.5">
+                            {b.status === 'cancelled' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/20 uppercase tracking-wider">
+                                <XCircle className="w-3 h-3" /> Cancelled
+                              </span>
+                            ) : (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${b.payment_state === 'Fully Paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                b.payment_state === 'Partial (Deposit)' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  b.payment_state === 'Awaiting Info/Payment' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                    'bg-zinc-800 text-zinc-500 border-zinc-700'
+                                }`}>
+                                {b.payment_state === 'Fully Paid' && <CheckCircle className="w-3 h-3" />}
+                                {b.payment_state === 'Partial (Deposit)' && <DollarSign className="w-3 h-3" />}
+                                {b.payment_state === 'Awaiting Info/Payment' && <Clock className="w-3 h-3" />}
+                                {b.payment_state}
+                              </span>
+                            )}
+                            {b.email_sent && (
+                              <div className="flex items-center gap-1 text-[9px] text-emerald-500/60 font-medium bg-emerald-500/5 px-1.5 py-0.5 rounded">
+                                <Mail className="w-2.5 h-2.5" /> Email Sent
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                            {!isWalkIn(b) && (
+                              <button onClick={() => handleSyncPayment(b.id)} disabled={syncingId === b.id} className={`p-2 rounded-lg border border-transparent hover:border-zinc-700 transition-all ${syncingId === b.id ? 'text-emerald-500' : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10'}`} title="Sync with Yoco/n8n">
+                                <RefreshCw className={`w-4 h-4 ${syncingId === b.id ? 'animate-spin' : ''}`} />
+                              </button>
+                            )}
                             <button onClick={() => setEditingBooking(b)} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white border border-transparent hover:border-zinc-700 transition-all" title="Edit">
                               <Edit className="w-4 h-4" />
                             </button>

@@ -14,30 +14,55 @@ export function BookingSuccess() {
   const router = useRouter()
   const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const reference = searchParams.get("reference")
+  const [isFinalizing, setIsFinalizing] = useState(true)
+  const reference = searchParams.get("bookingId") || searchParams.get("reference")
 
   useEffect(() => {
-    const fetchBooking = async () => {
+    let pollInterval: any
+
+    const fetchAndPoll = async () => {
       if (!reference) {
         router.push("/booking")
         return
       }
 
+      // Initial fetch to get booking details
       const supabase = createBrowserClient()
-      const { data, error } = await supabase.from("bookings").select("*").eq("id", reference).single()
+      const { data, error } = await supabase.from("booking_dashboard").select("*").eq("id", reference).single()
 
       if (error || !data) {
-        console.error("[v0] Failed to fetch booking:", error)
+        console.error("Failed to fetch booking:", error)
         router.push("/booking")
         return
       }
 
-      console.log("[v0] Booking data loaded:", data)
       setBooking(data)
       setLoading(false)
+
+      // Start polling for finalization (email_sent = true)
+      if (!data.email_sent) {
+        pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/booking-status?id=${reference}`)
+            if (res.ok) {
+              const status = await res.json()
+              if (status.email_sent) {
+                setBooking((prev: any) => ({ ...prev, ...status }))
+                setIsFinalizing(false)
+                clearInterval(pollInterval)
+              }
+            }
+          } catch (err) {
+            console.error("Polling error:", err)
+          }
+        }, 3000)
+      } else {
+        setIsFinalizing(false)
+      }
     }
 
-    fetchBooking()
+    fetchAndPoll()
+    return () => { if (pollInterval) clearInterval(pollInterval) }
   }, [reference, router])
 
   if (loading) {
@@ -55,6 +80,7 @@ export function BookingSuccess() {
     return null
   }
 
+  // --- UI RENDER ---
   const getSessionDescription = () => {
     if (booking.session_type === "famous-course") {
       if (booking.famous_course_option === "4-ball") {
@@ -70,8 +96,8 @@ export function BookingSuccess() {
 
   const getDepositAmount = () => {
     if (booking.session_type === "famous-course") {
-      if (booking.famous_course_option === "4-ball") return 600 // Updated from 400 to 600
-      if (booking.famous_course_option === "3-ball") return 450 // Updated from 300 to 450
+      if (booking.famous_course_option === "4-ball") return 600
+      if (booking.famous_course_option === "3-ball") return 450
     }
     return booking.total_price
   }
@@ -83,16 +109,24 @@ export function BookingSuccess() {
     <div className="min-h-screen py-16 bg-background">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
-          {/* Success Message */}
+          {/* Status Message */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-12 h-12 text-primary" />
+              {isFinalizing ? (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              ) : (
+                <CheckCircle2 className="w-12 h-12 text-primary" />
+              )}
             </div>
-            <h1 className="font-serif text-3xl md:text-4xl font-bold mb-3 text-foreground">Booking Confirmed!</h1>
+            <h1 className="font-serif text-3xl md:text-4xl font-bold mb-3 text-foreground">
+              {isFinalizing ? "Finalizing Your Booking..." : "Booking Confirmed!"}
+            </h1>
             <p className="text-lg text-muted-foreground">
-              {booking.accept_whatsapp
-                ? "Check your WhatsApp and email for confirmation details"
-                : "We've sent a confirmation email with all the details"}
+              {isFinalizing
+                ? "We're verifying your payment and preparing your bay. This will only take a moment..."
+                : (booking.accept_whatsapp
+                  ? "Check your WhatsApp and email for confirmation details"
+                  : "We've sent a confirmation email with all the details")}
             </p>
           </div>
 
