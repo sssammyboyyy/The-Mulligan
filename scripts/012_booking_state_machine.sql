@@ -1,7 +1,9 @@
 -- 1. Unique Yoco Payment ID Constraint
 ALTER TABLE bookings
-ADD CONSTRAINT IF NOT EXISTS unique_yoco_payment UNIQUE (yoco_payment_id);
+DROP CONSTRAINT IF EXISTS unique_yoco_payment;
 
+ALTER TABLE bookings
+ADD CONSTRAINT unique_yoco_payment UNIQUE (yoco_payment_id);
 -- 2. State Machine Enforcement
 CREATE OR REPLACE FUNCTION enforce_booking_state_transition()
 RETURNS trigger AS $$
