@@ -6,21 +6,27 @@ export const runtime = 'edge';
 export async function POST(request: Request) {
     try {
         const authHeader = request.headers.get('Authorization');
-        const secret = process.env.RECONCILE_SECRET;
+        const reconcileSecret = process.env.RECONCILE_SECRET;
+        const adminPin = process.env.ADMIN_PIN || "8821";
 
-        // Auth Check
-        if (authHeader !== `Bearer ${secret}`) {
-            console.warn('[VERIFY] Unauthorized attempt to trigger reconciliation');
-            return new Response('Unauthorized', { status: 401 });
+        // Safely parse body for manual triggers
+        let body: any = {};
+        try {
+            body = await request.json();
+        } catch {
+            // Empty body is fine for cron executions
         }
 
-        // The singleBookingId is retrieved from JSON body now that the method is POST
-        let singleBookingId = null;
-        try {
-            const body = await request.json();
-            singleBookingId = body.bookingId;
-        } catch {
-            // Request might not have a body if triggered strictly as a cron hook
+        const singleBookingId = body?.bookingId;
+        const providedPin = body?.pin;
+
+        // Dual-Auth Gateway: Allow valid Bearer Token (Cron) OR valid PIN (Manual Dashboard)
+        const isValidCron = authHeader === `Bearer ${reconcileSecret}`;
+        const isValidManual = providedPin && providedPin === adminPin;
+
+        if (!isValidCron && !isValidManual) {
+            console.warn('[VERIFY] Unauthorized attempt to trigger reconciliation');
+            return new Response('Unauthorized', { status: 401 });
         }
 
         let query = supabaseAdmin
@@ -83,16 +89,18 @@ export async function POST(request: Request) {
                 // EXPLICIT n8n webhook invocation: Since PG triggers don't run n8n on UPDATEs (to prevent duplicate emails), we manually prompt it for reconciled transactions.
                 console.log(`[VERIFY] Dispatching n8n automation for reconciled booking ${booking.id}...`)
                 try {
-                    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.srv1127912.hstgr.cloud/webhook/booking-confirmed';
+                    const n8nUrl = process.env.N8N_WEBHOOK_URL;
+                    if (!n8nUrl) throw new Error("N8N_WEBHOOK_URL is missing in environment variables");
+
                     await fetch(n8nUrl, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ booking_id: booking.id, yoco_payment_id: booking.yoco_payment_id })
                     });
                     console.log(`[VERIFY] n8n automation dispatched for booking ${booking.id}`);
-                } catch (n8nError) {
-                    console.error(`[VERIFY] n8n trigger failed for booking ${booking.id}:`, n8nError);
-                    results.push({ bookingId: booking.id, warning: "n8n trigger failed to reach webhook" })
+                } catch (n8nError: any) {
+                    console.error(`[VERIFY] n8n trigger failed for booking ${booking.id}: ${n8nError.message}`);
+                    results.push({ bookingId: booking.id, warning: "n8n trigger failed." })
                 }
             } else {
                 results.push({ bookingId: booking.id, healed: false, yocoStatus: yocoData.status });

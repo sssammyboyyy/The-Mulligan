@@ -368,19 +368,42 @@ export default function AdminDashboard() {
   }
 
   const handleSyncPayment = async (id: string) => {
-    setSyncingId(id)
+    setSyncingId(id);
     try {
-      const res = await fetch(`/api/reconcile-payments?bookingId=${id}`)
-      const data = await res.json()
-      if (data.success) {
-        await fetchBookings()
-      } else {
-        alert("Sync failed: " + (data.error || "Unknown error"))
+      const res = await fetch("/api/reconcile-payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Safely pass the PIN state that was verified at login to act as authorization
+        body: JSON.stringify({ bookingId: id, pin })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
       }
-    } catch (err) {
-      alert("Sync error")
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Analyze the granular results array to provide precise UI feedback
+        const targetResult = data.results?.find((r: any) => r.bookingId === id);
+
+        if (targetResult?.healed) {
+          alert(`✅ Sync Complete: Recovered payment of R${targetResult.actualPaid}. Automation sent.`);
+        } else if (targetResult?.healed === false) {
+          alert(`⚠️ Sync Checked: Yoco confirms this checkout is still ${targetResult.yocoStatus}.`);
+        } else {
+          alert(`ℹ️ No anomalies matching this ID found requiring sync.`);
+        }
+
+        await fetchBookings(); // Automatically refresh the table data
+      } else {
+        alert("Sync failed: " + (data.error || "Unknown server response"));
+      }
+    } catch (err: any) {
+      alert(`Sync error: ${err.message}`);
+      console.error("Payment Sync Exception:", err);
     } finally {
-      setSyncingId(null)
+      setSyncingId(null);
     }
   }
 
