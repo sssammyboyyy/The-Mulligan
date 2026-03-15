@@ -467,7 +467,6 @@ export async function POST(request: NextRequest) {
                 error_code: "SLOT_RACE_CONDITION",
                 correlation_id: correlationId,
                 debug_error: retryError?.message || bookingError.message,
-                debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, retryFailed: true }
                 debug: { assignedSimulatorId, deletedGhosts: ghostDeleteIds.length, retryFailed: true }
               }, { status: 409 })
             }
@@ -477,7 +476,6 @@ export async function POST(request: NextRequest) {
               error_code: "SLOT_RACE_CONDITION",
               correlation_id: correlationId,
               debug_error: bookingError.message,
-              debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, forceDeleteFailed: forceDeleteError.message }
               debug: { assignedSimulatorId, deletedGhosts: ghostDeleteIds.length, forceDeleteFailed: forceDeleteError.message }
             }, { status: 409 })
           }
