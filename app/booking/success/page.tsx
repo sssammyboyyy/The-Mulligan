@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { CheckCircle, Search, XCircle, RefreshCw } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
 
@@ -98,7 +99,7 @@ function BookingSuccessContent() {
             </div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Verifying Payment</h1>
             <p className="text-[#4A4A4A] leading-relaxed">
-              We're waiting for secure confirmation from the payment provider. This usually takes just a few seconds...
+              We&apos;re waiting for secure confirmation from the payment provider. This usually takes just a few seconds...
             </p>
           </div>
         )}
@@ -110,24 +111,21 @@ function BookingSuccessContent() {
             </div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Booking Confirmed!</h1>
             <p className="text-[#4A4A4A] leading-relaxed">
-              Your payment was successful and your bay is reserved. We've emailed you the confirmation.
+              Your payment was successful and your bay is reserved. We&apos;ve emailed you the confirmation.
             </p>
             <div className="mt-8 pt-8 border-t border-gray-100 flex flex-col gap-3">
-              <a
+              <Link
                 href="/booking"
                 className="bg-[#1A1A1A] text-white px-8 py-3 rounded-full font-medium hover:bg-black transition-colors"
-                onClick={() => {
-                  if (typeof window !== 'undefined') window.location.href = '/booking';
-                }}
               >
                 Book Another Session
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/"
                 className="border border-gray-200 text-[#4A4A4A] px-8 py-3 rounded-full font-medium hover:bg-gray-50 transition-colors"
               >
                 Return to Home
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -142,12 +140,12 @@ function BookingSuccessContent() {
               {errorDetails || "We couldn't confirm your payment. If you've been charged, please contact support."}
             </p>
             <div className="mt-8 pt-8 border-t border-gray-100 flex gap-4">
-              <a
+              <Link
                 href="/booking"
                 className="flex-1 bg-[#1A1A1A] text-white px-6 py-3 rounded-full font-medium hover:bg-black transition-colors"
               >
                 Try Again
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -159,15 +157,15 @@ function BookingSuccessContent() {
             </div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Booking Not Found</h1>
             <p className="text-[#4A4A4A]">
-              We couldn't find the booking reference.
+              We couldn&apos;t find the booking reference.
             </p>
             <div className="mt-8 pt-8 border-t border-gray-100">
-              <a
+              <Link
                 href="/"
                 className="inline-block bg-[#1A1A1A] text-white px-8 py-3 rounded-full font-medium hover:bg-black transition-colors"
               >
                 Return to Home
-              </a>
+              </Link>
             </div>
           </div>
         )}
