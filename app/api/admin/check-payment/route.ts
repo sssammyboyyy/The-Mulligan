@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
-
 export const runtime = 'edge'
+export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
+import { NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+
+export const POST = async (request: Request) => {
     try {
         const { yocoId, pin } = await request.json()
 
-        // Authorization: Use environment variable over hardcoded 8821 where possible
         const validPin = process.env.ADMIN_PIN || "8821"
 
         if (pin !== validPin) {
@@ -26,7 +26,6 @@ export async function POST(request: Request) {
         })
 
         if (!response.ok) {
-            // Sanitize error string for security, log the real one
             console.error(`[VERIFY] Yoco API HTTP Error: ${response.status} ${response.statusText}`)
             return NextResponse.json(
                 { error: `Payment gateway error. Check server logs for details.` },

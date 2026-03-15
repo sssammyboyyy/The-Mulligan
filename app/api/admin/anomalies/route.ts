@@ -1,36 +1,31 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import { logEvent } from '@/lib/utils';
-
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-/**
- * API route for securely fetching anomalous bookings for the admin "Health" tab.
- * An anomaly is defined as a booking that has a Yoco payment ID but has not yet been confirmed as paid.
- */
-export async function POST(request: NextRequest) {
-    const body = await request.json();
-    const { pin } = body;
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { logEvent } from '@/lib/logger';
 
-    const adminPin = process.env.ADMIN_PIN || "8821";
-
-    // 1. Authorization: Must provide the correct admin PIN
-    if (pin !== adminPin) {
-        logEvent('anomalies_fetch_unauthorized', {}, 'warn');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    logEvent('anomalies_fetch_start', {});
-
+export const POST = async (request: Request) => {
     try {
-        // 2. Fetch Anomalies:
-        // - Has a yoco_payment_id (payment was attempted)
-        // - amount_paid is 0 (not yet confirmed/healed)
-        // - status is 'pending'
-        // - Within the last 72 hours to keep the query fast
+        const body = await request.json();
+        const { pin } = body;
+
+        const adminPin = process.env.ADMIN_PIN || "8821";
+
+        // 1. Authorization
+        if (pin !== adminPin) {
+            logEvent('anomalies_fetch_unauthorized', {}, 'warn');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        logEvent('anomalies_fetch_start', {});
+
+        const supabase = getSupabaseAdmin();
+
+        // 2. Fetch Anomalies
         const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-        const { data: anomalies, error } = await supabaseAdmin
+        const { data: anomalies, error } = await supabase
             .from('bookings')
             .select('id, guest_name, guest_email, yoco_payment_id, created_at, total_price')
             .not('yoco_payment_id', 'is', null)
@@ -49,4 +44,4 @@ export async function POST(request: NextRequest) {
         logEvent('anomalies_fetch_error', { error: error.message }, 'error');
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
-}
+};

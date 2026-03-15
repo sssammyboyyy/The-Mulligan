@@ -1,42 +1,42 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import { logEvent } from '@/lib/utils';
-
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-/**
- * API route for manually confirming a booking from the admin dashboard.
- * This provides a safe, controlled way to handle in-store payments or
- * other manual overrides, ensuring the n8n automation workflow is always triggered.
- */
-export async function POST(request: NextRequest) {
-    const body = await request.json();
-    const { bookingId, pin, amountPaid, paymentMethod = 'instore' } = body;
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { logEvent } from '@/lib/logger';
 
-    const adminPin = process.env.ADMIN_PIN || "8821";
-    const n8nUrl = process.env.N8N_WEBHOOK_URL;
-
-    // 1. Authorization: Must provide the correct admin PIN
-    if (pin !== adminPin) {
-        logEvent('manual_confirm_unauthorized', { bookingId }, 'warn');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 2. Validation: Ensure required parameters are present
-    if (!bookingId || !n8nUrl) {
-        const missing = !bookingId ? 'bookingId' : 'N8N_WEBHOOK_URL';
-        logEvent('manual_confirm_validation_failed', { missing }, 'error');
-        return NextResponse.json({ error: `Missing required parameter: ${missing}` }, { status: 400 });
-    }
-
+export const POST = async (request: Request) => {
+    let bookingId: string | undefined;
     try {
-        // 3. Update Booking: Set status to confirmed and log payment details
-        const { data: updatedBooking, error: updateError } = await supabaseAdmin
+        const body = await request.json();
+        bookingId = body.bookingId;
+        const { pin, amountPaid, paymentMethod = 'instore' } = body;
+
+        const adminPin = process.env.ADMIN_PIN || "8821";
+        const n8nUrl = process.env.N8N_WEBHOOK_URL;
+
+        // 1. Authorization
+        if (pin !== adminPin) {
+            logEvent('manual_confirm_unauthorized', { bookingId }, 'warn');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // 2. Validation
+        if (!bookingId || !n8nUrl) {
+            const missing = !bookingId ? 'bookingId' : 'N8N_WEBHOOK_URL';
+            logEvent('manual_confirm_validation_failed', { missing }, 'error');
+            return NextResponse.json({ error: `Missing required parameter: ${missing}` }, { status: 400 });
+        }
+
+        const supabase = getSupabaseAdmin();
+
+        // 3. Update Booking
+        const { data: updatedBooking, error: updateError } = await supabase
             .from('bookings')
             .update({
                 status: 'confirmed',
                 payment_status: paymentMethod,
-                amount_paid: amountPaid, // Use the amount provided by the admin
+                amount_paid: amountPaid,
                 confirmed_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
@@ -51,8 +51,7 @@ export async function POST(request: NextRequest) {
 
         logEvent('manual_confirm_success', { bookingId });
 
-        // 4. Trigger Automation: Explicitly call the n8n webhook with all necessary data
-        // This is the crucial step that connects the manual action to the automation pipeline.
+        // 4. Trigger Automation
         const n8nAdminSecret = process.env.N8N_ADMIN_SECRET;
         if (!n8nAdminSecret) throw new Error("N8N_ADMIN_SECRET is not configured.");
 
@@ -73,4 +72,4 @@ export async function POST(request: NextRequest) {
         logEvent('manual_confirm_error', { bookingId, error: error.message }, 'error');
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
-}
+};

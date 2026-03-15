@@ -1,8 +1,9 @@
+export const runtime = "edge"
+export const dynamic = "force-dynamic"
+
 import { NextResponse } from "next/server"
 
-export const runtime = "edge"
-
-export async function GET() {
+export const GET = async () => {
   const YOCO_KEY = process.env.YOCO_SECRET_KEY
 
   if (!YOCO_KEY) return NextResponse.json({ error: "No Key Found" })

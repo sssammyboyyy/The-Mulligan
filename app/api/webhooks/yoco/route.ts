@@ -1,124 +1,105 @@
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// The webhook secret from Yoco Dashboard
-const YOCO_WEBHOOK_SECRET = process.env.YOCO_WEBHOOK_SECRET;
-
-export async function POST(req: Request) {
+export const POST = async (request: Request) => {
     try {
-        const rawBody = await req.text();
-        const headers = req.headers;
-        const signature = headers.get('webhook-signature'); // Yoco specific signature header
+        const body = await request.json();
+        console.log('[YOCO WEBHOOK] Received payload:', JSON.stringify(body, null, 2));
 
-        // 1. Validate Webhook Signature
-        if (!signature || !YOCO_WEBHOOK_SECRET) {
-            console.error('Yoco Webhook verification failed: Missing signature or secret from env.');
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { type, payload } = body;
+
+        // 1. Validate Webhook Type
+        if (type !== 'checkout.successful') {
+            console.log(`[YOCO WEBHOOK] Ignoring non-successful event: ${type}`);
+            return NextResponse.json({ received: true });
         }
 
-        // Example of Yoco HMAC SHA256 Signature Validation with Web Crypto API (Edge-compatible)
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(YOCO_WEBHOOK_SECRET);
+        const checkoutId = payload.id;
+        const amount = payload.amount / 100;
+        const currency = payload.currency;
+        const status = payload.status;
+        const bookingId = payload.metadata?.bookingId;
 
-        const cryptoKey = await crypto.subtle.importKey(
-            'raw',
-            keyData,
-            { name: 'HMAC', hash: 'SHA-256' },
-            false,
-            ['sign']
-        );
+        console.log(`[YOCO WEBHOOK] Processing successful payment for Checkout: ${checkoutId}, Booking: ${bookingId}, Amount: ${amount} ${currency}`);
 
-        const signatureBuffer = await crypto.subtle.sign(
-            'HMAC',
-            cryptoKey,
-            encoder.encode(rawBody)
-        );
-
-        const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
-
-        if (signature !== expectedSignature) {
-            console.error('Yoco Webhook signature mismatch');
-            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        if (!bookingId) {
+            console.error('[YOCO WEBHOOK] Critical Error: No bookingId found in Yoco metadata!');
+            return NextResponse.json({ error: 'Missing bookingId in metadata' }, { status: 400 });
         }
 
-        const payload = JSON.parse(rawBody);
-        console.log(`[VERIFY] Webhook payload valid. Event type: ${payload.type}. Initiating DB update...`);
+        const supabase = getSupabaseAdmin();
 
-        // 2. Process specific webhook events
-        if (payload.type === 'payment.succeeded') {
-            const paymentData = payload.data;
-            const checkoutId = paymentData.checkoutId || paymentData.metadata?.checkoutId; // Map according to actual Yoco payload schema
+        // 2. Fetch Booking
+        const { data: booking, error: fetchError } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .single();
 
-            if (!checkoutId) {
-                console.error('Missing checkoutId in Yoco payload metadata.');
-                return NextResponse.json({ error: 'Missing checkoutId' }, { status: 400 });
-            }
+        if (fetchError || !booking) {
+            console.error(`[YOCO WEBHOOK] DB Error: Could not find booking ${bookingId}`);
+            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+        }
 
-            // 3. Atomically confirm the booking in PostgreSQL
-            // We only update if status is 'pending', respecting the new DB State Machine.
-            // If the row is updated, the internal Postgres Trigger will fire to hit n8n.
-            const { data: updatedBooking, error } = await supabaseAdmin
-                .from('bookings')
-                .update({
-                    status: 'confirmed',
-                    payment_status: 'paid_online',
-                    amount_paid: paymentData.amount || 0,
-                    yoco_payment_id: paymentData.id
-                })
-                .match({
-                    yoco_checkout_id: checkoutId, // Assume checkout ID connects them, or custom metadata booking_request_id
-                    status: 'pending'
-                })
-                .select()
-                .single();
+        // 3. Prevent Duplicates
+        if (booking.status === 'confirmed') {
+            console.log(`[YOCO WEBHOOK] Booking ${bookingId} is already confirmed. Skipping update.`);
+            return NextResponse.json({ success: true, alreadyConfirmed: true });
+        }
 
-            if (error) {
-                console.error('Database update failed during Yoco webhook processing:', error);
-                // It's possible the state machine rejected a bad transition, return 200 so Yoco stops retrying on structural errors, 
-                // or 500 if it's a true DB partition failure.
-                return NextResponse.json({ error: 'Database update failed', details: error.message }, { status: 200 }); // Return 200 to ack so yoco doesn't infinitely retry invalid states
-            }
+        // 4. Atomic Update
+        const { error: updateError } = await supabase
+            .from('bookings')
+            .update({
+                status: 'confirmed',
+                payment_status: 'paid_online',
+                amount_paid: amount,
+                yoco_payment_id: checkoutId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', bookingId);
 
-            if (!updatedBooking) {
-                console.log(`Booking connected to checkoutId ${checkoutId} not found, or not in pending state.`);
-                return NextResponse.json({ message: 'Booking already confirmed or not pending.' }, { status: 200 });
-            }
+        if (updateError) {
+            console.error(`[YOCO WEBHOOK] DB Update Error for booking ${bookingId}:`, updateError.message);
+            return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 });
+        }
 
-            console.log(`Successfully confirmed booking ${updatedBooking.id} via webhook.`);
+        console.log(`[YOCO WEBHOOK] Successfully confirmed booking ${bookingId}`);
 
-            // 4. Trigger n8n Automation (Explicitly close the loop)
+        // 5. Trigger n8n Automation
+        const n8nUrl = process.env.N8N_WEBHOOK_URL;
+        const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
+
+        if (n8nUrl && n8nSecret) {
+            console.log(`[YOCO WEBHOOK] Pinging n8n for booking ${bookingId}...`);
             try {
-                const n8nUrl = process.env.N8N_WEBHOOK_URL;
-                const n8nSecret = process.env.N8N_RECONCILE_SECRET; // Use the same secret as the reconcile worker
-                if (n8nUrl && n8nSecret) {
-                    await fetch(n8nUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            // Standardized Payload
-                            bookingId: updatedBooking.id,
-                            secret: n8nSecret
-                        })
-                    });
-                    console.log(`[VERIFY] n8n automation dispatched for booking ${updatedBooking.id}`);
-                }
-            } catch (n8nError) {
-                console.error(`[VERIFY] Failed to trigger n8n from webhook:`, n8nError);
-            }
+                const n8nResponse = await fetch(n8nUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bookingId: bookingId,
+                        secret: n8nSecret,
+                        source: 'yoco_webhook'
+                    }),
+                });
 
-            return NextResponse.json({ success: true, booking_id: updatedBooking.id }, { status: 200 });
+                if (n8nResponse.ok) {
+                    console.log(`[YOCO WEBHOOK] n8n triggered successfully for booking ${bookingId}`);
+                } else {
+                    console.error(`[YOCO WEBHOOK] n8n responded with error: ${n8nResponse.status}`);
+                }
+            } catch (err: any) {
+                console.error(`[YOCO WEBHOOK] Failed to ping n8n: ${err.message}`);
+            }
         }
 
-        // Acknowledge other events without processing
-        return NextResponse.json({ received: true }, { status: 200 });
+        return NextResponse.json({ success: true, bookingId });
 
     } catch (error: any) {
-        console.error('Error processing Yoco Webhook:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error('[YOCO WEBHOOK] Payload Error:', error.message);
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
-}
-
-// Force edge runtime for Cloudflare
-export const runtime = 'edge';
+};

@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+
+export const POST = async (request: Request) => {
     try {
         const authHeader = request.headers.get('Authorization');
         const reconcileSecret = process.env.RECONCILE_SECRET;
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
             return new Response('Unauthorized', { status: 401 });
         }
 
-        let query = supabaseAdmin
+        const supabase = getSupabaseAdmin();
+
+        let query = supabase
             .from('bookings')
             .select('id, amount_paid, yoco_payment_id, status, email_sent')
             .not('yoco_payment_id', 'is', null) // Must have attempted payment
@@ -73,7 +76,7 @@ export async function POST(request: Request) {
                 const actualPaid = yocoData.metadata?.depositPaid ?? (yocoData.amount / 100);
                 console.log(`[VERIFY] Healing database. Updating booking ${booking.id} to amount_paid: ${actualPaid}`);
 
-                await supabaseAdmin
+                await supabase
                     .from('bookings')
                     .update({
                         amount_paid: actualPaid,
@@ -85,7 +88,7 @@ export async function POST(request: Request) {
                 processedCount++;
                 results.push({ bookingId: booking.id, healed: true, actualPaid });
 
-                // EXPLICIT n8n webhook invocation: Since PG triggers don't run n8n on UPDATEs (to prevent duplicate emails), we manually prompt it for reconciled transactions.
+                // EXPLICIT n8n webhook invocation
                 console.log(`[VERIFY] Dispatching n8n automation for reconciled booking ${booking.id}...`)
                 try {
                     const n8nUrl = process.env.N8N_WEBHOOK_URL;
@@ -114,4 +117,4 @@ export async function POST(request: Request) {
         console.error(`[VERIFY] Reconciliation Error: ${error.message}`);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
-}
+};

@@ -1,11 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server"
+export const runtime = "edge"
+export const dynamic = "force-dynamic"
+
+import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/utils"
+import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/logger"
+import { getSupabaseAdmin } from "@/lib/supabase-admin"
 
 import { getOperatingHours } from "@/lib/schedule-config"
-
-// 1. Force Edge Runtime
-export const runtime = "edge"
 
 // Helper: Calculate text end time
 function calculateEndTimeText(start: string, duration: number): string {
@@ -16,9 +17,9 @@ function calculateEndTimeText(start: string, duration: number): string {
   return date.toTimeString().slice(0, 5)
 }
 
-export async function POST(request: NextRequest) {
+export const POST = async (request: Request) => {
   const correlationId = getCorrelationId(request)
-  const idempotencyKey = request.headers.get("x-idempotency-key")
+  const idempotencyKey = (request as any).headers.get("x-idempotency-key")
 
   logEvent("booking_initialize_start", { correlationId, idempotencyKey })
 
@@ -70,13 +71,8 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    // Admin client for ghost cleanup DELETE operations (service role bypasses RLS)
-    // RLS blocks DELETE with the anon key — .delete() silently returns 0 rows affected.
-    // Try both env var names: Cloudflare has SUPABASE_SERVICE_ROLE, code historically used SUPABASE_SERVICE_ROLE_KEY
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE
-    const supabaseAdmin = serviceRoleKey
-      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
-      : supabase // Fallback to anon if service role is unavailable
+    // Admin client for ghost cleanup and system tasks
+    const supabaseAdmin = getSupabaseAdmin()
 
     // ---------------------------------------------------------
     // 2. ROBUST COUPON & PRICE LOGIC
@@ -286,8 +282,7 @@ export async function POST(request: NextRequest) {
         correlationId,
         action: "hard_delete_abandoned_pending",
         deleteIds: ghostDeleteIds,
-        count: ghostDeleteIds.length,
-        usingServiceRole: !!serviceRoleKey
+        count: ghostDeleteIds.length
       })
       const { error: deleteError, count: deleteCount } = await supabaseAdmin
         .from("bookings")
@@ -397,8 +392,7 @@ export async function POST(request: NextRequest) {
           assignedSimulatorId,
           slotStartLiteral,
           slotEndLiteral,
-          deletedGhosts: ghostDeleteIds.length,
-          usingServiceRole: !!serviceRoleKey
+          deletedGhosts: ghostDeleteIds.length
         }, "error")
 
         // Handle FK violations (simulator doesn't exist)

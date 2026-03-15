@@ -1,9 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server"
+export const runtime = "edge"
+export const dynamic = "force-dynamic"
+
+import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-export const runtime = "edge"
-
-export async function POST(request: NextRequest) {
+export const POST = async (request: Request) => {
   try {
     const { players, duration, sessionType } = await request.json()
     const supabase = createClient(
