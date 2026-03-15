@@ -1,8 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
 
-// 1. Force Edge Runtime
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 import { isClosedDay, getOperatingHours } from "@/lib/schedule-config"
 
@@ -18,7 +17,7 @@ function addHoursToTimestamp(timestamp: string, hours: number): string {
   return date.toISOString();
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

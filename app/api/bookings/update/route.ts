@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
-export const runtime = "edge"
+export const dynamic = "force-dynamic"
 
 // --- TIMESTAMP HELPERS (same as create route for consistency) ---
 function createSASTTimestamp(dateStr: string, timeStr: string): string {

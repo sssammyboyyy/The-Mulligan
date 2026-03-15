@@ -1,8 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 
-// 1. Force Edge Runtime & DISABLE CACHE
-export const runtime = "edge"
+// 1. Force DISABLE CACHE
 export const dynamic = "force-dynamic" // <--- CRITICAL FIX for Admin visibility
 
 export async function GET() {
