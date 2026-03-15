@@ -139,7 +139,7 @@ The entire app runs on **Cloudflare Workers edge runtime**. API routes execute i
 | **Automation** | n8n (self-hosted) | Visual workflow builder, webhooks, cron triggers, 400+ integrations |
 | **Email** | Resend | Transactional email API with deliverability tracking |
 | **AI/LLM** | Google Gemini | Pitch synthesis in lead gen pipeline |
-| **Styling** | Tailwind CSS v4 + shadcn/ui | Rapid UI iteration with accessible component primitives |
+| **Styling** | Vanilla CSS | Strict adherence to web standards with zero-dependency styling. |
 | **Notifications** | Telegram Bot API | Real-time founder alerts for new leads and bookings |
 | **Observability** | Structured logging + DB tracking | Correlation IDs, n8n execution status, payment audit trail |
 

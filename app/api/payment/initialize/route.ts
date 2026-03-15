@@ -228,40 +228,35 @@ export async function POST(request: NextRequest) {
     // still physically block slot inserts. We MUST fetch them to delete them.
     const { data: dailyBookings } = await supabaseAdmin
       .from("bookings")
-      .select("id, simulator_id, start_time, slot_start, slot_end, status, created_at, yoco_payment_id, payment_status, booking_request_id, guest_email")
+      .select("id, simulator_id, start_time, slot_start, slot_end, status, created_at, yoco_payment_id, booking_request_id, guest_email")
       .eq("booking_date", booking_date)
 
     const takenBays = new Set<number>();
     const now = Date.now();
-    const deleteIds: string[] = [];
+    const ghostDeleteIds: string[] = [];
 
     if (dailyBookings) {
       dailyBookings.forEach(b => {
         // --- GHOST / DEAD ROW CLASSIFICATION ---
-        // A row should be DELETED from the DB if:
-        //   1. It is already cancelled (frees exclusion constraint lock)
-        //   2. It is pending with no yoco_payment_id (user never reached payment)
-        //   3. It is pending with yoco_payment_id but older than 5 mins (abandoned checkout)
-        // A row is ACTIVE (blocks the bay) only if it is confirmed or a fresh pending checkout.
-
-        if (b.status === 'cancelled') {
-          deleteIds.push(b.id);
-          return;
-        }
-
+        // A row is a "ghost" and should be DELETED if it's an abandoned PENDING booking.
+        // A CANCELLED booking is a valid historical record and is NOT a ghost.
+        let isGhost = false;
         if (b.status === 'pending') {
           const createdTime = new Date(b.created_at).getTime();
           const ageMs = now - createdTime;
 
-          if (!b.yoco_payment_id) {
-            deleteIds.push(b.id);
-            return;
-          }
-          if (ageMs > 300000) { // 5 mins
-            deleteIds.push(b.id);
-            return;
+          // Abandoned if pending for > 5 mins, OR pending without ever starting payment.
+          if (ageMs > 300000 || !b.yoco_payment_id) {
+            isGhost = true;
+            ghostDeleteIds.push(b.id);
           }
         }
+
+        // If it's a ghost or already cancelled, it doesn't occupy a slot.
+        if (isGhost || b.status === 'cancelled') {
+          return;
+        }
+
 
         // --- IDEMPOTENCY / SELF-RECOVERY FIREWALL ---
         // A row DOES NOT block us if:
@@ -286,23 +281,23 @@ export async function POST(request: NextRequest) {
     }
 
     // HARD DELETE all ghost/cancelled rows using the ADMIN client (bypasses RLS)
-    if (deleteIds.length > 0) {
+    if (ghostDeleteIds.length > 0) {
       logEvent("ghost_cleanup", {
         correlationId,
-        action: "hard_delete_admin",
-        deleteIds,
-        count: deleteIds.length,
+        action: "hard_delete_abandoned_pending",
+        deleteIds: ghostDeleteIds,
+        count: ghostDeleteIds.length,
         usingServiceRole: !!serviceRoleKey
       })
       const { error: deleteError, count: deleteCount } = await supabaseAdmin
         .from("bookings")
         .delete({ count: 'exact' })
-        .in("id", deleteIds)
+        .in("id", ghostDeleteIds)
 
       if (deleteError) {
         logEvent("ghost_cleanup_error", { correlationId, error: deleteError.message, code: deleteError.code }, "error")
       } else {
-        logEvent("ghost_cleanup_success", { correlationId, requested: deleteIds.length, deleted: deleteCount })
+        logEvent("ghost_cleanup_success", { correlationId, requested: ghostDeleteIds.length, deleted: deleteCount })
       }
     }
 
@@ -322,7 +317,7 @@ export async function POST(request: NextRequest) {
           error: "Sorry, all bays are full for this time slot.",
           error_code: "SLOT_UNAVAILABLE",
           correlation_id: correlationId,
-          debug: { takenBays: Array.from(takenBays), simulatorIds, deletedGhosts: deleteIds.length }
+          debug: { takenBays: Array.from(takenBays), simulatorIds, deletedGhosts: ghostDeleteIds.length }
         },
         { status: 409 }
       )
@@ -402,7 +397,7 @@ export async function POST(request: NextRequest) {
           assignedSimulatorId,
           slotStartLiteral,
           slotEndLiteral,
-          deletedGhosts: deleteIds.length,
+          deletedGhosts: ghostDeleteIds.length,
           usingServiceRole: !!serviceRoleKey
         }, "error")
 
@@ -473,6 +468,7 @@ export async function POST(request: NextRequest) {
                 correlation_id: correlationId,
                 debug_error: retryError?.message || bookingError.message,
                 debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, retryFailed: true }
+                debug: { assignedSimulatorId, deletedGhosts: ghostDeleteIds.length, retryFailed: true }
               }, { status: 409 })
             }
           } else {
@@ -482,6 +478,7 @@ export async function POST(request: NextRequest) {
               correlation_id: correlationId,
               debug_error: bookingError.message,
               debug: { assignedSimulatorId, deletedGhosts: deleteIds.length, forceDeleteFailed: forceDeleteError.message }
+              debug: { assignedSimulatorId, deletedGhosts: ghostDeleteIds.length, forceDeleteFailed: forceDeleteError.message }
             }, { status: 409 })
           }
         }

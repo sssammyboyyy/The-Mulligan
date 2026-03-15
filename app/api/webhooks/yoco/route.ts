@@ -88,6 +88,25 @@ export async function POST(req: Request) {
 
             console.log(`Successfully confirmed booking ${updatedBooking.id} via webhook.`);
 
+            // 4. Trigger n8n Automation (Explicitly close the loop)
+            try {
+                const n8nUrl = process.env.N8N_WEBHOOK_URL;
+                if (n8nUrl) {
+                    await fetch(n8nUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            booking_id: updatedBooking.id, 
+                            yoco_payment_id: paymentData.id,
+                            source: 'webhook'
+                        })
+                    });
+                    console.log(`[VERIFY] n8n automation dispatched for booking ${updatedBooking.id}`);
+                }
+            } catch (n8nError) {
+                console.error(`[VERIFY] Failed to trigger n8n from webhook:`, n8nError);
+            }
+
             return NextResponse.json({ success: true, booking_id: updatedBooking.id }, { status: 200 });
         }
 

@@ -78,7 +78,6 @@ export async function POST(request: Request) {
                     .update({
                         amount_paid: actualPaid,
                         status: 'confirmed',
-                        email_sent: true, // Mark it true before triggering n8n to prevent identical loops
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', booking.id);
@@ -90,12 +89,15 @@ export async function POST(request: Request) {
                 console.log(`[VERIFY] Dispatching n8n automation for reconciled booking ${booking.id}...`)
                 try {
                     const n8nUrl = process.env.N8N_WEBHOOK_URL;
-                    if (!n8nUrl) throw new Error("N8N_WEBHOOK_URL is missing in environment variables");
+                    const n8nSecret = process.env.N8N_RECONCILE_SECRET;
+                    if (!n8nUrl || !n8nSecret) {
+                        throw new Error("N8N_WEBHOOK_URL or N8N_RECONCILE_SECRET is missing.");
+                    }
 
                     await fetch(n8nUrl, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ booking_id: booking.id, yoco_payment_id: booking.yoco_payment_id })
+                        body: JSON.stringify({ bookingId: booking.id, secret: n8nSecret })
                     });
                     console.log(`[VERIFY] n8n automation dispatched for booking ${booking.id}`);
                 } catch (n8nError: any) {

@@ -18,7 +18,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// CONFIG - Literal Secret\nvar EXPECTED_SECRET = 'mulligan-secure-8821';\nvar input = items[0].json;\n\n// 1. DATA EXTRACTION\nvar data = input.bookingId ? input : (input.body || {});\nif (typeof data === 'string') {\n  try { data = JSON.parse(data); } catch(e) {}\n}\n\n// 2. VALIDATION\nif (!data.bookingId) {\n  throw new Error('CRITICAL: Missing bookingId');\n}\n\nreturn {\n  json: { ...data, valid: (data.secret === EXPECTED_SECRET) }\n};"
+                "jsCode": "// This node validates the incoming webhook trigger and extracts the bookingId.\n\nconst input = items[0].json;\nconst data = input.body || input;\n\nconst ADMIN_SECRET = $env[\"N8N_ADMIN_SECRET\"];\nconst RECONCILE_SECRET = $env[\"N8N_RECONCILE_SECRET\"];\n\nif (!ADMIN_SECRET || !RECONCILE_SECRET) {\n  throw new Error('n8n environment variables N8N_ADMIN_SECRET or N8N_RECONCILE_SECRET are not set.');\n}\n\nconst bookingId = data.bookingId;\nconst receivedSecret = data.secret;\n\nif (!bookingId) {\n  throw new Error('CRITICAL: Webhook payload is missing bookingId.');\n}\n\nconst isValid = (receivedSecret === ADMIN_SECRET || receivedSecret === RECONCILE_SECRET);\n\nif (!isValid) {\n  // For security, we don't throw an error, just stop the workflow.\n  // Set an 'invalid' flag to be checked by an IF node.\n  return { json: { valid: false } };\n}\n\n// Pass the validated bookingId to the next step.\nreturn { json: { valid: true, bookingId: bookingId } };"
             },
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
@@ -26,23 +26,23 @@
                 600,
                 300
             ],
-            "id": "validate-prep",
-            "name": "Validate & Prep"
+            "id": "validate-and-extract",
+            "name": "Validate & Extract"
         },
         {
             "parameters": {
-                "method": "PATCH",
-                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $json.bookingId }}",
+                "method": "GET",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $('Validate & Extract').item.json.bookingId }}&select=*",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "apikey",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                            "value": "={{ $env[\"SUPABASE_SERVICE_ROLE_KEY\"] }}"
                         },
                         {
                             "name": "Authorization",
-                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                            "value": "={{ 'Bearer ' + $env[\"SUPABASE_SERVICE_ROLE_KEY\"] }}"
                         },
                         {
                             "name": "Content-Type",
@@ -50,19 +50,37 @@
                         }
                     ]
                 },
-                "sendBody": true,
-                "specifyBody": "json",
-                "jsonBody": "={\n  \"status\": \"confirmed\",\n  \"payment_status\": \"{{ $json.paymentStatus }}\",\n  \"yoco_payment_id\": \"{{ $json.yocoId }}\",\n  \"confirmed_at\": \"{{ new Date().toISOString() }}\",\n  \"updated_at\": \"{{ new Date().toISOString() }}\"\n}",
+                "sendBody": false,
                 "options": {}
             },
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
+                1000,
+                300
+            ],
+            "id": "fetch-booking",
+            "name": "Fetch Booking from Supabase"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $('Validate & Extract').item.json.valid }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
                 800,
                 300
             ],
-            "id": "supabase-update",
-            "name": "Update Booking"
+            "id": "if-valid",
+            "name": "If Valid Secret"
         },
         {
             "parameters": {
@@ -79,13 +97,13 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are an intelligent booking assistant for The Mulligan Golf Lounge. \\nAnalyze the following booking and generate a 1-sentence friendly, personalized welcome message for the customer email.\\n\\nBooking Details:\\nGuest: {{ $('Validate & Prep').item.json.guest_name }}\\nDuration: {{ $('Validate & Prep').item.json.duration_hours }}h\\nBay: {{ $('Validate & Prep').item.json.bay_name }}\\nPayment: {{ $('Validate & Prep').item.json.payment_summary }}\\n\\nRules:\\n- If it's a 1h 'Short Session', emphasize it's a quick and fun visit.\\n- If they paid in full, thank them for the upfront payment.\\n- Be premium and enthusiastic.\"\n        }\n      ]\n    }\n  ]\n}",
+                "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are an intelligent booking assistant for The Mulligan Golf Lounge. \\nAnalyze the following booking and generate a 1-sentence friendly, personalized welcome message for the customer email.\\n\\nBooking Details:\\nGuest: {{ $('Fetch Booking from Supabase').item.json[0].guest_name }}\\nDuration: {{ $('Fetch Booking from Supabase').item.json[0].duration_hours }}h\\nBay: Simulator {{ $('Fetch Booking from Supabase').item.json[0].simulator_id }}\\nPayment Status: {{ $('Fetch Booking from Supabase').item.json[0].payment_status }}\\n\\nRules:\\n- If it's a 1h 'Short Session', emphasize it's a quick and fun visit.\\n- If they paid in full, thank them for the upfront payment.\\n- Be premium and enthusiastic.\"\n        }\n      ]\n    }\n  ]\n}",
                 "options": {}
             },
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
-                1000,
+                1200,
                 300
             ],
             "id": "gemini-msg",
@@ -93,12 +111,12 @@
         },
         {
             "parameters": {
-                "jsCode": "var booking = $('Validate & Prep').item.json;\nvar gemini = $('Gemini: Personalized Message').item.json;\nvar message = (gemini.candidates && gemini.candidates[0].content.parts[0].text) || \"Your booking is confirmed!\";\n\n// Premium Layout with Mulligan Branding\nvar html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;\">\n    <div style=\"background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 25px; text-align: center;\">\n        <h1 style=\"color: white; margin: 0; font-size: 24px;\">\u26f3 Booking Confirmed!</h1>\n        <p style=\"color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;\">The Simulator Never Judges!</p>\n    </div>\n    <div style=\"padding: 25px;\">\n        <p style=\"font-size: 16px; margin: 0 0 15px;\">Hi <strong>${booking.guest_name}</strong>,</p>\n        <p style=\"color: #6b7280; line-height: 1.6; margin: 0 0 20px;\">${message}</p>\n        \n        <div style=\"background: #f0fdf4; border-left: 4px solid #22c55e; padding: 18px; border-radius: 8px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 4px; font-size: 14px; color: #166534; font-weight: 600;\">YOUR SLOT</p>\n            <p style=\"margin: 0 0 8px; font-size: 20px; font-weight: bold; color: #166534;\">\ud83d\udcc5 ${booking.booking_date} | \ud83d\udd50 ${booking.start_time}</p>\n            <p style=\"margin: 0; font-size: 16px; color: #6b7280;\">\ud83d\udccd ${booking.bay_name}</p>\n        </div>\n\n        <div style=\"background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 12px; font-weight: bold; color: #b45309; font-size: 14px;\">\ud83d\udccb PLAYER BASICS</p>\n            <ul style=\"margin: 0; padding-left: 18px; color: #6b7280; line-height: 1.6; font-size: 13px;\">\n                <li><strong>8:00 PM Sharp</strong>: Venue closes strictly at 8 PM</li>\n                <li><strong>Golf Glove</strong>: Compulsory for all players</li>\n                <li><strong>Shoes</strong>: Flat-soled only (no cleats)</li>\n                <li><strong>Arrival</strong>: 15 mins early is recommended</li>\n            </ul>\n        </div>\n\n        <p style=\"text-align: center; color: #9ca3af; font-size: 12px; margin-top: 30px;\">38A Chopin St, Vanderbijlpark</p>\n    </div>\n</div>`;\n\nreturn { json: { from: \"The Mulligan <bookings@themulligan.org>\", to: [booking.guest_email], subject: \"Booking Confirmed: \" + booking.booking_date, html: html } };"
+                "jsCode": "var booking = $('Fetch Booking from Supabase').item.json[0];\nvar gemini = $('Gemini: Personalized Message').item.json;\nvar message = (gemini.candidates && gemini.candidates[0].content.parts[0].text) || \"Your booking is confirmed!\";\n\n// Premium Layout with Mulligan Branding\nvar html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;\">\n    <div style=\"background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 25px; text-align: center;\">\n        <h1 style=\"color: white; margin: 0; font-size: 24px;\">\u26f3 Booking Confirmed!</h1>\n        <p style=\"color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;\">The Simulator Never Judges!</p>\n    </div>\n    <div style=\"padding: 25px;\">\n        <p style=\"font-size: 16px; margin: 0 0 15px;\">Hi <strong>${booking.guest_name}</strong>,</p>\n        <p style=\"color: #6b7280; line-height: 1.6; margin: 0 0 20px;\">${message}</p>\n        \n        <div style=\"background: #f0fdf4; border-left: 4px solid #22c55e; padding: 18px; border-radius: 8px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 4px; font-size: 14px; color: #166534; font-weight: 600;\">YOUR SLOT</p>\n            <p style=\"margin: 0 0 8px; font-size: 20px; font-weight: bold; color: #166534;\">\ud83d\udcc5 ${booking.booking_date} | \ud83d\udd50 ${booking.start_time}</p>\n            <p style=\"margin: 0; font-size: 16px; color: #6b7280;\">\ud83d\udccd Simulator ${booking.simulator_id}</p>\n        </div>\n\n        <div style=\"background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 12px; font-weight: bold; color: #b45309; font-size: 14px;\">\ud83d\udccb PLAYER BASICS</p>\n            <ul style=\"margin: 0; padding-left: 18px; color: #6b7280; line-height: 1.6; font-size: 13px;\">\n                <li><strong>8:00 PM Sharp</strong>: Venue closes strictly at 8 PM</li>\n                <li><strong>Golf Glove</strong>: Compulsory for all players</li>\n                <li><strong>Shoes</strong>: Flat-soled only (no cleats)</li>\n                <li><strong>Arrival</strong>: 15 mins early is recommended</li>\n            </ul>\n        </div>\n\n        <p style=\"text-align: center; color: #9ca3af; font-size: 12px; margin-top: 30px;\">38A Chopin St, Vanderbijlpark</p>\n    </div>\n</div>`;\n\nreturn { json: { from: \"The Mulligan <bookings@themulligan.org>\", to: [booking.guest_email], subject: \"Booking Confirmed: \" + booking.booking_date, html: html } };"
             },
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1200,
+                1400,
                 300
             ],
             "id": "prepare-customer-email",
@@ -113,7 +131,7 @@
                     "parameters": [
                         {
                             "name": "Authorization",
-                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                            "value": "={{ 'Bearer ' + $env[\"RESEND_API_KEY\"] }}"
                         }
                     ]
                 },
@@ -125,7 +143,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
-                1400,
+                1600,
                 300
             ],
             "id": "send-customer-email",
@@ -133,12 +151,12 @@
         },
         {
             "parameters": {
-                "jsCode": "var booking = $('Validate & Prep').item.json;\n\n// Intelligent Add-on Detection\nvar addonList = [];\nif (booking.addon_coaching) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f PRO COACHING BOOKED</li>');\nif (booking.addon_club_rental) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f CLUB RENTAL BOOKED</li>');\nvar addonsHtml = addonList.length > 0 ? `<ul style=\"margin: 10px 0; padding-left: 20px;\">${addonList.join('')}</ul>` : '<p style=\"color: #9ca3af; font-style: italic;\">No add-ons selected</p>';\n\n// Premium Alert Template\nvar html = `\n<div style=\"font-family: sans-serif; max-width: 500px; margin: 0 auto; border: 2px solid #dc2626; border-radius: 12px; overflow: hidden;\">\n    <div style=\"background: #dc2626; color: white; padding: 15px; text-align: center;\">\n        <h2 style=\"margin: 0; font-size: 20px;\">\u26a0\ufe0f NEW BOOKING ALERT</h2>\n    </div>\n    <div style=\"padding: 20px; background: #fff;\">\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Guest Details</p>\n            <p style=\"margin: 0; font-size: 18px; font-weight: bold; color: #111827;\">${booking.guest_name}</p>\n            <p style=\"margin: 5px 0 0; color: #4b5563;\">${booking.guest_phone || 'No phone'}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Slot & Bay</p>\n            <p style=\"margin: 0; font-size: 16px; color: #111827;\">\ud83d\udcc5 <strong>${booking.booking_date}</strong> | \ud83d\udd50 <strong>${booking.start_time}</strong></p>\n            <p style=\"margin: 5px 0 0; color: #111827;\">\ud83d\udccd ${booking.bay_name}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fee2e2;\">\n            <p style=\"margin: 0 0 8px; color: #991b1b; font-size: 12px; font-weight: bold; text-transform: uppercase;\">\ud83d\udce6 ADD-ONS & SERVICES</p>\n            ${addonsHtml}\n        </div>\n\n        <div style=\"background: #f9fafb; padding: 15px; border-radius: 8px;\">\n            <table style=\"width: 100%; border-collapse: collapse;\">\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Total Price</td><td style=\"text-align: right; font-weight: bold;\">R${booking.total_price}</td></tr>\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Amt Paid</td><td style=\"text-align: right; color: #059669; font-weight: bold;\">R${booking.amount_paid}</td></tr>\n                <tr style=\"border-top: 1px solid #e5e7eb;\"><td style=\"padding: 8px 0; font-weight: bold;\">Balance Due</td><td style=\"text-align: right; padding: 8px 0; font-weight: bold; color: #dc2626; font-size: 18px;\">R${booking.amount_due}</td></tr>\n            </table>\n            <p style=\"margin: 10px 0 0; font-size: 12px; color: #6b7280; text-align: center;\">Status: ${booking.paymentStatus.toUpperCase()}</p>\n        </div>\n    </div>\n</div>`;\n\nreturn { json: { from: \"Mulligan Notifications <alerts@themulligan.org>\", to: [\"themulligan.store@gmail.com\"], subject: \"\ud83d\udcc5 NEW: \" + booking.guest_name + \" (\" + booking.bay_name + \")\", html: html } };"
+                "jsCode": "var booking = $('Fetch Booking from Supabase').item.json[0];\n\n// Intelligent Add-on Detection\nvar addonList = [];\nif (booking.addon_coaching) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f PRO COACHING BOOKED</li>');\nif (booking.addon_club_rental) addonList.push('<li style=\"color: #059669; font-weight: bold;\">\ud83c\udfcc\ufe0f CLUB RENTAL BOOKED</li>');\nvar addonsHtml = addonList.length > 0 ? `<ul style=\"margin: 10px 0; padding-left: 20px;\">${addonList.join('')}</ul>` : '<p style=\"color: #9ca3af; font-style: italic;\">No add-ons selected</p>';\n\n// Premium Alert Template\nvar html = `\n<div style=\"font-family: sans-serif; max-width: 500px; margin: 0 auto; border: 2px solid #dc2626; border-radius: 12px; overflow: hidden;\">\n    <div style=\"background: #dc2626; color: white; padding: 15px; text-align: center;\">\n        <h2 style=\"margin: 0; font-size: 20px;\">\u26a0\ufe0f NEW BOOKING ALERT</h2>\n    </div>\n    <div style=\"padding: 20px; background: #fff;\">\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Guest Details</p>\n            <p style=\"margin: 0; font-size: 18px; font-weight: bold; color: #111827;\">${booking.guest_name}</p>\n            <p style=\"margin: 5px 0 0; color: #4b5563;\">${booking.guest_phone || 'No phone'}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;\">\n            <p style=\"margin: 0 0 5px; color: #6b7280; font-size: 12px; font-weight: bold; text-transform: uppercase;\">Slot & Bay</p>\n            <p style=\"margin: 0; font-size: 16px; color: #111827;\">\ud83d\udcc5 <strong>${booking.booking_date}</strong> | \ud83d\udd50 <strong>${booking.start_time}</strong></p>\n            <p style=\"margin: 5px 0 0; color: #111827;\">\ud83d\udccd Simulator ${booking.simulator_id}</p>\n        </div>\n\n        <div style=\"margin-bottom: 20px; background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fee2e2;\">\n            <p style=\"margin: 0 0 8px; color: #991b1b; font-size: 12px; font-weight: bold; text-transform: uppercase;\">\ud83d\udce6 ADD-ONS & SERVICES</p>\n            ${addonsHtml}\n        </div>\n\n        <div style=\"background: #f9fafb; padding: 15px; border-radius: 8px;\">\n            <table style=\"width: 100%; border-collapse: collapse;\">\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Total Price</td><td style=\"text-align: right; font-weight: bold;\">R${booking.total_price}</td></tr>\n                <tr><td style=\"color: #6b7280; padding: 4px 0;\">Amt Paid</td><td style=\"text-align: right; color: #059669; font-weight: bold;\">R${booking.amount_paid}</td></tr>\n                <tr style=\"border-top: 1px solid #e5e7eb;\"><td style=\"padding: 8px 0; font-weight: bold;\">Balance Due</td><td style=\"text-align: right; padding: 8px 0; font-weight: bold; color: #dc2626; font-size: 18px;\">R${booking.amount_due}</td></tr>\n            </table>\n            <p style=\"margin: 10px 0 0; font-size: 12px; color: #6b7280; text-align: center;\">Status: ${booking.payment_status.toUpperCase()}</p>\n        </div>\n    </div>\n</div>`;\n\nreturn { json: { from: \"Mulligan Notifications <alerts@themulligan.org>\", to: [\"themulligan.store@gmail.com\"], subject: \"\ud83d\udcc5 NEW: \" + booking.guest_name + \" (Sim \" + booking.simulator_id + \")\", html: html } };"
             },
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1600,
+                1800,
                 300
             ],
             "id": "prepare-store-email",
@@ -153,7 +171,7 @@
                     "parameters": [
                         {
                             "name": "Authorization",
-                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                            "value": "={{ 'Bearer ' + $env[\"RESEND_API_KEY\"] }}"
                         }
                     ]
                 },
@@ -165,11 +183,46 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
-                1800,
+                2000,
                 300
             ],
             "id": "notify-store",
             "name": "Notify Store"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $('Validate & Extract').item.json.bookingId }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $env[\"SUPABASE_SERVICE_ROLE_KEY\"] }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "={{ 'Bearer ' + $env[\"SUPABASE_SERVICE_ROLE_KEY\"] }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"email_sent\": true,\n  \"email_sent_at\": \"{{ new Date().toISOString() }}\",\n  \"n8n_status\": \"completed\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                2200,
+                300
+            ],
+            "id": "mark-complete",
+            "name": "Mark as Complete"
         }
     ],
     "connections": {
@@ -177,25 +230,36 @@
             "main": [
                 [
                     {
-                        "node": "Validate & Prep",
+                        "node": "Validate & Extract",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Validate & Prep": {
+        "Validate & Extract": {
             "main": [
                 [
                     {
-                        "node": "Update Booking",
+                        "node": "If Valid Secret",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Update Booking": {
+        "If Valid Secret": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Booking from Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Booking from Supabase": {
             "main": [
                 [
                     {
@@ -244,6 +308,17 @@
                 [
                     {
                         "node": "Notify Store",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Notify Store": {
+            "main": [
+                [
+                    {
+                        "node": "Mark as Complete",
                         "type": "main",
                         "index": 0
                     }
