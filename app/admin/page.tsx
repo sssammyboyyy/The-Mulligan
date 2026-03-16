@@ -8,8 +8,6 @@ import { LiveViewTab } from '@/components/admin/live-view-tab';
 import { HealthTab } from '@/components/admin/health-tab';
 import { WeeklyScheduleTab } from '@/components/admin/weekly-schedule-tab';
 
-export const runtime = 'edge';
-
 // --- HELPERS ---
 const calculateTotal = (players: number, duration: number) => {
   const p = Math.max(1, players || 1);
