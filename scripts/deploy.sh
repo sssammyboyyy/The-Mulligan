@@ -35,6 +35,25 @@ fi
 
 echo "✅ Entry point verified."
 
+echo "🛡️ Generating _routes.json to prevent Asset 404s..."
+cat << 'EOF' > .open-next/_routes.json
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/_next/static/*",
+    "/images/*",
+    "/favicon.ico",
+    "/*.png",
+    "/*.jpg",
+    "/*.jpeg",
+    "/*.css",
+    "/*.js"
+  ]
+}
+EOF
+echo "✅ _routes.json generated."
+
 echo "📊 Deployment Bucket Hierarchy Preview:"
 # List the root to verify _next, images, and _worker.js are sitting side-by-side
 ls -la .open-next | head -n 15

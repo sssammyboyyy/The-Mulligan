@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseAdmin } from "@/lib/supabase/client"
 
 export const dynamic = "force-dynamic"
 
@@ -11,11 +11,8 @@ export async function GET(request: Request) {
             return Response.json({ error: "Date is required" }, { status: 400 })
         }
 
-        // Admin client for unrestricted reads across all bookings
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
+        // Admin client for unrestricted reads across all bookings (Lazy Initialized)
+        const supabase = getSupabaseAdmin()
 
         // SAST-aware query: fetch bookings using explicit +02:00 range
         const { data: bookings, error } = await supabase

@@ -1,4 +1,5 @@
-import { createBrowserClient as createBrowserSupabaseClient } from '@supabase/ssr'
+import { createBrowserClient as createSSRClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Standard Browser Client
@@ -6,7 +7,7 @@ import { createBrowserClient as createBrowserSupabaseClient } from '@supabase/ss
  * function the frontend components expect.
  */
 export function createBrowserClient() {
-  return createBrowserSupabaseClient(
+  return createSSRClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
@@ -20,16 +21,20 @@ export const createClient = createBrowserClient
 /**
  * Admin client for backend/edge use (Service Role)
  * Bypasses RLS. NEVER expose to the browser.
+ * Lazy initialization prevents Edge Worker 1101 boot crashes.
  */
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+export function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    console.warn("⚠️ Supabase Admin credentials missing at runtime.");
+  }
 
-export const supabaseAdmin = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+  return createSupabaseClient(url!, key!, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
     }
-  }
-)
+  });
+}

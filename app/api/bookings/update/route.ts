@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient, getSupabaseAdmin } from "@/lib/supabase/client"
 import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 export const dynamic = "force-dynamic"
@@ -40,11 +40,8 @@ export async function POST(req: Request) {
             return Response.json({ error: "Missing ID or Update Data" }, { status: 400 })
         }
 
-        // 2. Initialize Admin Client (Bypasses RLS)
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
+        // 2. Initialize Admin Client (Lazy Initialized, Bypasses RLS)
+        const supabaseAdmin = getSupabaseAdmin()
 
         // 3. Check if we need to recalculate timestamps
         // This happens when start_time, duration_hours, or booking_date change

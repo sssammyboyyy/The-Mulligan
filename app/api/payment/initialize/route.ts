@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 
 import { createClient } from "@supabase/supabase-js"
 import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/logger"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin } from "@/lib/supabase/client"
 
 import { getOperatingHours } from "@/lib/schedule-config"
 

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 
 export async function POST(request: Request) {
     try {
