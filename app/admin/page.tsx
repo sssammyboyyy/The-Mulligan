@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Lock, MapPin, DollarSign, AlertCircle, Calendar as CalendarIcon, Users, LayoutDashboard, Calendar, Heart } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { getSASTDate } from '@/lib/utils';
 import { LiveViewTab } from '@/components/admin/live-view-tab';
 import { HealthTab } from '@/components/admin/health-tab';
 import { WeeklyScheduleTab } from '@/components/admin/weekly-schedule-tab';
+
+export const runtime = 'edge';
 
 // --- HELPERS ---
 const calculateTotal = (players: number, duration: number) => {
@@ -49,7 +52,7 @@ export default function AdminDashboardPage() {
     if (!isAuthenticated) return;
 
     const fetchStatsData = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getSASTDate();
       const { data } = await supabase
         .from('bookings')
         .select('*')

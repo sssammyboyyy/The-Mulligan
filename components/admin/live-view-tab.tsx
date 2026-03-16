@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { getSASTDate } from '@/lib/utils';
 import { Armchair, LayoutGrid, Maximize, Users, Clock, Smartphone, Globe, CheckCircle, Edit, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { addDays } from 'date-fns';
 
@@ -265,7 +266,7 @@ export function LiveViewTab() {
         const supabase = createBrowserClient();
 
         const fetchInitialData = async () => {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getSASTDate();
             const { data, error } = await supabase
                 .from('bookings')
                 .select('id, guest_name, simulator_id, slot_start, slot_end')

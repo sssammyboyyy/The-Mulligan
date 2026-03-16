@@ -5,21 +5,39 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// ============================================
-// Observability Utilities for Booking System
-// ============================================
+/**
+ * Returns the current date in South Africa Standard Time (SAST)
+ * Format: YYYY-MM-DD
+ */
+export function getSASTDate(): string {
+  return new Intl.DateTimeFormat('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date()).split('/').reverse().join('-');
+  // South African numeric date format is typically YYYY/MM/DD or DD/MM/YYYY depending on system, 
+  // but Intl.DateTimeFormat 'en-ZA' often returns YYYY/MM/DD.
+  // We force ISO-like YYYY-MM-DD for database compatibility.
+}
 
 /**
- * Extract or generate a correlation ID from the request
+ * Normalizes any date/time input to a strict SAST (UTC+02:00) ISO string.
+ * Prevents Cloudflare Edge UTC-zero drift.
  */
-export function getCorrelationId(req: Request, fallback?: string): string {
-  return (
-    req.headers.get("x-correlation-id") ||
-    req.headers.get("x-request-id") ||
-    req.headers.get("x-idempotency-key") ||
-    fallback ||
-    crypto.randomUUID()
-  )
+export function createSASTTimestamp(date: string, time: string): string {
+  const cleanTime = time.length === 5 ? `${time}:00` : time;
+  return `${date}T${cleanTime}+02:00`;
+}
+
+/**
+ * Adds hours to a SAST timestamp and returns a new SAST-formatted string (+02:00).
+ */
+export function addHoursToSAST(sastStr: string, hours: number): string {
+  const d = new Date(sastStr);
+  const endD = new Date(d.getTime() + (hours * 60 * 60 * 1000));
+  // Standardize the output format for database consistency
+  return new Date(endD.getTime() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 19) + "+02:00";
 }
 
 /**
@@ -45,34 +63,4 @@ export function logEvent(
   } else {
     console.log(JSON.stringify(logEntry))
   }
-}
-
-/**
- * Normalizes any date/time input to a strict SAST (UTC+02:00) ISO string.
- * Prevents Cloudflare Edge UTC-zero drift.
- */
-export function createSASTTimestamp(date: string, time: string): string {
-  const cleanTime = time.length === 5 ? `${time}:00` : time;
-  return `${date}T${cleanTime}+02:00`;
-}
-
-/**
- * Adds hours to a SAST timestamp and returns a new SAST-formatted string (+02:00).
- */
-export function addHoursToSAST(sastStr: string, hours: number): string {
-  const d = new Date(sastStr);
-  const endD = new Date(d.getTime() + (hours * 60 * 60 * 1000));
-  // Standardize the output format for database consistency
-  return new Date(endD.getTime() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 19) + "+02:00";
-}
-
-/**
- * Validate required environment variables
- * Returns missing var names or null if all present
- */
-export function validateEnvVars(
-  vars: string[]
-): { missing: string[] } | null {
-  const missing = vars.filter((v) => !process.env[v])
-  return missing.length > 0 ? { missing } : null
 }

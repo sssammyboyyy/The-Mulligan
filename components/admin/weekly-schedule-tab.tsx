@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { getSASTDate } from '@/lib/utils';
 import { format, startOfWeek, addDays, endOfWeek, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, RefreshCw, Smartphone, Globe } from 'lucide-react';
 
@@ -13,7 +14,7 @@ const BAY_NAMES: Record<number, string> = {
 
 export function WeeklyScheduleTab() {
     const supabase = createBrowserClient();
-    const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const [weekStart, setWeekStart] = useState(startOfWeek(new Date(getSASTDate()), { weekStartsOn: 1 }));
     const [bookings, setBookings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -74,7 +75,7 @@ export function WeeklyScheduleTab() {
             <div className="grid grid-cols-7 gap-px bg-zinc-800/50 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl ring-1 ring-white/5 backdrop-blur-sm">
                 {Array.from({ length: 7 }).map((_, i) => {
                     const day = addDays(weekStart, i);
-                    const isToday = isSameDay(day, new Date());
+                    const isToday = isSameDay(day, new Date(getSASTDate()));
                     return (
                         <div key={i} className={`bg-[#050505] p-5 text-center border-b border-zinc-800/50 ${isToday ? 'bg-emerald-500/5' : ''}`}>
                             <div className="text-zinc-500 text-[10px] uppercase font-bold tracking-[0.2em] mb-1">{format(day, "EEE")}</div>

@@ -1,21 +1,28 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient as createBrowserSupabaseClient } from '@supabase/ssr'
 
 /**
- * Browser/Anon Client — Uses the public anon key.
- * Safe for client-side and server-side reads within RLS policies.
+ * Standard Browser Client
+ * Re-exports the createBrowserClient from @supabase/ssr as the specific 
+ * function the frontend components expect.
  */
-export function createClient() {
-  return createSupabaseClient(
+export function createBrowserClient() {
+  return createBrowserSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
 
 /**
- * Admin Client — Uses the Service Role key.
- * Bypasses RLS. NEVER expose to the browser.
- * Used for: Ghost Cleanup, Availability reads, Reconciliation.
+ * Legacy support for createClient() calling createBrowserClient()
  */
+export const createClient = createBrowserClient
+
+/**
+ * Admin client for backend/edge use (Service Role)
+ * Bypasses RLS. NEVER expose to the browser.
+ */
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
 export const supabaseAdmin = createSupabaseClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { CheckCircle, Search, XCircle, RefreshCw } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
 
+export const runtime = 'edge';
+
 const supabase = createBrowserClient();
 
 export default function BookingSuccessPage() {
