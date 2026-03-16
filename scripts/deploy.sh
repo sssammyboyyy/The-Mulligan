@@ -1,24 +1,27 @@
 #!/bin/bash
 # scripts/deploy.sh
-# Deterministic build and asset hoisting for Cloudflare Pages (OpenNext)
+# Deterministic build, Env Bridge, and asset hoisting for Cloudflare Pages (OpenNext)
 
-# Exit immediately if a command exits with a non-zero status
 set -e
 
+echo "🔐 Bridging Cloudflare Environment Variables to Next.js..."
+# This forces the Next.js compiler to bake the public keys into the static bundle
+cat << EOF > .env.production
+NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+EOF
+echo "✅ .env.production generated."
+
 echo "🚀 Starting OpenNext Build..."
-# FIX: Added the mandatory 'build' subcommand
 npx @opennextjs/cloudflare build
 
 echo "📂 Hoisting static assets to deployment root..."
 if [ -d ".open-next/assets" ]; then
-    # Use -a and dot notation to ensure all files, including hidden ones, are moved
     cp -a .open-next/assets/. .open-next/
     echo "✅ Assets hoisted successfully."
-    
-    # Clean up the redundant folder
     rm -rf .open-next/assets
 else
-    echo "⚠️  Warning: .open-next/assets directory not found. Proceeding with caution."
+    echo "⚠️  Warning: .open-next/assets directory not found."
 fi
 
 echo "🔍 Enforcing 'The Underscore Rule' for Cloudflare routing..."
@@ -28,34 +31,20 @@ if [ ! -f ".open-next/_worker.js" ]; then
         mv .open-next/worker.js .open-next/_worker.js
     else
         echo "❌ CRITICAL ERROR: _worker.js not found in .open-next/ root."
-        echo "Build failed. Aborting deployment."
         exit 1
     fi
 fi
-
-echo "✅ Entry point verified."
 
 echo "🛡️ Generating _routes.json to prevent Asset 404s..."
 cat << 'EOF' > .open-next/_routes.json
 {
   "version": 1,
   "include": ["/*"],
-  "exclude": [
-    "/_next/static/*",
-    "/images/*",
-    "/favicon.ico",
-    "/*.png",
-    "/*.jpg",
-    "/*.jpeg",
-    "/*.css",
-    "/*.js"
-  ]
+  "exclude": ["/_next/static/*", "/images/*", "/favicon.ico", "/*.png", "/*.jpg", "/*.jpeg", "/*.css", "/*.js"]
 }
 EOF
-echo "✅ _routes.json generated."
 
 echo "📊 Deployment Bucket Hierarchy Preview:"
-# List the root to verify _next, images, and _worker.js are sitting side-by-side
 ls -la .open-next | head -n 15
 
-echo "✨ Success! Final build structure prepared for Cloudflare Pages."
+echo "✨ Success! Final build structure prepared."
