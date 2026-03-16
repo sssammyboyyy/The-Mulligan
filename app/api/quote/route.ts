@@ -1,7 +1,6 @@
-export const dynamic = "force-dynamic"
-
-import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
@@ -21,9 +20,9 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({ price })
+    return Response.json({ price })
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return Response.json({ error: error.message }, { status: 500 })
   }
 }

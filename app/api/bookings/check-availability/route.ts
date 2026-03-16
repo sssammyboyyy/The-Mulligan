@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js"
-import { type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
 
     // 0. CHECK SCHEDULE
     if (isClosedDay(booking_date)) {
-      return NextResponse.json({
+      return Response.json({
         available: false,
         reason: "closed",
         message: "The Mulligan is closed on this date"
@@ -36,13 +35,13 @@ export async function POST(request: Request) {
 
     const operatingHours = getOperatingHours(new Date(booking_date))
     if (!operatingHours) {
-      return NextResponse.json({ available: false, message: "Closed on this date" })
+      return Response.json({ available: false, message: "Closed on this date" })
     }
 
     const startHour = parseInt(start_time.split(':')[0])
     const endHour = startHour + duration_hours
     if (startHour < operatingHours.open || endHour > operatingHours.close) {
-      return NextResponse.json({ available: false, message: "Outside operating hours" })
+      return Response.json({ available: false, message: "Outside operating hours" })
     }
 
     // 1. Calculate Exact ISO Timestamps (Consistency is key!)
@@ -58,7 +57,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Availability Check DB Error:", error);
-      return NextResponse.json({ error: "Database check failed" }, { status: 500 });
+      return Response.json({ error: "Database check failed" }, { status: 500 });
     }
 
     // 3. Count Overlaps in JavaScript (Precise & Fast)
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
     const TOTAL_BAYS = 3
     const isAvailable = overlapCount < TOTAL_BAYS
 
-    return NextResponse.json({
+    return Response.json({
       available: isAvailable,
       conflicting_bookings: overlapCount,
       capacity: TOTAL_BAYS
@@ -85,6 +84,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Availability Check Server Error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return Response.json({ error: "Internal server error" }, { status: 500 })
   }
 }

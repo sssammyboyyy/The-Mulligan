@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic"
 
-import { NextResponse } from "next/server"
+
 
 export async function GET() {
   const YOCO_KEY = process.env.YOCO_SECRET_KEY
 
-  if (!YOCO_KEY) return NextResponse.json({ error: "No Key Found" })
+  if (!YOCO_KEY) return Response.json({ error: "No Key Found" })
 
   try {
     // GET request to list all webhooks
@@ -19,12 +19,12 @@ export async function GET() {
 
     const data = await response.json()
     
-    return NextResponse.json({
+    return Response.json({
       status: response.status,
       webhooks: data
     })
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message })
+    return Response.json({ error: error.message })
   }
 }

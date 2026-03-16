@@ -1,16 +1,14 @@
-import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 export const dynamic = "force-dynamic"
-
-import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get("date")
 
   if (!date) {
-    return NextResponse.json({ error: "Date is required" }, { status: 400 })
+    return Response.json({ error: "Date is required" }, { status: 400 })
   }
 
   const supabase = createClient(
@@ -27,7 +25,7 @@ export async function GET(request: Request) {
     .neq("status", "cancelled")
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return Response.json({ error: error.message }, { status: 500 })
   }
 
   // 2. Check if day is closed
@@ -38,7 +36,7 @@ export async function GET(request: Request) {
       allSlots.push(`${h.toString().padStart(2, "0")}:00`)
       allSlots.push(`${h.toString().padStart(2, "0")}:30`)
     }
-    return NextResponse.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
+    return Response.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
   }
 
   // 3. Define operating hours dynamically
@@ -50,7 +48,7 @@ export async function GET(request: Request) {
       allSlots.push(`${h.toString().padStart(2, "0")}:00`)
       allSlots.push(`${h.toString().padStart(2, "0")}:30`)
     }
-    return NextResponse.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
+    return Response.json({ bookedSlots: allSlots, closed: true, message: "The Mulligan is closed on this date" })
   }
 
   const slots: string[] = []
@@ -62,7 +60,7 @@ export async function GET(request: Request) {
   // 3. Filter "Ghost" Bookings
   // A booking is valid if it is CONFIRMED OR if it is PENDING but created < 20 mins ago
   const now = Date.now();
-  const validBookings = bookings.filter(b => {
+  const validBookings = (bookings || []).filter(b => {
     if (b.status === 'confirmed') return true;
     if (b.status === 'paid_instore') return true; // (For coupons)
     if (b.status === 'pending') {
@@ -99,7 +97,7 @@ export async function GET(request: Request) {
   })
 
   // Return with cache-busting headers to ensure fresh data after time extensions
-  return NextResponse.json({ bookedSlots }, {
+  return Response.json({ bookedSlots }, {
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',

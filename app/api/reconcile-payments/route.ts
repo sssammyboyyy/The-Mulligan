@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
 
         if (error) throw error;
         if (!bookings || bookings.length === 0) {
-            return NextResponse.json({ message: 'No bookings require reconciliation', processedCount: 0 });
+            return Response.json({ message: 'No bookings require reconciliation', processedCount: 0 });
         }
 
         let processedCount = 0;
@@ -111,9 +110,9 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, processedCount, results });
+        return Response.json({ success: true, processedCount, results });
     } catch (error: any) {
         console.error(`[VERIFY] Reconciliation Error: ${error.message}`);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message }, { status: 500 });
     }
 };

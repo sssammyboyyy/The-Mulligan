@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic"
 
-import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/logger"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
     ])
     if (envCheck) {
       logEvent("env_validation_failed", { correlationId, missing: envCheck.missing }, "error")
-      return NextResponse.json(
+      return Response.json(
         { error: "Server configuration error", error_code: "MISSING_ENV", correlation_id: correlationId },
         { status: 500 }
       )
@@ -141,7 +140,7 @@ export async function POST(request: Request) {
 
     if (isNaN(startDate.getTime()) || isNaN(durationNum)) {
       console.error("Invalid Date/Duration", { sastStartIso, duration_hours });
-      return NextResponse.json({
+      return Response.json({
         error: "Invalid date or duration format",
         error_code: "INVALID_DATE",
         correlation_id: correlationId
@@ -161,7 +160,7 @@ export async function POST(request: Request) {
       // We use <= because 20:00 means the LAST session must END by 20:00
       if (endDate.getTime() > closeTimeMs) {
         const readableClose = `${operatingHours.close}:00`;
-        return NextResponse.json({
+        return Response.json({
           error: `The venue closes at ${readableClose}. Please shorten your session or choose an earlier slot.`,
           error_code: "PAST_CLOSING_TIME",
           correlation_id: correlationId
@@ -306,7 +305,7 @@ export async function POST(request: Request) {
 
     if (assignedSimulatorId === 0) {
       logEvent("slot_unavailable", { correlationId, booking_date, start_time, takenBays: Array.from(takenBays) }, "warn")
-      return NextResponse.json(
+      return Response.json(
         {
           error: "Sorry, all bays are full for this time slot.",
           error_code: "SLOT_UNAVAILABLE",
@@ -396,7 +395,7 @@ export async function POST(request: Request) {
 
         // Handle FK violations (simulator doesn't exist)
         if (bookingError.code === "23503") {
-          return NextResponse.json({
+          return Response.json({
             error: "Invalid simulator configuration. Please contact support.",
             error_code: "SIMULATOR_FK_VIOLATION",
             correlation_id: correlationId,
@@ -455,7 +454,7 @@ export async function POST(request: Request) {
               logEvent("exclusion_constraint_retry_success", { correlationId, bookingId: retryBooking.id })
               booking = retryBooking
             } else {
-              return NextResponse.json({
+              return Response.json({
                 error: "This time slot is currently unavailable. Please select a different time.",
                 error_code: "SLOT_RACE_CONDITION",
                 correlation_id: correlationId,
@@ -464,7 +463,7 @@ export async function POST(request: Request) {
               }, { status: 409 })
             }
           } else {
-            return NextResponse.json({
+            return Response.json({
               error: "This time slot is currently unavailable. Please select a different time.",
               error_code: "SLOT_RACE_CONDITION",
               correlation_id: correlationId,
@@ -487,7 +486,7 @@ export async function POST(request: Request) {
         }
 
         if (!booking) {
-          return NextResponse.json(
+          return Response.json(
             {
               error: `Booking failed: ${bookingError.message} (Code: ${bookingError.code})`,
               error_code: "BOOKING_INSERT_FAILED",
@@ -507,7 +506,7 @@ export async function POST(request: Request) {
     logEvent("booking_created", { correlationId, bookingId: booking.id, simulatorId: assignedSimulatorId })
 
     if (skipYoco) {
-      return NextResponse.json({
+      return Response.json({
         free_booking: true,
         booking_id: booking.id,
         message: dbPaymentStatus === "paid_instore" ? "Walk-in Confirmed" : "Booking confirmed with coupon",
@@ -552,21 +551,21 @@ export async function POST(request: Request) {
 
     if (!yocoResponse.ok) {
       logEvent("yoco_checkout_failed", { correlationId, yocoError: yocoData }, "error")
-      return NextResponse.json({
+      return Response.json({
         error: "Payment initialization failed",
         error_code: "YOCO_CHECKOUT_FAILED",
         correlation_id: correlationId
       }, { status: 500 })
     }
 
-    return NextResponse.json({
+    return Response.json({
       redirectUrl: yocoData.redirectUrl,
       booking_id: booking.id,
     })
 
   } catch (error: any) {
     logEvent("booking_initialize_error", { correlationId, error: error.message }, "error")
-    return NextResponse.json(
+    return Response.json(
       { error: error.message || "Internal server error", error_code: "INTERNAL_ERROR", correlation_id: correlationId },
       { status: 500 }
     )

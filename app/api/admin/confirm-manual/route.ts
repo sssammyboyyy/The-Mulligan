@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { logEvent } from '@/lib/logger';
 
@@ -17,14 +17,14 @@ export async function POST(request: Request) {
         // 1. Authorization
         if (pin !== adminPin) {
             logEvent('manual_confirm_unauthorized', { bookingId }, 'warn');
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         // 2. Validation
         if (!bookingId || !n8nUrl) {
             const missing = !bookingId ? 'bookingId' : 'N8N_WEBHOOK_URL';
             logEvent('manual_confirm_validation_failed', { missing }, 'error');
-            return NextResponse.json({ error: `Missing required parameter: ${missing}` }, { status: 400 });
+            return Response.json({ error: `Missing required parameter: ${missing}` }, { status: 400 });
         }
 
         const supabase = getSupabaseAdmin();
@@ -65,10 +65,10 @@ export async function POST(request: Request) {
 
         logEvent('manual_confirm_n8n_triggered', { bookingId });
 
-        return NextResponse.json({ success: true, message: 'Booking confirmed and automation triggered.', booking: updatedBooking });
+        return Response.json({ success: true, message: 'Booking confirmed and automation triggered.', booking: updatedBooking });
 
     } catch (error: any) {
         logEvent('manual_confirm_error', { bookingId, error: error.message }, 'error');
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message }, { status: 500 });
     }
 };

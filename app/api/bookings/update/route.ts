@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js"
-import { NextResponse } from "next/server"
 import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 export const dynamic = "force-dynamic"
@@ -34,11 +33,11 @@ export async function POST(req: Request) {
 
         // 1. Auth Check
         if (pin !== "8821") {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+            return Response.json({ error: "Unauthorized" }, { status: 401 })
         }
 
         if (!id || !updates) {
-            return NextResponse.json({ error: "Missing ID or Update Data" }, { status: 400 })
+            return Response.json({ error: "Missing ID or Update Data" }, { status: 400 })
         }
 
         // 2. Initialize Admin Client (Bypasses RLS)
@@ -66,7 +65,7 @@ export async function POST(req: Request) {
 
             if (fetchError || !currentBooking) {
                 console.error("Fetch Error:", fetchError)
-                return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+                return Response.json({ error: "Booking not found" }, { status: 404 })
             }
 
             // Merge current values with updates (updates take priority)
@@ -77,7 +76,7 @@ export async function POST(req: Request) {
 
             // VALIDATE SCHEDULE
             if (isClosedDay(bookingDate)) {
-                return NextResponse.json(
+                return Response.json(
                     { error: "The Mulligan is closed on this date." },
                     { status: 400 }
                 )
@@ -85,7 +84,7 @@ export async function POST(req: Request) {
 
             const operatingHours = getOperatingHours(new Date(bookingDate))
             if (!operatingHours) {
-                return NextResponse.json(
+                return Response.json(
                     { error: "The Mulligan is closed on this date." },
                     { status: 400 }
                 )
@@ -107,7 +106,7 @@ export async function POST(req: Request) {
             const closeTimeMs = new Date(closeIso).getTime()
 
             if (reqStartMs < openTimeMs || reqEndMs > closeTimeMs) {
-                return NextResponse.json(
+                return Response.json(
                     { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
                     { status: 400 }
                 )
@@ -134,9 +133,9 @@ export async function POST(req: Request) {
             throw error
         }
 
-        return NextResponse.json({ success: true })
+        return Response.json({ success: true })
 
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return Response.json({ error: error.message }, { status: 500 })
     }
 }

@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { logEvent } from '@/lib/logger';
 
@@ -14,7 +13,7 @@ export async function POST(request: Request) {
         // 1. Authorization
         if (pin !== adminPin) {
             logEvent('anomalies_fetch_unauthorized', {}, 'warn');
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         logEvent('anomalies_fetch_start', {});
@@ -37,10 +36,10 @@ export async function POST(request: Request) {
             throw new Error(`Failed to fetch anomalies: ${error.message}`);
         }
 
-        return NextResponse.json({ success: true, anomalies });
+        return Response.json({ success: true, anomalies });
 
     } catch (error: any) {
         logEvent('anomalies_fetch_error', { error: error.message }, 'error');
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message }, { status: 500 });
     }
-};
+}

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+// Standard Response standardization
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
         // 1. Validate Webhook Type
         if (type !== 'checkout.successful') {
             console.log(`[YOCO WEBHOOK] Ignoring non-successful event: ${type}`);
-            return NextResponse.json({ received: true });
+            return Response.json({ received: true });
         }
 
         const checkoutId = payload.id;
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
         if (!bookingId) {
             console.error('[YOCO WEBHOOK] Critical Error: No bookingId found in Yoco metadata!');
-            return NextResponse.json({ error: 'Missing bookingId in metadata' }, { status: 400 });
+            return Response.json({ error: 'Missing bookingId in metadata' }, { status: 400 });
         }
 
         const supabase = getSupabaseAdmin();
@@ -40,13 +40,13 @@ export async function POST(request: Request) {
 
         if (fetchError || !booking) {
             console.error(`[YOCO WEBHOOK] DB Error: Could not find booking ${bookingId}`);
-            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+            return Response.json({ error: 'Booking not found' }, { status: 404 });
         }
 
         // 3. Prevent Duplicates
         if (booking.status === 'confirmed') {
             console.log(`[YOCO WEBHOOK] Booking ${bookingId} is already confirmed. Skipping update.`);
-            return NextResponse.json({ success: true, alreadyConfirmed: true });
+            return Response.json({ success: true, alreadyConfirmed: true });
         }
 
         // 4. Atomic Update
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
         if (updateError) {
             console.error(`[YOCO WEBHOOK] DB Update Error for booking ${bookingId}:`, updateError.message);
-            return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 });
+            return Response.json({ error: 'Failed to update booking' }, { status: 500 });
         }
 
         console.log(`[YOCO WEBHOOK] Successfully confirmed booking ${bookingId}`);
@@ -95,10 +95,10 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, bookingId });
+        return Response.json({ success: true, bookingId });
 
     } catch (error: any) {
         console.error('[YOCO WEBHOOK] Payload Error:', error.message);
-        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+        return Response.json({ error: 'Invalid payload' }, { status: 400 });
     }
 };

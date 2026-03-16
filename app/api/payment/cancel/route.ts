@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic"
 
-import { NextResponse } from "next/server"
+// Standard Response standardization
 import { createClient } from "@supabase/supabase-js"
 
 export async function POST(request: Request) {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
         const { reference } = body
 
         if (!reference) {
-            return NextResponse.json({ error: "Missing reference" }, { status: 400 })
+            return Response.json({ error: "Missing reference" }, { status: 400 })
         }
 
         const supabase = createClient(
@@ -25,12 +25,12 @@ export async function POST(request: Request) {
             .single()
 
         if (fetchError || !booking) {
-            return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+            return Response.json({ error: "Booking not found" }, { status: 404 })
         }
 
         if (booking.status === "cancelled" || booking.payment_status === "completed") {
             // Already handled
-            return NextResponse.json({ success: true, message: "Booking already processed" })
+            return Response.json({ success: true, message: "Booking already processed" })
         }
 
         // Hard delete to free the slot entirely from the unique constraint
@@ -43,10 +43,10 @@ export async function POST(request: Request) {
             throw new Error(deleteError.message)
         }
 
-        return NextResponse.json({ success: true, message: "Abandoned booking completely removed." })
+        return Response.json({ success: true, message: "Abandoned booking completely removed." })
 
     } catch (error: any) {
         console.error("Cancel Webhook Error:", error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return Response.json({ error: error.message }, { status: 500 })
     }
 }

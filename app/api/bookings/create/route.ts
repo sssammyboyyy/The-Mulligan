@@ -1,4 +1,3 @@
-import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 
@@ -48,7 +47,7 @@ export async function POST(request: Request) {
 
     // 2. VALIDATE SCHEDULE (Closed Days & Trading Hours)
     if (isClosedDay(booking_date)) {
-      return NextResponse.json(
+      return Response.json(
         { error: "The Mulligan is closed on this date." },
         { status: 400 }
       )
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
 
     const operatingHours = getOperatingHours(new Date(booking_date))
     if (!operatingHours) {
-      return NextResponse.json(
+      return Response.json(
         { error: "The Mulligan is closed on this date." },
         { status: 400 }
       )
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
     const closeTimeMs = new Date(closeIso).getTime()
 
     if (reqStartMs < openTimeMs || reqEndMs > closeTimeMs) {
-      return NextResponse.json(
+      return Response.json(
         { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
         { status: 400 }
       )
@@ -120,7 +119,7 @@ export async function POST(request: Request) {
 
     // If all are full, return 409
     if (assignedSimulatorId === 0) {
-      return NextResponse.json(
+      return Response.json(
         { error: "All 3 Simulators are busy for this time slot." },
         { status: 409 }
       )
@@ -157,16 +156,16 @@ export async function POST(request: Request) {
     if (insertError) {
       // Return specific error so we know what broke
       console.error("Walk-in Insert Error:", insertError)
-      return NextResponse.json({
+      return Response.json({
         error: "Failed to create booking",
         details: insertError
       }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
+    return Response.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
 
   } catch (error: any) {
     console.error("Walk-in Server Error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return Response.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 export const dynamic = "force-dynamic"
@@ -8,7 +7,7 @@ export async function GET(request: Request) {
     const id = searchParams.get("id")
 
     if (!id) {
-        return NextResponse.json({ error: "Missing Booking ID" }, { status: 400 })
+        return Response.json({ error: "Missing Booking ID" }, { status: 400 })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -22,8 +21,8 @@ export async function GET(request: Request) {
         .single()
 
     if (error || !booking) {
-        return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+        return Response.json({ error: "Booking not found" }, { status: 404 })
     }
 
-    return NextResponse.json(booking)
+    return Response.json(booking)
 }

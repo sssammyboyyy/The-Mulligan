@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
@@ -9,11 +8,11 @@ export async function POST(req: Request) {
 
     // 1. Authorization Check
     if (pin !== "8821") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     if (!id) {
-      return NextResponse.json({ error: "Missing ID" }, { status: 400 })
+      return Response.json({ error: "Missing ID" }, { status: 400 })
     }
 
     const supabaseAdmin = getSupabaseAdmin()
@@ -30,13 +29,13 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("Soft delete failed:", error)
-      return NextResponse.json({ error: "Failed to delete booking" }, { status: 500 })
+      return Response.json({ error: "Failed to delete booking" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return Response.json({ success: true })
 
   } catch (error: any) {
     console.error("Delete error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return Response.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
