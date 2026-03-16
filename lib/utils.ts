@@ -10,15 +10,13 @@ export function cn(...inputs: ClassValue[]) {
  * Format: YYYY-MM-DD
  */
 export function getSASTDate(): string {
-  return new Intl.DateTimeFormat('en-ZA', {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Johannesburg',
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
-  }).format(new Date()).split('/').reverse().join('-');
-  // South African numeric date format is typically YYYY/MM/DD or DD/MM/YYYY depending on system, 
-  // but Intl.DateTimeFormat 'en-ZA' often returns YYYY/MM/DD.
-  // We force ISO-like YYYY-MM-DD for database compatibility.
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
 }
 
 /**
@@ -27,7 +25,7 @@ export function getSASTDate(): string {
  */
 export function createSASTTimestamp(date: string, time: string): string {
   const cleanTime = time.length === 5 ? `${time}:00` : time;
-  return `${date}T${cleanTime}+02:00`;
+  return `${date} ${cleanTime}+02`;
 }
 
 /**
@@ -36,8 +34,8 @@ export function createSASTTimestamp(date: string, time: string): string {
 export function addHoursToSAST(sastStr: string, hours: number): string {
   const d = new Date(sastStr);
   const endD = new Date(d.getTime() + (hours * 60 * 60 * 1000));
-  // Standardize the output format for database consistency
-  return new Date(endD.getTime() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 19) + "+02:00";
+  // Standardize the output format for database consistency (YYYY-MM-DD HH:mm:ss+02)
+  return new Date(endD.getTime() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 19).replace('T', ' ') + "+02";
 }
 
 /**
