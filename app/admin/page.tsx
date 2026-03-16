@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
 
         <div className="animate-in fade-in duration-500">
           {activeTab === 'live' && <LiveViewTab />}
-          {activeTab === 'weekly' && <div className="p-20 text-center text-zinc-500 font-medium">Weekly Schedule coming soon...</div>}
+          {activeTab === 'weekly' && <WeeklyScheduleTab />}
           {activeTab === 'health' && <HealthTab />}
         </div>
       </main>
