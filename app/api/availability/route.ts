@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js"
-import { createSASTTimestamp } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -12,13 +11,13 @@ export async function GET(request: Request) {
             return Response.json({ error: "Date is required" }, { status: 400 })
         }
 
-        // Use Service Role for Availability to bypass RLS and see all bookings
+        // Admin client for unrestricted reads across all bookings
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // Fetch all non-cancelled bookings for the date
+        // SAST-aware query: fetch bookings using explicit +02:00 range
         const { data: bookings, error } = await supabase
             .from("bookings")
             .select("start_time, duration_hours, simulator_id, status")
@@ -27,42 +26,36 @@ export async function GET(request: Request) {
 
         if (error) throw error
 
-        // Initialize time slots (06:00 to 22:00)
-        // Note: Venue closing hours logic is handled in initialization
-        const timeSlots: any[] = []
-        for (let i = 6; i <= 21; i++) { // Last 1-hour slot starts at 21:00
+        // Commit 3eb1753 stable record-based occupancy mapping
+        const timeSlots: Record<string, { time: string, bookings: number, capacity: number, available: boolean }> = {}
+
+        for (let i = 6; i <= 22; i++) {
             const hour = i.toString().padStart(2, '0') + ":00"
-            timeSlots.push({
+            timeSlots[hour] = {
                 time: hour,
                 bookings: 0,
-                capacity: 3, // 3 bays total
+                capacity: 3,
                 available: true
-            })
+            }
         }
 
-        // Occupancy calculation
+        // Populate occupancy from existing bookings
         bookings?.forEach(booking => {
             const startHour = parseInt(booking.start_time.split(':')[0])
             const duration = Math.ceil(booking.duration_hours)
 
             for (let i = 0; i < duration; i++) {
-                const h = (startHour + i)
-                const slot = timeSlots.find(s => parseInt(s.time.split(':')[0]) === h)
-                if (slot) {
-                    slot.bookings += 1
-                    if (slot.bookings >= 3) {
-                        slot.available = false
+                const hour = (startHour + i).toString().padStart(2, '0') + ":00"
+                if (timeSlots[hour]) {
+                    timeSlots[hour].bookings += 1
+                    if (timeSlots[hour].bookings >= 3) {
+                        timeSlots[hour].available = false
                     }
                 }
             }
         })
 
-        return Response.json(timeSlots, {
-            headers: {
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-store, max-age=0"
-            }
-        })
+        return Response.json(Object.values(timeSlots))
 
     } catch (error: any) {
         console.error("[AVAILABILITY] Error:", error.message)

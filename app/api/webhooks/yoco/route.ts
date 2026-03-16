@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-// Standard Response standardization
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
@@ -19,7 +18,6 @@ export async function POST(request: Request) {
         const checkoutId = payload.id;
         const amount = payload.amount / 100;
         const currency = payload.currency;
-        const status = payload.status;
         const bookingId = payload.metadata?.bookingId;
 
         console.log(`[YOCO WEBHOOK] Processing successful payment for Checkout: ${checkoutId}, Booking: ${bookingId}, Amount: ${amount} ${currency}`);
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
 
         const supabase = getSupabaseAdmin();
 
-        // 2. Fetch Booking
+        // 2. Fetch Booking & Idempotency Check
         const { data: booking, error: fetchError } = await supabase
             .from('bookings')
             .select('*')
@@ -43,7 +41,7 @@ export async function POST(request: Request) {
             return Response.json({ error: 'Booking not found' }, { status: 404 });
         }
 
-        // 3. Prevent Duplicates
+        // 3. Prevent Duplicate Processing (Idempotency)
         if (booking.status === 'confirmed') {
             console.log(`[YOCO WEBHOOK] Booking ${bookingId} is already confirmed. Skipping update.`);
             return Response.json({ success: true, alreadyConfirmed: true });
