@@ -2,15 +2,19 @@ import { createBrowserClient as createSSRClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Standard Browser Client
- * Re-exports the createBrowserClient from @supabase/ssr as the specific 
- * function the frontend components expect.
+ * Standardized Browser Client for App Router
+ * Lazily initialized to prevent Edge worker crashes on missing vars
  */
 export function createBrowserClient() {
-  return createSSRClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    console.warn("⚠️ CRITICAL: Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    throw new Error("Supabase environment variables are missing. Check Cloudflare Pages settings.");
+  }
+
+  return createSSRClient(url, key);
 }
 
 /**
@@ -19,19 +23,19 @@ export function createBrowserClient() {
 export const createClient = createBrowserClient
 
 /**
- * Admin client for backend/edge use (Service Role)
- * Bypasses RLS. NEVER expose to the browser.
- * Lazy initialization prevents Edge Worker 1101 boot crashes.
+ * Admin Singleton (Service Role) - Restricted to Server Side
+ * Lazily initialized to gracefully degrade and return 500s instead of 1101s
  */
 export function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
+
   if (!url || !key) {
-    console.warn("⚠️ Supabase Admin credentials missing at runtime.");
+    console.warn("⚠️ CRITICAL: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error("Supabase Admin environment variables are missing. Check Cloudflare Pages settings.");
   }
 
-  return createSupabaseClient(url!, key!, {
+  return createSupabaseClient(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

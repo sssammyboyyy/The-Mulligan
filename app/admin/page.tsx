@@ -43,26 +43,44 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const supabase = createBrowserClient();
-
   // --- DATA FETCHING (For Stats) ---
+  const [statsError, setStatsError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    let channel: any;
+
     const fetchStatsData = async () => {
-      const today = getSASTDate();
-      const { data } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('booking_date', today)
-        .eq('status', 'confirmed');
-      
-      setBookings(data || []);
+      try {
+        const supabase = createBrowserClient();
+        const today = getSASTDate();
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('booking_date', today)
+          .eq('status', 'confirmed');
+        
+        if (error) throw error;
+        setBookings(data || []);
+        setStatsError(null);
+
+        if (!channel) {
+          channel = supabase.channel('stats-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, fetchStatsData).subscribe();
+        }
+      } catch (err: any) {
+        console.error("Stats Fetch Error:", err);
+        setStatsError(err.message || "Failed to load stats. check configuration.");
+      }
     };
 
     fetchStatsData();
-    const channel = supabase.channel('stats-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, fetchStatsData).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      if (channel) {
+        const supabase = createBrowserClient();
+        supabase.removeChannel(channel); 
+      }
+    };
   }, [isAuthenticated]);
 
   if (isLoading) return null;
@@ -116,6 +134,11 @@ export default function AdminDashboardPage() {
       </header>
 
       <main className="max-w-[1600px] mx-auto px-8 py-10">
+        {statsError && (
+          <div className="p-4 mb-6 text-white bg-red-600/10 border border-red-600/30 rounded-xl">
+            <p className="text-xs font-black uppercase tracking-widest">Stats Error: {statsError}</p>
+          </div>
+        )}
         {/* Stats Grid */}
         {activeTab !== 'health' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
