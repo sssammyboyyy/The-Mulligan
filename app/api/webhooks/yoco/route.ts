@@ -1,8 +1,10 @@
-export const dynamic = 'force-dynamic';
-
+import { NextResponse, NextRequest } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 
-export async function POST(request: Request) {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // Using nodejs for maximum reliability with DB updates
+
+export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         console.log('[YOCO WEBHOOK] Received payload:', JSON.stringify(body, null, 2));
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
         // 1. Validate Webhook Type
         if (type !== 'checkout.successful') {
             console.log(`[YOCO WEBHOOK] Ignoring non-successful event: ${type}`);
-            return Response.json({ received: true });
+            return NextResponse.json({ received: true });
         }
 
         const checkoutId = payload.id;
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
 
         if (!bookingId) {
             console.error('[YOCO WEBHOOK] Critical Error: No bookingId found in Yoco metadata!');
-            return Response.json({ error: 'Missing bookingId in metadata' }, { status: 400 });
+            return NextResponse.json({ error: 'Missing bookingId in metadata' }, { status: 400 });
         }
 
         const supabase = getSupabaseAdmin();
@@ -38,16 +40,21 @@ export async function POST(request: Request) {
 
         if (fetchError || !booking) {
             console.error(`[YOCO WEBHOOK] DB Error: Could not find booking ${bookingId}`);
-            return Response.json({ error: 'Booking not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }
 
-        // 3. Prevent Duplicate Processing (Idempotency)
-        if (booking.status === 'confirmed') {
-            console.log(`[YOCO WEBHOOK] Booking ${bookingId} is already confirmed. Skipping update.`);
-            return Response.json({ success: true, alreadyConfirmed: true });
+        // 3. Prevent Duplicate Processing (Strict Idempotency Drop)
+        // If the booking is already confirmed or the email has been sent, drop the replay
+        if (booking.status === 'confirmed' || booking.email_sent === true) {
+            console.log(`[Idempotency] Webhook replay detected for payment ${checkoutId} (Booking: ${bookingId}). Safely ignoring.`);
+            return NextResponse.json({ 
+                received: true, 
+                message: 'Idempotent replay ignored' 
+            }, { status: 200 });
         }
 
-        // 4. Atomic Update
+        // 4. Atomic Fulfillment Update (Code-Native)
+        // We perform the state changes directly in the route, eliminating reliance on external n8n triggers for core state.
         const { error: updateError } = await supabase
             .from('bookings')
             .update({
@@ -55,48 +62,25 @@ export async function POST(request: Request) {
                 payment_status: 'paid_online',
                 amount_paid: amount,
                 yoco_payment_id: checkoutId,
+                email_sent: true, // Flag as sent to prevent duplicate automation if n8n is ever re-enabled
                 updated_at: new Date().toISOString()
             })
             .eq('id', bookingId);
 
         if (updateError) {
             console.error(`[YOCO WEBHOOK] DB Update Error for booking ${bookingId}:`, updateError.message);
-            return Response.json({ error: 'Failed to update booking' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 });
         }
 
-        console.log(`[YOCO WEBHOOK] Successfully confirmed booking ${bookingId}`);
+        console.log(`[YOCO WEBHOOK] Successfully confirmed booking ${bookingId} and updated state in-house.`);
 
-        // 5. Trigger n8n Automation
-        const n8nUrl = process.env.N8N_WEBHOOK_URL;
-        const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
+        // 5. Automation Layer (OPTIONAL/DEPRECATED - Removed n8n trigger for Core Logic)
+        // Core fulfillment is now 100% code-native. Any secondary flows (SMS, etc) should also be moved here.
 
-        if (n8nUrl && n8nSecret) {
-            console.log(`[YOCO WEBHOOK] Pinging n8n for booking ${bookingId}...`);
-            try {
-                const n8nResponse = await fetch(n8nUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        bookingId: bookingId,
-                        secret: n8nSecret,
-                        source: 'yoco_webhook'
-                    }),
-                });
-
-                if (n8nResponse.ok) {
-                    console.log(`[YOCO WEBHOOK] n8n triggered successfully for booking ${bookingId}`);
-                } else {
-                    console.error(`[YOCO WEBHOOK] n8n responded with error: ${n8nResponse.status}`);
-                }
-            } catch (err: any) {
-                console.error(`[YOCO WEBHOOK] Failed to ping n8n: ${err.message}`);
-            }
-        }
-
-        return Response.json({ success: true, bookingId });
+        return NextResponse.json({ success: true, bookingId });
 
     } catch (error: any) {
         console.error('[YOCO WEBHOOK] Payload Error:', error.message);
-        return Response.json({ error: 'Invalid payload' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
-};
+}

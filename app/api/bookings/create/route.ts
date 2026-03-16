@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js"
-
+import { NextResponse, NextRequest } from "next/server"
+import { getSupabaseAdmin } from "@/lib/supabase/client"
+import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 
 // --- HELPERS ---
 function createSASTTimestamp(dateStr: string, timeStr: string): string {
@@ -21,16 +22,12 @@ function calculateEndTimeText(start: string, duration: number): string {
   return date.toTimeString().slice(0, 5)
 }
 
-import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
-
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs" // Explicitly using nodejs for now to avoid edge conflicts if any remain
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = getSupabaseAdmin()
     const bookingData = await request.json()
 
     // 1. EXTRACT DATA
@@ -47,7 +44,7 @@ export async function POST(request: Request) {
 
     // 2. VALIDATE SCHEDULE (Closed Days & Trading Hours)
     if (isClosedDay(booking_date)) {
-      return Response.json(
+      return NextResponse.json(
         { error: "The Mulligan is closed on this date." },
         { status: 400 }
       )
@@ -55,7 +52,7 @@ export async function POST(request: Request) {
 
     const operatingHours = getOperatingHours(new Date(booking_date))
     if (!operatingHours) {
-      return Response.json(
+      return NextResponse.json(
         { error: "The Mulligan is closed on this date." },
         { status: 400 }
       )
@@ -71,38 +68,31 @@ export async function POST(request: Request) {
     const reqEndMs = new Date(slotEndISO).getTime()
 
     // 2b. VALIDATE OPERATING HOURS (Hard Close)
-    // SAST-safe open/close times
     const openIso = `${booking_date}T${operatingHours.open.toString().padStart(2, '0')}:00:00+02:00`
     const closeIso = `${booking_date}T${operatingHours.close.toString().padStart(2, '0')}:00:00+02:00`
     const openTimeMs = new Date(openIso).getTime()
     const closeTimeMs = new Date(closeIso).getTime()
 
     if (reqStartMs < openTimeMs || reqEndMs > closeTimeMs) {
-      return Response.json(
+      return NextResponse.json(
         { error: `Booking must be between ${operatingHours.open}:00 and ${operatingHours.close}:00` },
         { status: 400 }
       )
     }
 
     // 3. CHECK AVAILABILITY (MULTI-BAY LOGIC)
-
-    // Fetch all active bookings for this day
     const { data: dailyBookings } = await supabase
       .from("bookings")
       .select("simulator_id, slot_start, slot_end")
       .eq("booking_date", booking_date)
       .neq("status", "cancelled")
 
-    // Identify which bays are taken
     const takenBays = new Set<number>()
 
     if (dailyBookings) {
       dailyBookings.forEach((b) => {
-        // Safe Date Comparison (using .getTime())
         const existStartMs = new Date(b.slot_start).getTime()
         const existEndMs = new Date(b.slot_end).getTime()
-
-        // Overlap Logic: (StartA < EndB) and (EndA > StartB)
         const isOverlapping = existStartMs < reqEndMs && existEndMs > reqStartMs
 
         if (isOverlapping) {
@@ -117,9 +107,8 @@ export async function POST(request: Request) {
     else if (!takenBays.has(2)) assignedSimulatorId = 2
     else if (!takenBays.has(3)) assignedSimulatorId = 3
 
-    // If all are full, return 409
     if (assignedSimulatorId === 0) {
-      return Response.json(
+      return NextResponse.json(
         { error: "All 3 Simulators are busy for this time slot." },
         { status: 409 }
       )
@@ -141,7 +130,6 @@ export async function POST(request: Request) {
         guest_email,
         guest_phone,
         total_price,
-        // Walk-in bookings created by staff are always confirmed (not subject to 20-min pending filter)
         status: bookingData.booking_source === "walk_in" ? "confirmed" : (payment_status === "completed" ? "confirmed" : "pending"),
         payment_status: payment_status === "completed" ? "paid_instore" : "pending",
         booking_source: bookingData.booking_source || "walk_in",
@@ -154,18 +142,29 @@ export async function POST(request: Request) {
       .single()
 
     if (insertError) {
-      // Return specific error so we know what broke
+      // 23P01 = EXCLUSION_VIOLATION (Double booking race condition)
+      if (insertError.code === '23P01') {
+        console.warn(`[CONCURRENCY] Race condition detected for Bay ${assignedSimulatorId} at ${start_time}`);
+        return NextResponse.json(
+          { 
+            error: "Slot Unavailable", 
+            message: "This simulator bay was just booked by another user. Please select another time." 
+          },
+          { status: 409 }
+        );
+      }
+
       console.error("Walk-in Insert Error:", insertError)
-      return Response.json({
+      return NextResponse.json({
         error: "Failed to create booking",
-        details: insertError
+        details: insertError.message || insertError
       }, { status: 500 })
     }
 
-    return Response.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
+    return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
 
   } catch (error: any) {
     console.error("Walk-in Server Error:", error)
-    return Response.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
