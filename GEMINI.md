@@ -1,5 +1,5 @@
 # 🏌️ GEMINI.md — The Mulligan (Venue OS)
-"Execute tasks directly. Bypass long-winded planning walkthroughs unless a conflict is detected. Prioritize code changes over chat explanations."
+"Industrial Security Refactor: 2026-03-17 18:13 SAST"
 
 ---
 
