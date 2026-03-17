@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "pages:build": "bash scripts/deploy.sh",
+    "build:cloudflare": "next build && npx @opennextjs/cloudflare build && bash scripts/deploy.sh",
+    "pages:build": "npm run build:cloudflare",
     "preview": "npm run pages:build && wrangler pages dev .open-next",
     "deploy": "npm run pages:build && wrangler pages deploy .open-next",
-    "lint": "eslint ."
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",

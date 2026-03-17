@@ -146,9 +146,9 @@ export async function POST(request: NextRequest) {
       if (insertError.code === '23P01') {
         console.warn(`[CONCURRENCY] Race condition detected for Bay ${assignedSimulatorId} at ${start_time}`);
         return NextResponse.json(
-          { 
-            error: "Slot Unavailable", 
-            message: "This simulator bay was just booked by another user. Please select another time." 
+          {
+            error: "Slot Unavailable",
+            message: "This simulator bay was just booked by another user. Please select another time."
           },
           { status: 409 }
         );

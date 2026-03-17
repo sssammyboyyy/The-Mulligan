@@ -1,30 +1,39 @@
 #!/bin/bash
+# Bulletproof OpenNext/Cloudflare Hoisting Script
 set -e
 
-export NEXT_PUBLIC_SUPABASE_URL="https://twvysbtjimrqcgulaich.supabase.co"
-export NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
-export YOCO_SECRET_KEY="placeholder_until_approval"
+echo "--- 🛠️ Clearing Build Caches ---"
+rm -rf .next
+rm -rf .open-next
+rm -rf dist
 
-cat << EOF > .env.production
-NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-YOCO_SECRET_KEY=$YOCO_SECRET_KEY
-ADMIN_PIN=$ADMIN_PIN
-EOF
+# The build command is already triggered by npm run build:cloudflare
+# This script acts as the POST-PROCESSOR to ensure asset accessibility.
 
-npx --yes @opennextjs/cloudflare build
-
+echo "--- ⛵ Hoisting Assets for Cloudflare Pages ---"
 if [ -d ".open-next/assets" ]; then
+    echo "Transferring nested assets to root outdir..."
+    # Copy _next and other static folders to the root of .open-next
     cp -a .open-next/assets/. .open-next/
+    # Cleanup the nested folder to prevent duplication
     rm -rf .open-next/assets
+    echo "✅ Hoisting Complete."
+else
+    echo "⚠️ Warning: .open-next/assets not found. Checking root for _next..."
 fi
 
+echo "--- 🔧 Finalizing Worker Structure ---"
 if [ -f ".open-next/worker.js" ]; then
     mv .open-next/worker.js .open-next/_worker.js
-elif [ ! -f ".open-next/_worker.js" ]; then
+    echo "✅ worker.js -> _worker.js"
+elif [ -f ".open-next/_worker.js" ]; then
+    echo "✅ _worker.js already in place."
+else
+    echo "❌ ERROR: No worker bundle detected."
     exit 1
 fi
 
+echo "--- 🌐 Writing Route Manifest ---"
 cat << 'EOF' > .open-next/_routes.json
 {
   "version": 1,
@@ -32,3 +41,4 @@ cat << 'EOF' > .open-next/_routes.json
   "exclude": ["/_next/static/*", "/images/*", "/favicon.ico", "/*.png", "/*.jpg", "/*.jpeg", "/*.css", "/*.js"]
 }
 EOF
+echo "✅ _routes.json Generated."
