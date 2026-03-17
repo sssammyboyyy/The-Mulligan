@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/client';
 
 /**
  * Standardized SAST Math Engine
- * Rebuilds timestamps with +02:00 offsets.
+ * Guarantees +02:00 offsets and consistent timestamp derivation.
  */
 const calculateSASTTimestamps = (date: string, time: string, duration: number) => {
   const slotStartStr = `${date}T${time}:00+02:00`;
@@ -24,7 +24,7 @@ const calculateSASTTimestamps = (date: string, time: string, duration: number) =
 
 /**
  * Standardized Financial Engine
- * Recomputes totals based on POS add-ons.
+ * Recalculates totals and due amounts live on the backend.
  */
 const calculateFinancials = (payload: any) => {
   const base = Number(payload.base_price || 0);
@@ -42,48 +42,69 @@ const calculateFinancials = (payload: any) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, pin, ...updates } = body;
+    const { pin, ...payload } = body;
 
     // 1. Security Gate
     if (pin !== process.env.ADMIN_PIN) {
       return NextResponse.json({ 
         error: "Forbidden", 
-        message: "Invalid Manager PIN. Update rejected." 
+        message: "Invalid Manager PIN. Authorization failed." 
       }, { status: 403 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    let finalUpdates = { ...updates };
+    const timestamps = calculateSASTTimestamps(
+      payload.booking_date, 
+      payload.start_time, 
+      Number(payload.duration_hours)
+    );
+    const financials = calculateFinancials(payload);
 
-    // 2. Dynamic Math Engines
-    // Rebuild timestamps if any time-parameters are changed
-    if (updates.booking_date && updates.start_time && updates.duration_hours) {
-      const timestamps = calculateSASTTimestamps(
-        updates.booking_date, 
-        updates.start_time, 
-        Number(updates.duration_hours)
-      );
-      finalUpdates = { ...finalUpdates, ...timestamps };
-    }
+    const finalPayload = {
+      ...payload,
+      ...timestamps,
+      ...financials,
+      booking_source: 'walk_in',
+      payment_type: 'walk_in',
+      payment_status: financials.amount_due === 0 ? 'paid' : 'partial',
+      status: 'confirmed',
+    };
 
-    // ALWAYS recalculate financials to ensure state consistency
-    const financials = calculateFinancials(updates);
-    finalUpdates = { ...finalUpdates, ...financials };
-
-    // 3. Update Database
+    // 2. Initial Insert Attempt
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .update(finalUpdates)
-      .eq('id', id)
+      .insert(finalPayload)
       .select()
       .single();
 
-    // 4. Concurrency Guard
+    // 3. Self-Healing Concurrency Guard (Ghost Cleanup Sequence)
     if (error && error.code === '23P01') {
-      return NextResponse.json({ 
-        error: "Conflict", 
-        message: "Slot Unavailable: Cannot move booking to this bay/time as it is already occupied." 
-      }, { status: 409 });
+      console.warn(`[Concurrency] 23P01 Conflict on Bay ${payload.simulator_id}. Triggering Self-Healing Cleanup...`);
+      
+      // Execute Ghost Cleanup RPC
+      await supabaseAdmin.rpc('purge_ghost_bookings', { 
+        target_bay: Number(payload.simulator_id) 
+      });
+      
+      // Defensive 200ms Backoff
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Final Retry Attempt
+      const { data: retryData, error: retryError } = await supabaseAdmin
+        .from('bookings')
+        .insert(finalPayload)
+        .select()
+        .single();
+
+      if (retryError && retryError.code === '23P01') {
+        return NextResponse.json({ 
+          error: "Conflict", 
+          message: "Slot Unavailable: This bay is already booked at this time." 
+        }, { status: 409 });
+      } else if (retryError) {
+        throw retryError;
+      }
+      return NextResponse.json({ status: 'success', data: retryData });
     } else if (error) {
       throw error;
     }
@@ -91,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'success', data });
 
   } catch (error: any) {
-    console.error("Admin Update API Error:", error);
+    console.error("Admin Create API Error:", error);
     return NextResponse.json({ 
       error: "Server Error", 
       message: error.message 
