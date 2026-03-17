@@ -7,7 +7,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 }
 
-export const runtime = "edge"; // High-leverage Cloudflare performance
+// FIX: Removed runtime = 'edge' to satisfy OpenNext bundling rules
 export const dynamic = "force-dynamic";
 
 export async function OPTIONS() {
@@ -19,15 +19,13 @@ export async function OPTIONS() {
 
 /**
  * Admin Walk-In Creation Route
- * Bypasses RLS via Service Role & Normalizes Check Constraints
+ * Uses Service Role to bypass RLS and maps 'walk_in' to 'cash' for DB constraints.
  */
 export async function POST(req: Request) {
   try {
-    // 1. Initialize with Service Role to ensure admin authority
-    // Note: Ensure SUPABASE_SERVICE_ROLE_KEY is set in Cloudflare Dashboard
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, 
       {
         auth: {
           autoRefreshToken: false,
@@ -37,24 +35,23 @@ export async function POST(req: Request) {
     )
 
     const body = await req.json()
-    const {
-      full_name,
-      phone,
-      email,
-      bay_id,
+    const { 
+      full_name, 
+      phone, 
+      email, 
+      bay_id, 
       booking_date,
-      start_time,
-      duration_hours,
-      players,
+      start_time, 
+      duration_hours, 
+      players, 
       amount_total,
-      status // Expected "CONFIRMED" from your UI
+      status 
     } = body
 
-    // 2. Industrial Timestamp Normalization (SAST)
+    // Timestamp Normalization (SAST)
     const slot_start = createSASTTimestamp(booking_date, start_time)
     const slot_end = addHoursToSAST(slot_start, Number(duration_hours))
 
-    // 3. Construct Payload with Check-Constraint Fixes
     const finalPayload = {
       full_name,
       phone,
@@ -69,14 +66,11 @@ export async function POST(req: Request) {
       total_price: amount_total || 0,
       status: (status || 'confirmed').toLowerCase(),
       payment_status: 'paid',
-      // FIX: Database check constraint 'bookings_payment_type_check' 
-      // likely expects 'cash', 'card', or 'eft'. 'walk_in' is usually rejected.
-      payment_type: 'cash',
+      payment_type: 'cash', // Standardized for DB Check Constraint
       booking_source: 'walk_in',
       user_type: 'guest'
     }
 
-    // 4. Atomic Insert
     const { data, error } = await supabaseAdmin
       .from("bookings")
       .insert([finalPayload])
@@ -84,11 +78,8 @@ export async function POST(req: Request) {
       .single()
 
     if (error) {
-      console.error("[DB-ERROR]", error)
-      return new Response(JSON.stringify({
-        error: error.message,
-        hint: "Check if payment_type 'cash' is allowed in your Postgres constraint."
-      }), {
+      console.error("[ADMIN-CREATE-DB-ERROR]", error)
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 400,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       })
@@ -99,8 +90,8 @@ export async function POST(req: Request) {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     })
 
-  } catch (err: any) {
-    console.error("[FATAL-ERROR]", err)
+  } catch (error: any) {
+    console.error("[ADMIN-CREATE-FATAL]", error)
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
