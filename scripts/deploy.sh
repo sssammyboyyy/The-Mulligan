@@ -1,6 +1,10 @@
 #!/bin/bash
+# scripts/deploy.sh
+# Deterministic build and asset hoisting for Cloudflare Pages (OpenNext)
+
 set -e
 
+# 1. Environment Bridge: Map public & secret app variables into Next.js build
 cat << EOF > .env.production
 NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
@@ -11,17 +15,18 @@ ADMIN_PIN="${ADMIN_PIN}"
 AUTOMATION_WEBHOOK_URL="${AUTOMATION_WEBHOOK_URL:-$N8N_WEBHOOK_URL}"
 N8N_WEBHOOK_SECRET="${N8N_WEBHOOK_SECRET}"
 RECONCILE_SECRET="${RECONCILE_SECRET}"
-CLOUDFLARE_EMAIL="${CLOUDFLARE_EMAIL:-samuelj121314@gmail.com}"
-CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-7682db99759e8274d4cb60b25393f1af}"
 EOF
 
+# 2. Execute OpenNext Build
 npx @opennextjs/cloudflare build
 
+# 3. Hoist static assets to root for Cloudflare Pages delivery
 if [ -d ".open-next/assets" ]; then
     cp -a .open-next/assets/. .open-next/
     rm -rf .open-next/assets
 fi
 
+# 4. Enforce worker filename for Cloudflare entry point
 if [ ! -f ".open-next/_worker.js" ]; then
     if [ -f ".open-next/worker.js" ]; then
         mv .open-next/worker.js .open-next/_worker.js
@@ -30,6 +35,7 @@ if [ ! -f ".open-next/_worker.js" ]; then
     fi
 fi
 
+# 5. Generate routing table to prevent asset 404s
 cat << 'EOF' > .open-next/_routes.json
 {
   "version": 1,
@@ -38,4 +44,4 @@ cat << 'EOF' > .open-next/_routes.json
 }
 EOF
 
-npx wrangler pages deploy .open-next --project-name themes-golf-sim
+# Note: The script ends here to allow Cloudflare Pages to perform its native deployment flow.

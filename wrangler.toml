@@ -1,5 +1,4 @@
 name = "themes-golf-sim"
-account_id = "7682db99759e8274d4cb60b25393f1af"
 compatibility_date = "2025-11-25"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".open-next"
@@ -10,5 +9,3 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOi
 ADMIN_PIN = "8821"
 NEXT_PUBLIC_SITE_URL = "https://themulligan.org"
 RECONCILE_SECRET = "mulligan_reconcile_secure_2026"
-# Secrets like YOCO_SECRET_KEY, AUTOMATION_WEBHOOK_URL, and N8N_WEBHOOK_SECRET
-# are injected via .env.production during the industrial build bridge.
