@@ -6,12 +6,12 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 }
 
-/**
- * THE MULLIGAN: Admin Update API
- * Handles Quick Settle and Manager Modal Saves with SAST consistency.
- */
 export const dynamic = "force-dynamic";
 
+/**
+ * THE MULLIGAN: Admin Update API
+ * Handles Quick Settle and Manager Modal Saves.
+ */
 export async function OPTIONS() {
   return new Response(null, {
     status: 204,
@@ -26,9 +26,9 @@ export async function POST(req: Request) {
 
     // 🛡️ SECURITY GATE: Admin PIN Validation
     if (pin !== process.env.ADMIN_PIN && pin !== '8821') {
-      return new Response(JSON.stringify({ error: "Unauthorized access denied." }), {
+      return new Response(JSON.stringify({ error: "Unauthorized access denied." }), { 
         status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
       });
     }
 
@@ -49,18 +49,18 @@ export async function POST(req: Request) {
       .single()
 
     if (error) {
-      console.error("DB Update Error:", error);
-      throw error;
+       console.error("DB Update Error:", error);
+       throw error;
     }
 
-    return new Response(JSON.stringify({ success: true, booking: data }), {
+    return new Response(JSON.stringify({ success: true, booking: data }), { 
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     })
 
   } catch (err: any) {
     console.error("Update API Crash:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err.message }), { 
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     })

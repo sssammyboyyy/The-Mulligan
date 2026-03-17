@@ -35,7 +35,7 @@ export function LiveViewTab() {
 
   /**
    * HUD DATA SYNC
-   * Uses the Secure Admin Dashboard API to bypass RLS safely.
+   * Uses the Secure Admin Dashboard API to bypass RLS safely and allow date selection.
    */
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -60,7 +60,6 @@ export function LiveViewTab() {
       if (!res.ok) throw new Error("Ledger Sync Failed");
       const bookings = await res.json();
       
-      // Filter for the selected date on the frontend if the API returns a range (though it should be specific)
       setData(bookings || []);
       setError(null);
     } catch (err: any) {
@@ -99,7 +98,8 @@ export function LiveViewTab() {
           id: booking.id,
           status: 'confirmed', 
           payment_type: 'cash',
-          pin 
+          pin,
+          total_price: booking.total_price // Ensure we carry current total
         }),
       });
 
@@ -158,7 +158,7 @@ export function LiveViewTab() {
       {/* 🏛️ INDUSTRIAL NAVIGATION HEAD */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-8 border-b-2 border-zinc-800 gap-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-emerald-500 font-black text-[10px] uppercase tracking-[0.3em]">
+          <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em]">
             <Activity size={14} className="animate-pulse" /> Live Activity Portal
           </div>
           <h2 className="text-4xl font-black uppercase tracking-tighter text-white">The Ledger</h2>
@@ -169,7 +169,7 @@ export function LiveViewTab() {
           <div className="flex gap-3 w-full md:w-auto">
              <Button 
                 onClick={() => { setSelectedBooking(null); setIsModalOpen(true); }} 
-                className="flex-1 md:flex-none bg-white text-black hover:bg-emerald-500 hover:text-white font-black uppercase text-xs px-8 h-12 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all"
+                className="flex-1 md:flex-none bg-white text-black hover:bg-primary hover:text-white font-black uppercase text-xs px-8 h-12 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all"
              >
                 <Plus className="mr-2 h-4 w-4" /> Add Walk-in
              </Button>
@@ -185,7 +185,7 @@ export function LiveViewTab() {
             </button>
             
             <div className="flex items-center gap-3 px-6 py-2 bg-black/40">
-              <CalendarIcon size={14} className="text-emerald-500" />
+              <CalendarIcon size={14} className="text-primary" />
               <input
                 type="date"
                 value={selectedDate}
@@ -203,7 +203,7 @@ export function LiveViewTab() {
 
             <button 
               onClick={() => setSelectedDate(getSASTDate())}
-              className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all border-l border-zinc-800"
+              className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-primary hover:bg-primary hover:text-white transition-all border-l border-zinc-800"
             >
               TODAY
             </button>
@@ -221,9 +221,9 @@ export function LiveViewTab() {
       <div className="space-y-3 min-h-[450px]">
         {isLoading ? (
           <div className="py-32 text-center animate-pulse">
-            <div className="text-zinc-600 font-black uppercase tracking-[0.8em] text-xs">Syncing Neural HUD...</div>
+            <div className="text-zinc-600 font-black uppercase tracking-[0.8em] text-xs">Syncing Ledger HUD...</div>
             <div className="mt-4 h-1 w-32 bg-zinc-800 mx-auto rounded-full overflow-hidden">
-               <div className="h-full bg-emerald-500 animate-progress w-full" />
+               <div className="h-full bg-primary animate-progress w-full" />
             </div>
           </div>
         ) : data.length === 0 ? (
@@ -236,12 +236,12 @@ export function LiveViewTab() {
             <div 
               key={booking.id} 
               onClick={() => { setSelectedBooking(booking); setIsModalOpen(true); }} 
-              className="group relative flex flex-col md:flex-row items-center justify-between p-6 bg-[#0a0a0a] border border-zinc-800/80 rounded-2xl hover:bg-zinc-800/20 hover:border-emerald-500/50 transition-all cursor-pointer overflow-hidden shadow-lg"
+              className="group relative flex flex-col md:flex-row items-center justify-between p-6 bg-[#0a0a0a] border border-zinc-800/80 rounded-2xl hover:bg-zinc-800/20 hover:border-primary/50 transition-all cursor-pointer overflow-hidden shadow-lg"
             >
               {/* Status Glow Bar */}
-              <div className={`absolute left-0 top-0 bottom-0 w-2 ${booking.status === 'confirmed' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+              <div className={`absolute left-0 top-0 bottom-0 w-2 ${booking.status === 'confirmed' ? 'bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : 'bg-amber-500 animate-pulse'}`} />
 
-              {/* Left: Time & T-Time */}
+              {/* Left: Time & Layout */}
               <div className="flex items-center gap-8 w-full md:w-auto">
                 <div className="flex flex-col items-center justify-center min-w-[90px] border-r border-zinc-800/50 pr-8">
                   <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">{booking.start_time}</span>
@@ -265,8 +265,10 @@ export function LiveViewTab() {
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
                   {booking.addon_water_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
+                  {booking.addon_gloves_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
+                  {booking.addon_balls_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
                   {booking.addon_club_rental && <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Clubs Req.</span>}
-                  {booking.addon_coaching && <span className="text-[10px] font-bold text-amber-500/80 uppercase">Coach session</span>}
+                  {booking.addon_coaching && <span className="text-[10px] font-bold text-amber-500/80 uppercase">Coaching session</span>}
                   {booking.notes && <span className="text-[10px] font-medium text-zinc-400 italic truncate max-w-[250px]">— "{booking.notes}"</span>}
                 </div>
               </div>
@@ -282,7 +284,7 @@ export function LiveViewTab() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {/* 🟢 QUICK SETTLE BUTTON */}
+                  {/* ⚡ THE QUICK SETTLE BUTTON */}
                   {booking.status === 'pending' ? (
                     <Button 
                       size="sm" 
@@ -295,13 +297,13 @@ export function LiveViewTab() {
                       <CheckCircle className="w-3.5 h-3.5 mr-2" /> Settle Now
                     </Button>
                   ) : (
-                    <div className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-md">
+                    <div className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-primary/10 text-primary border border-primary/20 rounded-md">
                       CONFIRMED
                     </div>
                   )}
 
-                  <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/40 transition-all">
-                    <Edit2 size={16} className="text-zinc-600 group-hover:text-emerald-500 transition-colors" />
+                  <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all">
+                    <Edit2 size={16} className="text-zinc-600 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               </div>

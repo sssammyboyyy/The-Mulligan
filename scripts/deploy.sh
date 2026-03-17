@@ -1,21 +1,14 @@
 #!/bin/bash
-# Bulletproof OpenNext/Cloudflare Hoisting Script
+# Industrial OpenNext Asset Hoisting Protocol
 set -e
 
-echo "--- 🛠️ Clearing Build Caches ---"
-rm -rf .next
-rm -rf .open-next
-rm -rf dist
-
-# The build command is already triggered by npm run build:cloudflare
-# This script acts as the POST-PROCESSOR to ensure asset accessibility.
-
+# DO NOT include rm -rf here; cleanup happens in npm run clean.
 echo "--- ⛵ Hoisting Assets for Cloudflare Pages ---"
 if [ -d ".open-next/assets" ]; then
     echo "Transferring nested assets to root outdir..."
     # Copy _next and other static folders to the root of .open-next
     cp -a .open-next/assets/. .open-next/
-    # Cleanup the nested folder to prevent duplication
+    # Cleanup only the nested source folder to prevent duplication
     rm -rf .open-next/assets
     echo "✅ Hoisting Complete."
 else
