@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { createSASTTimestamp, addHoursToSAST } from "@/lib/utils"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,15 +9,8 @@ const CORS_HEADERS = {
 
 export const dynamic = "force-dynamic";
 
-/**
- * THE MULLIGAN: Admin Update API
- * Handles Quick Settle and Manager Modal Saves.
- */
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: CORS_HEADERS,
-  })
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
 
 export async function POST(req: Request) {
@@ -26,7 +20,7 @@ export async function POST(req: Request) {
 
     // 🛡️ SECURITY GATE: Admin PIN Validation
     if (pin !== process.env.ADMIN_PIN && pin !== '8821') {
-      return new Response(JSON.stringify({ error: "Unauthorized access denied." }), { 
+      return new Response(JSON.stringify({ error: "Unauthorized access denied." }), {
         status: 401,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
       });
@@ -38,29 +32,50 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Using Service Role to ensure it has permission to update status and payment
+    // 🧱 FIELD FIREWALL: Only allow valid bookings table columns
+    const ALLOWED_COLUMNS = [
+      "guest_name", "guest_phone", "guest_email", "simulator_id",
+      "player_count", "duration_hours", "notes", "addon_club_rental",
+      "addon_coaching", "addon_water_qty", "addon_water_price",
+      "addon_gloves_qty", "addon_gloves_price", "addon_balls_qty",
+      "addon_balls_price", "payment_type", "payment_status", "status", "total_price"
+    ];
+
+    const cleanPayload: any = Object.keys(updates)
+      .filter(key => ALLOWED_COLUMNS.includes(key))
+      .reduce((obj: any, key) => {
+        obj[key] = updates[key];
+        return obj;
+      }, {});
+
+    // 🕒 CRITICAL FIX: Recalculate SAST Database Constraints if duration is present
+    // This prevents double-booking if a manager extends a session length in the modal
+    if (updates.duration_hours && updates.booking_date && updates.start_time) {
+      cleanPayload.slot_start = createSASTTimestamp(updates.booking_date, updates.start_time);
+      cleanPayload.slot_end = addHoursToSAST(cleanPayload.slot_start, Number(updates.duration_hours));
+    }
+
+    // Execute the hardened update
     const { data, error } = await supabaseAdmin
       .from("bookings")
-      .update({
-        ...updates // Carry through all save parameters from modal or quick settle
-      })
+      .update(cleanPayload)
       .eq("id", id)
       .select()
       .single()
 
     if (error) {
-       console.error("DB Update Error:", error);
-       throw error;
+      console.error("DB Update Error:", error);
+      throw error;
     }
 
-    return new Response(JSON.stringify({ success: true, booking: data }), { 
+    return new Response(JSON.stringify({ success: true, booking: data }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     })
 
   } catch (err: any) {
     console.error("Update API Crash:", err);
-    return new Response(JSON.stringify({ error: err.message }), { 
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     })

@@ -3,24 +3,9 @@
 import { useState, useEffect } from 'react';
 import { getSASTDate } from '@/lib/utils';
 import { ManagerModal } from './manager-modal';
-import { 
-  Plus, 
-  CheckCircle, 
-  CreditCard, 
-  ChevronRight, 
-  Activity, 
-  Layers, 
-  Edit2, 
-  ChevronLeft, 
-  Calendar as CalendarIcon,
-  Search
-} from 'lucide-react';
+import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
-/**
- * 🏌️ THE MULLIGAN: LIVE VIEW HUD
- * Industrial Activity Ledger with Integrated Date Finder and Quick Settle
- */
 export function LiveViewTab() {
   const [data, setData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -33,33 +18,26 @@ export function LiveViewTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
-  /**
-   * HUD DATA SYNC
-   * Uses the Secure Admin Dashboard API to bypass RLS safely and allow date selection.
-   */
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
       const pin = sessionStorage.getItem('admin-pin');
-      
+
       const res = await fetch('/api/bookings/admin-dashboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          pin, 
-          startDate: selectedDate 
-        }),
+        body: JSON.stringify({ pin, startDate: selectedDate }),
       });
 
       if (res.status === 401) {
         sessionStorage.removeItem('admin-pin');
-        window.location.reload(); // Force re-auth
+        window.location.reload();
         return;
       }
 
       if (!res.ok) throw new Error("Ledger Sync Failed");
       const bookings = await res.json();
-      
+
       setData(bookings || []);
       setError(null);
     } catch (err: any) {
@@ -70,42 +48,33 @@ export function LiveViewTab() {
     }
   };
 
-  // Re-fetch whenever the selected date changes
   useEffect(() => {
     fetchDashboardData();
   }, [selectedDate]);
 
-  /**
-   * 🗓️ DATE NAVIGATOR
-   */
   const shiftDate = (days: number) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  /**
-   * ⚡ THE QUICK SETTLE ACTION
-   * Instantly confirms records for cash without opening the modal.
-   */
+  // ⚡ THE QUICK SETTLE ACTION (Stripped payload to only required fields)
   const handleQuickSettle = async (booking: any) => {
     try {
       const pin = sessionStorage.getItem('admin-pin');
       const res = await fetch('/api/bookings/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           id: booking.id,
-          status: 'confirmed', 
+          status: 'confirmed',
           payment_type: 'cash',
-          pin,
-          total_price: booking.total_price // Ensure we carry current total
+          payment_status: 'paid_instore',
+          pin
         }),
       });
 
       if (!res.ok) throw new Error("Quick Settle Failed");
-
-      // Refresh ledger instantly
       fetchDashboardData();
     } catch (err) {
       console.error("Settle Error:", err);
@@ -113,9 +82,6 @@ export function LiveViewTab() {
     }
   };
 
-  /**
-   * MANAGER MODAL HANDLERS
-   */
   const handleSave = async (formData: any) => {
     const isEdit = !!formData.id;
     const endpoint = isEdit ? '/api/bookings/update' : '/api/bookings/admin-create';
@@ -129,7 +95,6 @@ export function LiveViewTab() {
       });
 
       if (!res.ok) throw new Error("Save operation failed.");
-
       setIsModalOpen(false);
       fetchDashboardData();
     } catch (err: any) {
@@ -154,8 +119,7 @@ export function LiveViewTab() {
 
   return (
     <div className="w-full space-y-6 max-w-6xl mx-auto px-4 pb-20 mt-4">
-      
-      {/* 🏛️ INDUSTRIAL NAVIGATION HEAD */}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-8 border-b-2 border-zinc-800 gap-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em]">
@@ -165,25 +129,19 @@ export function LiveViewTab() {
         </div>
 
         <div className="flex flex-col items-end gap-4 w-full md:w-auto">
-          {/* Action Row */}
           <div className="flex gap-3 w-full md:w-auto">
-             <Button 
-                onClick={() => { setSelectedBooking(null); setIsModalOpen(true); }} 
-                className="flex-1 md:flex-none bg-white text-black hover:bg-primary hover:text-white font-black uppercase text-xs px-8 h-12 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all"
-             >
-                <Plus className="mr-2 h-4 w-4" /> Add Walk-in
-             </Button>
+            <Button
+              onClick={() => { setSelectedBooking(null); setIsModalOpen(true); }}
+              className="flex-1 md:flex-none bg-white text-black hover:bg-primary hover:text-white font-black uppercase text-xs px-8 h-12 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Walk-in
+            </Button>
           </div>
 
-          {/* 🗓️ DATE FINDER CONTROLS */}
           <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl w-full md:w-auto">
-            <button 
-              onClick={() => shiftDate(-1)} 
-              className="p-3 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-r border-zinc-800"
-            >
+            <button onClick={() => shiftDate(-1)} className="p-3 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-r border-zinc-800">
               <ChevronLeft size={20} />
             </button>
-            
             <div className="flex items-center gap-3 px-6 py-2 bg-black/40">
               <CalendarIcon size={14} className="text-primary" />
               <input
@@ -193,18 +151,10 @@ export function LiveViewTab() {
                 className="bg-transparent text-sm font-black text-white outline-none cursor-pointer uppercase tracking-tighter"
               />
             </div>
-
-            <button 
-              onClick={() => shiftDate(1)} 
-              className="p-3 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-l border-zinc-800"
-            >
+            <button onClick={() => shiftDate(1)} className="p-3 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-l border-zinc-800">
               <ChevronRight size={20} />
             </button>
-
-            <button 
-              onClick={() => setSelectedDate(getSASTDate())}
-              className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-primary hover:bg-primary hover:text-white transition-all border-l border-zinc-800"
-            >
+            <button onClick={() => setSelectedDate(getSASTDate())} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all border-l border-zinc-800">
               TODAY
             </button>
           </div>
@@ -217,13 +167,12 @@ export function LiveViewTab() {
         </div>
       )}
 
-      {/* 📋 THE ACTIVITY LEDGER */}
       <div className="space-y-3 min-h-[450px]">
         {isLoading ? (
           <div className="py-32 text-center animate-pulse">
             <div className="text-zinc-600 font-black uppercase tracking-[0.8em] text-xs">Syncing Ledger HUD...</div>
             <div className="mt-4 h-1 w-32 bg-zinc-800 mx-auto rounded-full overflow-hidden">
-               <div className="h-full bg-primary animate-progress w-full" />
+              <div className="h-full bg-primary animate-progress w-full" />
             </div>
           </div>
         ) : data.length === 0 ? (
@@ -233,15 +182,13 @@ export function LiveViewTab() {
           </div>
         ) : (
           data.map((booking) => (
-            <div 
-              key={booking.id} 
-              onClick={() => { setSelectedBooking(booking); setIsModalOpen(true); }} 
+            <div
+              key={booking.id}
+              onClick={() => { setSelectedBooking(booking); setIsModalOpen(true); }}
               className="group relative flex flex-col md:flex-row items-center justify-between p-6 bg-[#0a0a0a] border border-zinc-800/80 rounded-2xl hover:bg-zinc-800/20 hover:border-primary/50 transition-all cursor-pointer overflow-hidden shadow-lg"
             >
-              {/* Status Glow Bar */}
               <div className={`absolute left-0 top-0 bottom-0 w-2 ${booking.status === 'confirmed' ? 'bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : 'bg-amber-500 animate-pulse'}`} />
 
-              {/* Left: Time & Layout */}
               <div className="flex items-center gap-8 w-full md:w-auto">
                 <div className="flex flex-col items-center justify-center min-w-[90px] border-r border-zinc-800/50 pr-8">
                   <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">{booking.start_time}</span>
@@ -255,7 +202,6 @@ export function LiveViewTab() {
                 </div>
               </div>
 
-              {/* Middle: Identity & Items */}
               <div className="flex-1 px-10 py-4 md:py-0 w-full md:border-l border-zinc-800/30 my-4 md:my-0">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-black text-zinc-100 tracking-tight">{booking.guest_name || 'WALK-IN'}</span>
@@ -267,13 +213,12 @@ export function LiveViewTab() {
                   {booking.addon_water_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
                   {booking.addon_gloves_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
                   {booking.addon_balls_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
-                  {booking.addon_club_rental && <span className="text-[10px] font-bold text-emerald-500/80 uppercase">Clubs Req.</span>}
+                  {booking.addon_club_rental && <span className="text-[10px] font-bold text-primary/80 uppercase">Clubs Req.</span>}
                   {booking.addon_coaching && <span className="text-[10px] font-bold text-amber-500/80 uppercase">Coaching session</span>}
                   {booking.notes && <span className="text-[10px] font-medium text-zinc-400 italic truncate max-w-[250px]">— "{booking.notes}"</span>}
                 </div>
               </div>
 
-              {/* Right: Ledger Settlement */}
               <div className="flex items-center gap-10 w-full md:w-auto justify-between md:justify-end">
                 <div className="flex flex-col items-end">
                   <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R {booking.total_price}</span>
@@ -284,13 +229,12 @@ export function LiveViewTab() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {/* ⚡ THE QUICK SETTLE BUTTON */}
                   {booking.status === 'pending' ? (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase h-10 px-5 shadow-lg group-hover:scale-105 transition-transform"
                       onClick={(e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         handleQuickSettle(booking);
                       }}
                     >
@@ -312,12 +256,12 @@ export function LiveViewTab() {
         )}
       </div>
 
-      <ManagerModal 
-        isOpen={isModalOpen} 
-        booking={selectedBooking} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSave} 
-        onDelete={handleDelete} 
+      <ManagerModal
+        isOpen={isModalOpen}
+        booking={selectedBooking}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSave}
+        onDelete={handleDelete}
       />
     </div>
   );
