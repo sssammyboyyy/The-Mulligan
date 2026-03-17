@@ -63,10 +63,10 @@ export async function POST(request: Request) {
       addon_club_rental
     } = body
 
-    // Standard client for reads and inserts (anon key — RLS allows these)
+    // Standard client (now raised to Service Role to allow confirmed coupon inserts)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
     // Admin client for ghost cleanup and system tasks

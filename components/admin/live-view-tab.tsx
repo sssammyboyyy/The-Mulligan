@@ -229,7 +229,7 @@ export function LiveViewTab() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {booking.status === 'pending' ? (
+                  {booking.payment_status !== 'completed' && booking.payment_status !== 'paid_instore' ? (
                     <Button
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase h-10 px-5 shadow-lg group-hover:scale-105 transition-transform"
@@ -242,7 +242,7 @@ export function LiveViewTab() {
                     </Button>
                   ) : (
                     <div className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-primary/10 text-primary border border-primary/20 rounded-md">
-                      CONFIRMED
+                      PAID
                     </div>
                   )}
 
