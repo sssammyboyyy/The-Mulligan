@@ -7,11 +7,9 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 }
 
-export const dynamic = "force-dynamic"
+export const runtime = "edge"; // High-leverage Cloudflare performance
+export const dynamic = "force-dynamic";
 
-/**
- * Pre-flight handler for industrial Edge compliance.
- */
 export async function OPTIONS() {
   return new Response(null, {
     status: 204,
@@ -20,90 +18,90 @@ export async function OPTIONS() {
 }
 
 /**
- * Golden Logic: Booking Route
- * Implements: Native Responses, SAST Normalization, Idempotency, and Concurrency Guards.
+ * Admin Walk-In Creation Route
+ * Bypasses RLS via Service Role & Normalizes Check Constraints
  */
 export async function POST(req: Request) {
   try {
-    const supabase = createClient(
+    // 1. Initialize with Service Role to ensure admin authority
+    // Note: Ensure SUPABASE_SERVICE_ROLE_KEY is set in Cloudflare Dashboard
+    const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     )
 
     const body = await req.json()
-    const { 
-      booking_request_id,
-      booking_date, 
-      start_time, 
+    const {
+      full_name,
+      phone,
+      email,
+      bay_id,
+      booking_date,
+      start_time,
       duration_hours,
-      simulator_id,
-      guest_name,
-      guest_email,
-      guest_phone
+      players,
+      amount_total,
+      status // Expected "CONFIRMED" from your UI
     } = body
-
-    // 1. Validate mandatory fields
-    if (!booking_request_id || !booking_date || !start_time || !simulator_id) {
-      return new Response(JSON.stringify({ error: "Missing required booking parameters." }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      })
-    }
 
     // 2. Industrial Timestamp Normalization (SAST)
     const slot_start = createSASTTimestamp(booking_date, start_time)
     const slot_end = addHoursToSAST(slot_start, Number(duration_hours))
 
-    // 3. Database Execution with Atomics
-    const { data: booking, error } = await supabase
+    // 3. Construct Payload with Check-Constraint Fixes
+    const finalPayload = {
+      full_name,
+      phone,
+      email: email || null,
+      bay_id,
+      booking_date,
+      start_time,
+      slot_start,
+      slot_end,
+      duration_hours: Number(duration_hours),
+      players: Number(players),
+      total_price: amount_total || 0,
+      status: (status || 'confirmed').toLowerCase(),
+      payment_status: 'paid',
+      // FIX: Database check constraint 'bookings_payment_type_check' 
+      // likely expects 'cash', 'card', or 'eft'. 'walk_in' is usually rejected.
+      payment_type: 'cash',
+      booking_source: 'walk_in',
+      user_type: 'guest'
+    }
+
+    // 4. Atomic Insert
+    const { data, error } = await supabaseAdmin
       .from("bookings")
-      .insert({
-        booking_request_id, // Idempotency Guard (Unique UUID)
-        booking_date,
-        start_time,
-        slot_start,
-        slot_end,
-        duration_hours,
-        simulator_id,
-        guest_name,
-        guest_email,
-        guest_phone,
-        status: "pending",
-        payment_status: "pending",
-        user_type: "guest",
-        booking_source: "online"
-      })
+      .insert([finalPayload])
       .select()
       .single()
 
     if (error) {
-      // 4. Concurrency & Conflict Protection
-      // 23P01: Postgres Exclusion Constraint violation (Double Booking)
-      // 23505: Unique violation (Duplicate Request)
-      if (error.code === "23P01" || error.code === "23505") {
-        return new Response(JSON.stringify({ 
-          error: "Slot conflict or duplicate request detected.", 
-          code: error.code 
-        }), {
-          status: 409,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        })
-      }
-      throw error
+      console.error("[DB-ERROR]", error)
+      return new Response(JSON.stringify({
+        error: error.message,
+        hint: "Check if payment_type 'cash' is allowed in your Postgres constraint."
+      }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      })
     }
 
-    // 5. Return Native Edge Response
-    return new Response(JSON.stringify({ success: true, booking }), {
+    return new Response(JSON.stringify({ success: true, booking: data }), {
       status: 201,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     })
 
   } catch (err: any) {
-    console.error("[MULLIGAN-EDGE] Fatal Error:", err)
-    return new Response(JSON.stringify({ 
-      error: err.message || "Internal server error",
-      request_id: crypto.randomUUID()
-    }), {
+    console.error("[FATAL-ERROR]", err)
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     })
