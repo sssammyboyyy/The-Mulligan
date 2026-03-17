@@ -1,4 +1,5 @@
 name = "themes-golf-sim"
+account_id = "7682db99759e8274d4cb60b25393f1af"
 compatibility_date = "2025-11-25"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".open-next"
