@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>1-Hour Reminder Email Preview</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            padding: 40px;
+        }
+
+        .email-container {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            max-width: 600px;
+            margin: auto;
+            background: linear-gradient(135deg, #1e3a2f 0%, #0d1f17 100%);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #2d5a45 0%, #1a3d2e 100%);
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 3px solid #4ade80;
+        }
+
+        .hero h1 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .hero .countdown {
+            background: rgba(255, 255, 255, 0.1);
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            margin-top: 15px;
+            color: #4ade80;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+            color: #e5e5e5;
+        }
+
+        .booking-quick {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .booking-quick table {
+            width: 100%;
+        }
+
+        .booking-quick td {
+            padding: 6px 0;
+            font-size: 14px;
+        }
+
+        .booking-quick .label {
+            color: #9ca3af;
+        }
+
+        .booking-quick .value {
+            text-align: right;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #4ade80;
+            margin: 25px 0 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rules-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .rules-list li {
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #4ade80;
+            margin-bottom: 8px;
+            border-radius: 0 8px 8px 0;
+            font-size: 14px;
+            color: #d1d5db;
+        }
+
+        .rules-list li strong {
+            color: #ffffff;
+        }
+
+        .excitement-box {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .excitement-box p {
+            margin: 0;
+            color: #1a1a1a;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .excitement-box .small {
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+
+        .balance-alert {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .balance-alert .amount {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+
+        .btn {
+            display: block;
+            text-align: center;
+            padding: 16px;
+            background: #4ade80;
+            color: #0d1f17;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            margin-top: 25px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 25px;
+            color: #6b7280;
+            font-size: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+
+        <!-- HERO -->
+        <div class="hero">
+            <h1>⛳ See You Soon!</h1>
+            <div class="countdown">🕐 YOUR SESSION STARTS IN 1 HOUR</div>
+        </div>
+
+        <div class="content">
+
+            <!-- QUICK BOOKING INFO -->
+            <div class="booking-quick">
+                <table>
+                    <tr>
+                        <td class="label">Guest</td>
+                        <td class="value">John Smith</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Time</td>
+                        <td class="value">Today @ 14:00 - 16:00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Bay</td>
+                        <td class="value">🏌️ Lounge Bay</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Players</td>
+                        <td class="value">4 Players</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- EXCITEMENT -->
+            <div class="excitement-box">
+                <p>🎯 Time to warm up that swing!</p>
+                <p class="small">Thousands of World-Famous Courses Await</p>
+            </div>
+
+            <!-- HOUSE RULES -->
+            <div class="section-title">📋 House Rules</div>
+            <ul class="rules-list">
+                <li><strong>Arrive 10 mins early</strong> — Get settled and grab a drink before tee-off</li>
+                <li><strong>No outdoor shoes</strong> — Clean indoor shoes or socks only on the mats</li>
+                <li><strong>Respect the equipment</strong> — Clubs provided free, but damages may be charged</li>
+                <li><strong>Food & drinks welcome</strong> — Just no red wine near the screens 🍷</li>
+                <li><strong>Have fun!</strong> — It's golf without the 4-hour walk</li>
+            </ul>
+
+            <!-- WHAT TO BRING -->
+            <div class="section-title">🎒 What to Bring</div>
+            <ul class="rules-list">
+                <li><strong>Comfortable clothes</strong> — Dress like you're hitting the range</li>
+                <li><strong>Your own glove</strong> — Or purchase one from us (R50)</li>
+                <li><strong>Good vibes only</strong> — Leave the stress at the door</li>
+            </ul>
+
+            <!-- BALANCE DUE (conditional) -->
+            <div class="balance-alert">
+                <div style="font-size: 12px; color: #9ca3af; margin-bottom: 5px;">BALANCE DUE ON ARRIVAL</div>
+                <div class="amount">R750.00</div>
+                <div style="font-size: 11px; color: #6b7280; margin-top: 5px;">Card & Cash Accepted</div>
+            </div>
+
+            <!-- CTA -->
+            <a href="https://themulligan.org" class="btn">View My Booking</a>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p style="margin: 0;">The Mulligan Golf Lounge • Vanderbijlpark</p>
+            <p style="margin: 5px 0 0 0;">Questions? WhatsApp us at 082 XXX XXXX</p>
+        </div>
+    </div>
+</body>
+
+</html>

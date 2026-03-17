@@ -1,0 +1,369 @@
+{
+    "name": "Reminders (Premium - Literal Keys)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutes": 30
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                400,
+                300
+            ],
+            "id": "schedule-trigger",
+            "name": "Run Every 30 Mins"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?status=eq.confirmed&reminder_1h_sent=eq.false&booking_source=neq.walk_in",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                600,
+                200
+            ],
+            "id": "get-1h-reminders",
+            "name": "Fetch 1h Reminders"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?status=eq.confirmed&reminder_24h_sent=eq.false&booking_source=neq.walk_in",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                600,
+                400
+            ],
+            "id": "get-24h-reminders",
+            "name": "Fetch 24h Reminders"
+        },
+        {
+            "parameters": {
+                "jsCode": "var items = Array.isArray($input.all()) ? $input.all() : [$input.item];\nvar now = new Date();\n\n// 1h = 55 to 85 mins from now\nvar min1h = new Date(now.getTime() + 55 * 60000);\nvar max1h = new Date(now.getTime() + 85 * 60000);\n\nreturn items.filter(item => {\n  var start = new Date(item.json.slot_start);\n  return start >= min1h && start <= max1h;\n});"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                800,
+                200
+            ],
+            "id": "filter-1h",
+            "name": "Filter 1h Timeframe"
+        },
+        {
+            "parameters": {
+                "jsCode": "var items = Array.isArray($input.all()) ? $input.all() : [$input.item];\nvar now = new Date();\n\n// 24h = 23 to 25 hours from now\nvar min24h = new Date(now.getTime() + 23 * 60 * 60000);\nvar max24h = new Date(now.getTime() + 25 * 60 * 60000);\n\nreturn items.filter(item => {\n  var start = new Date(item.json.slot_start);\n  return start >= min24h && start <= max24h;\n});"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                800,
+                400
+            ],
+            "id": "filter-24h",
+            "name": "Filter 24h Timeframe"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $json.id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"reminder_1h_sent\": true}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1000,
+                200
+            ],
+            "id": "mark-1h-sent",
+            "name": "Mark 1h Sent"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?id=eq.{{ $json.id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"reminder_24h_sent\": true}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1000,
+                400
+            ],
+            "id": "mark-24h-sent",
+            "name": "Mark 24h Sent"
+        },
+        {
+            "parameters": {
+                "jsCode": "var booking = $input.item.json;\nvar simulatorMap = {1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'};\nvar bayName = simulatorMap[booking.simulator_id] || ('Bay ' + booking.simulator_id);\n\n// Intelligent Add-on Detection\nvar addonList = [];\nif (booking.addon_coaching) addonList.push('<li>⛳ <strong>Pro Coaching Session</strong> (Confirmed)</li>');\nif (booking.addon_club_rental) addonList.push('<li>⛳ <strong>Premium Club Rental</strong> (Reserved)</li>');\nvar addonsSection = addonList.length > 0 \n    ? `<div style=\"background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n        <p style=\"margin: 0 0 10px; font-weight: bold; color: #166534; font-size: 14px;\">📦 YOUR ADD-ONS</p>\n        <ul style=\"margin: 0; padding-left: 18px; color: #4b5563; line-height: 1.6; font-size: 14px;\">${addonList.join('')}</ul>\n       </div>` \n    : '';\n\nvar html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;\">\n    <div style=\"background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 25px; text-align: center;\">\n        <h1 style=\"color: white; margin: 0; font-size: 24px;\">⛳ You're Up Next!</h1>\n        <p style=\"color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;\">Your session starts in 1 hour</p>\n    </div>\n    <div style=\"padding: 25px;\">\n        <p style=\"font-size: 16px; margin: 0 0 15px;\">Hi <strong>${booking.guest_name}</strong>,</p>\n        <p style=\"color: #6b7280; line-height: 1.6; margin: 0 0 20px;\">Get ready to tee off! We're prepping your bay and can't wait to see you.</p>\n        \n        <div style=\"background: #f8fafc; border-left: 4px solid #166534; padding: 18px; border-radius: 8px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 4px; font-size: 14px; color: #166534; font-weight: 600;\">START TIME</p>\n            <p style=\"margin: 0 0 8px; font-size: 26px; font-weight: bold; color: #111827;\">🕓 ${booking.start_time}</p>\n            <p style=\"margin: 0; font-size: 16px; color: #6b7280;\">📍 ${bayName}</p>\n        </div>\n\n        ${addonsSection}\n\n        <div style=\"background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 12px; font-weight: bold; color: #b45309; font-size: 14px;\">📋 QUICK HOUSE RULES</p>\n            <ul style=\"margin: 0; padding-left: 18px; color: #6b7280; line-height: 1.9; font-size: 14px;\">\n                <li><strong>Arrive 15 mins early</strong> for check-in</li>\n                <li><strong>Golf Glove</strong> is compulsory</li>\n                <li><strong>Flat-soled shoes only</strong></li>\n                <li>No Sharpie-marked balls</li>\n            </ul>\n        </div>\n\n        <p style=\"color: #dc2626; font-weight: bold; font-size: 14px; text-align: center;\">⚠️ Running late? Please call us!</p>\n    </div>\n</div>`;\n\n// No more 'json' nesting\nreturn {\n  from: \"The Mulligan <bookings@themulligan.org>\",\n  to: booking.guest_email,\n  subject: \"⛳ Tee Time in 1 Hour! | The Mulligan\",\n  html: html\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                200
+            ],
+            "id": "prepare-1h-reminder",
+            "name": "Prepare 1h Reminder"
+        },
+        {
+            "parameters": {
+                "jsCode": "var booking = $input.item.json;\nvar simulatorMap = {1: 'Lounge Bay', 2: 'Middle Bay', 3: 'Window Bay'};\nvar bayName = simulatorMap[booking.simulator_id] || ('Bay ' + booking.simulator_id);\n\n// Intelligent Add-on Detection\nvar addonList = [];\nif (booking.addon_coaching) addonList.push('<li>⛳ <strong>Pro Coaching Session</strong> (Confirmed)</li>');\nif (booking.addon_club_rental) addonList.push('<li>⛳ <strong>Premium Club Rental</strong> (Reserved)</li>');\nvar addonsSection = addonList.length > 0 \n    ? `<div style=\"background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 18px; margin: 0 0 20px;\">\n        <p style=\"margin: 0 0 10px; font-weight: bold; color: #166534; font-size: 14px;\">📦 YOUR ADD-ONS</p>\n        <ul style=\"margin: 0; padding-left: 18px; color: #4b5563; line-height: 1.6; font-size: 14px;\">${addonList.join('')}</ul>\n       </div>` \n    : '';\n\nvar html = `\n<div style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;\">\n    <div style=\"background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 28px; text-align: center;\">\n        <h1 style=\"color: white; margin: 0; font-size: 26px;\">⛳ See You Tomorrow!</h1>\n        <p style=\"color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px;\">Your tee time is confirmed</p>\n    </div>\n    <div style=\"padding: 25px;\">\n        <p style=\"font-size: 16px; margin: 0 0 15px;\">Hi <strong>${booking.guest_name}</strong>,</p>\n        <p style=\"color: #6b7280; line-height: 1.6; margin: 0 0 20px;\">We're excited to have you at The Mulligan! Here's everything you need to know.</p>\n        \n        <div style=\"background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin: 0 0 25px; text-align: center;\">\n            <p style=\"margin: 0 0 8px; font-size: 22px; font-weight: bold; color: #166534;\">📅 ${booking.booking_date}</p>\n            <p style=\"margin: 0 0 8px; font-size: 20px; color: #166534;\">🕓 ${booking.start_time}</p>\n            <p style=\"margin: 0; font-size: 15px; color: #6b7280;\">📍 ${bayName}</p>\n        </div>\n\n        ${addonsSection}\n\n        <div style=\"background: #fffbeb; border: 1px solid #f59e0b; border-radius: 12px; padding: 20px; margin: 0 0 20px;\">\n            <p style=\"margin: 0 0 15px; font-weight: bold; color: #b45309; font-size: 15px; text-align: center;\">📋 THE MULLIGAN'S BASICS</p>\n            <ul style=\"margin: 0; padding-left: 20px; color: #4b5563; font-size: 14px; line-height: 1.9;\">\n                <li><strong>Arrive 15 mins early</strong></li>\n                <li><strong>Golf glove is compulsory</strong></li>\n                <li><strong>No spiked shoes</strong> - flat soles only</li>\n                <li><strong>Clean balls only</strong> - no Sharpie marks</li>\n                <li><strong>No smoking/vaping</strong> indoors</li>\n            </ul>\n            <p style=\"margin: 15px 0 0; padding-top: 12px; border-top: 1px solid #fcd34d; font-size: 12px; color: #92400e; text-align: center;\">📍 38A Chopin St, Vanderbijlpark</p>\n        </div>\n\n        <div style=\"text-align: center;\">\n            <a href=\"https://maps.google.com/?q=38A+Chopin+St+Vanderbijlpark\" style=\"display: inline-block; background: #166534; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold;\">📍 Get Directions</a>\n        </div>\n    </div>\n</div>`;\n\n// No more 'json' nesting\nreturn {\n  from: \"The Mulligan <bookings@themulligan.org>\",\n  to: booking.guest_email,\n  subject: \"⛳ See You Tomorrow! | Your Booking Reminder\",\n  html: html\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                400
+            ],
+            "id": "prepare-24h-reminder",
+            "name": "Prepare 24h Reminder"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_bCTdp5JH_KGLzSyFzoiXJjjdihVkBLSd2"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"from\": \"{{ $json.from }}\",\n  \"to\": \"{{ $json.to }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"html\": {{ JSON.stringify($json.html) }}\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1400,
+                300
+            ],
+            "id": "send-reminder",
+            "name": "Send Email (Resend)"
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "=https://twvysbtjimrqcgulaich.supabase.co/rest/v1/bookings?status=eq.pending&created_at=lt.{{ new Date(Date.now() - 30 * 60000).toISOString() }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3dnlzYnRqaW1ycWNndWxhaWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNTcyOTEsImV4cCI6MjA3ODkzMzI5MX0.BP2L6C13Uey5d3L6SlDUz73_e2UhmJ_N-Snvo9m1K94"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                600,
+                600
+            ],
+            "id": "janitor-cleanup",
+            "name": "🧹 Janitor Cleanup"
+        }
+    ],
+    "connections": {
+        "Run Every 30 Mins": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch 1h Reminders",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch 24h Reminders",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "janitor-cleanup",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch 1h Reminders": {
+            "main": [
+                [
+                    {
+                        "node": "Filter 1h Timeframe",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch 24h Reminders": {
+            "main": [
+                [
+                    {
+                        "node": "Filter 24h Timeframe",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter 1h Timeframe": {
+            "main": [
+                [
+                    {
+                        "node": "Mark 1h Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter 24h Timeframe": {
+            "main": [
+                [
+                    {
+                        "node": "Mark 24h Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark 1h Sent": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare 1h Reminder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark 24h Sent": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare 24h Reminder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare 1h Reminder": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email (Resend)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare 24h Reminder": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email (Resend)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

@@ -1,23 +1,72 @@
-import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-export async function createClient() {
-  const cookieStore = await cookies()
+let createSupabaseClient: typeof import("@supabase/supabase-js").createClient | null = null
+let initPromise: Promise<void> | null = null
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        } catch {
-          // The "setAll" method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
-      },
+// Mock client for when Supabase is not available
+const mockClient = {
+  from: () => ({
+    select: () => Promise.resolve({ data: [], error: null }),
+    insert: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+    update: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+    delete: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+    eq: () => ({
+      select: () => Promise.resolve({ data: [], error: null }),
+      single: () => Promise.resolve({ data: null, error: null }),
+    }),
+    single: () => Promise.resolve({ data: null, error: null }),
+  }),
+  auth: {
+    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+  },
+  rpc: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+} as any
+
+async function initSupabase() {
+  if (initPromise) return initPromise
+
+  initPromise = (async () => {
+    try {
+      const supabase = await import("@supabase/supabase-js")
+      createSupabaseClient = supabase.createClient
+    } catch (error) {
+      console.warn("[v0] Failed to load @supabase/supabase-js on server, using mock client")
+      createSupabaseClient = null
+    }
+  })()
+
+  return initPromise
+}
+
+export async function createClient() {
+  await initSupabase()
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key || !createSupabaseClient) {
+    return mockClient
+  }
+
+  const cookieStore = await cookies()
+  const authToken = cookieStore.get("sb-access-token")?.value
+
+  return createSupabaseClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: authToken
+        ? {
+            Authorization: `Bearer ${authToken}`,
+          }
+        : {},
     },
   })
 }
+
+export const createServerClient = createClient
+
+// Initialize eagerly but don't block
+initSupabase()

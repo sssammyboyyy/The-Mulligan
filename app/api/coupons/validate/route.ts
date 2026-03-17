@@ -1,0 +1,63 @@
+
+import { createClient } from "@supabase/supabase-js"
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { coupon_code, booking_amount, session_type } = body
+
+    if (!coupon_code) {
+      return Response.json({ valid: false, message: "Coupon code is required" }, { status: 400 })
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    // Query the coupons table
+    const { data: coupon, error } = await supabase
+      .from("coupons")
+      .select("*")
+      .eq("code", coupon_code.toUpperCase())
+      .eq("is_active", true)
+      .single()
+
+    if (error || !coupon) {
+      return Response.json({ valid: false, message: "Invalid coupon code" }, { status: 200 })
+    }
+
+    // Check expiry date
+    if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+      return Response.json({ valid: false, message: "Coupon has expired" }, { status: 200 })
+    }
+
+    // Check usage limit
+    if (coupon.max_uses !== null && coupon.current_uses >= coupon.max_uses) {
+      return Response.json({ valid: false, message: "Coupon usage limit reached" }, { status: 200 })
+    }
+
+    // Calculate discount
+    let discount_amount = 0
+    if (coupon.discount_type === "percentage") {
+      discount_amount = (booking_amount * coupon.discount_value) / 100
+    } else if (coupon.discount_type === "fixed") {
+      discount_amount = Math.min(coupon.discount_value, booking_amount)
+    }
+
+    // Increment usage count
+    await supabase
+      .from("coupons")
+      .update({ current_uses: coupon.current_uses + 1 })
+      .eq("id", coupon.id)
+
+    return Response.json({
+      valid: true,
+      discount_amount,
+      message: `Coupon applied! You saved R${discount_amount.toFixed(2)}`,
+    })
+  } catch (error) {
+    console.error("Coupon validation error:", error)
+    return Response.json({ valid: false, message: "Server error" }, { status: 500 })
+  }
+}

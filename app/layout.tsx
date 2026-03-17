@@ -1,25 +1,18 @@
-import type React from "react"
 import type { Metadata } from "next"
-import { Poppins, Playfair_Display } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { Inter } from "next/font/google"
 import "./globals.css"
+import { cn } from "@/lib/utils"
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-})
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-serif",
-})
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Premium Golf Simulator | Book Your Session",
-  description: "Experience world-class golf simulation. Book your session online with instant confirmation.",
-  generator: "v0.app",
+  title: "The Mulligan | Premier Golf Simulator",
+  description: "Book 4-ball games, coaching, and practice sessions at The Mulligan. Top-tier golf simulation technology.",
+  icons: {
+    icon: "/icon-mulligan.png",
+    shortcut: "/icon-mulligan.png",
+    apple: "/icon-mulligan.png",
+  },
 }
 
 export default function RootLayout({
@@ -28,10 +21,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${playfair.variable}`}>
-      <body className={`font-sans antialiased`}>
+    <html lang="en">
+      <body className={cn(inter.className, "min-h-screen bg-background antialiased")}>
         {children}
-        <Analytics />
       </body>
     </html>
   )

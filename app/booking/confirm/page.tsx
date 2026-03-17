@@ -1,9 +1,13 @@
-import { Suspense } from "react"
-import { BookingConfirmation } from "@/components/booking-confirmation"
+"use client"
 
-export default function ConfirmPage() {
+export const dynamic = "force-dynamic"
+
+import { Suspense } from "react"
+import BookingConfirmation from "@/components/booking-confirmation"
+
+export default function BookingConfirmPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}>
       <BookingConfirmation />
     </Suspense>
   )
