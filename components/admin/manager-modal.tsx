@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, User, Flag, ShoppingBag, CreditCard, Calendar, Info } from "lucide-react"
+import { Trash2, User, Flag, ShoppingBag, CreditCard, Calendar, Info, RotateCcw, Clock, MapPin } from "lucide-react"
 
 // 🛡️ MODULAR BUSINESS RULES
 const GET_BASE_HOURLY_RATE = (players: number) => {
@@ -21,14 +21,23 @@ const GET_BASE_HOURLY_RATE = (players: number) => {
 const CLUB_RENTAL_HOURLY = 100;
 const COACHING_FLAT_FEE = 250; // Flat R250 for 30 min
 
+// 🏗️ BAY CONFIGURATION
+const BAY_OPTIONS = [
+  { id: '1', label: 'Lounge Bay', color: 'text-indigo-400' },
+  { id: '2', label: 'Middle Bay', color: 'text-amber-400' },
+  { id: '3', label: 'Window Bay', color: 'text-emerald-400' },
+];
+
 export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any) {
   const [formData, setFormData] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isManualPrice, setIsManualPrice] = useState(false);
 
   useEffect(() => {
     if (booking) {
       setFormData({ ...booking });
       setIsDeleting(false);
+      setIsManualPrice(false);
     }
   }, [booking]);
 
@@ -51,16 +60,27 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     };
   }, [formData]);
 
+  // 🔗 SYNC TOTAL — only if NOT manually overridden
   useEffect(() => {
-    if (formData && formData.total_price !== totals.total) {
+    if (formData && !isManualPrice && formData.total_price !== totals.total) {
       setFormData((prev: any) => ({ ...prev, total_price: totals.total }));
     }
-  }, [totals.total]);
+  }, [totals.total, isManualPrice]);
 
   if (!formData) return null;
 
   const update = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleManualPriceChange = (value: string) => {
+    setIsManualPrice(true);
+    update("total_price", Number(value));
+  };
+
+  const handleResetPrice = () => {
+    setIsManualPrice(false);
+    setFormData((prev: any) => ({ ...prev, total_price: totals.total }));
   };
 
   return (
@@ -107,7 +127,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             </div>
           </section>
 
-          {/* CARD 2: SESSION SETUP */}
+          {/* CARD 2: SESSION SETUP (Now with Time & Bay) */}
           <section className="bg-muted/30 p-6 rounded-2xl border space-y-4">
             <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-primary">
               <Calendar size={14} /> Session Setup
@@ -123,6 +143,45 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                 <Input id="duration_hours" name="duration_hours" type="number" step="0.5" min="0.5" value={formData.duration_hours} onChange={(e) => update("duration_hours", Number(e.target.value))} />
               </div>
             </div>
+
+            {/* 🕐 TIME & BAY SELECTORS */}
+            <div className="grid grid-cols-2 gap-6 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="start_time" className="text-[10px] font-bold flex items-center gap-1.5">
+                  <Clock size={12} className="text-primary" /> START TIME
+                </Label>
+                <Input
+                  id="start_time"
+                  name="start_time"
+                  type="time"
+                  value={formData.start_time || '12:00'}
+                  onChange={(e) => update("start_time", e.target.value)}
+                  className="font-mono font-bold text-lg tracking-tight"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="simulator_id" className="text-[10px] font-bold flex items-center gap-1.5">
+                  <MapPin size={12} className="text-primary" /> BAY ASSIGNMENT
+                </Label>
+                <Select
+                  name="simulator_id"
+                  value={String(formData.simulator_id)}
+                  onValueChange={(v) => update("simulator_id", Number(v))}
+                >
+                  <SelectTrigger id="simulator_id" className="bg-background border-2 font-bold">
+                    <SelectValue placeholder="Select Bay" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BAY_OPTIONS.map((bay) => (
+                      <SelectItem key={bay.id} value={bay.id}>
+                        <span className={`font-bold ${bay.color}`}>{bay.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="notes" className="text-[10px] font-bold">MANAGER & KITCHEN NOTES</Label>
               <textarea
@@ -181,7 +240,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             </div>
           </section>
 
-          {/* CARD 4: SETTLEMENT CARD */}
+          {/* CARD 4: SETTLEMENT CARD (with Manual Price Override) */}
           <section className="bg-primary/5 p-6 rounded-2xl border border-primary/20 space-y-4">
             <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-primary">
               <CreditCard size={14} /> Settlement
@@ -210,13 +269,41 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                   <span>Addons: R{totals.extras}</span>
                 </div>
                 <Separator className="bg-primary-foreground/20" />
+
+                {/* 🎯 MANUAL PRICE OVERRIDE */}
                 <div className="flex justify-between items-end pt-2">
-                  <div className="grid">
-                    <span className="text-[10px] font-bold opacity-70">TOTAL BALANCE</span>
-                    <span className="text-4xl font-black tabular-nums">R {totals.total}</span>
+                  <div className="grid gap-1">
+                    <span className="text-[10px] font-bold opacity-70 flex items-center gap-2">
+                      TOTAL BALANCE
+                      {isManualPrice && (
+                        <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
+                          OVERRIDE
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black">R</span>
+                      <Input
+                        type="number"
+                        value={formData.total_price ?? totals.total}
+                        onChange={(e) => handleManualPriceChange(e.target.value)}
+                        className="text-3xl font-black tabular-nums bg-transparent border-none text-primary-foreground p-0 h-auto focus-visible:ring-0 w-[120px]"
+                      />
+                      {isManualPrice && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                          onClick={handleResetPrice}
+                          title="Reset to calculated price"
+                        >
+                          <RotateCcw size={14} />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Button variant="secondary" size="sm" className="font-black text-[10px] uppercase shadow-lg" onClick={() => onSave(formData)}>
-                    Charge R{totals.total}
+                    Charge R{formData.total_price ?? totals.total}
                   </Button>
                 </div>
               </div>

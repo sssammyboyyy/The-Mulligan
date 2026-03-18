@@ -25,7 +25,11 @@ export async function POST(req: Request) {
     // Data Sanitization
     const players = Math.min(Math.max(Number(body.player_count || 1), 1), 4);
     const duration = Number(body.duration_hours || 1);
-    const slotStart = createSASTTimestamp(body.booking_date, body.start_time);
+    const startTime = body.start_time || '12:00';
+    const simulatorId = Number(body.simulator_id || 1);
+
+    // 🕒 SAST Slot Calculation (Critical for EXCLUDE USING gist)
+    const slotStart = createSASTTimestamp(body.booking_date, startTime);
     const slotEnd = addHoursToSAST(slotStart, duration);
 
     // Pricing Math with Manager Overrides
@@ -42,20 +46,27 @@ export async function POST(req: Request) {
 
     const calculatedTotal = baseTotal + clubs + coaching + water + gloves + balls;
 
+    // 🎯 MANUAL PRICE OVERRIDE: If manager sent total_price, use it. Otherwise use calculated.
+    const finalTotal = (body.total_price !== undefined && body.total_price !== null)
+      ? Number(body.total_price)
+      : calculatedTotal;
+
     const finalPayload = {
       guest_name: body.guest_name || 'Walk-in Guest',
       guest_phone: body.guest_phone || '0000000000',
       guest_email: body.guest_email || 'walkin@venue-os.com',
-      simulator_id: Number(body.simulator_id), 
+      simulator_id: simulatorId, 
       booking_date: body.booking_date,
-      start_time: body.start_time,
+      start_time: startTime,
       slot_start: slotStart,
       slot_end: slotEnd,
       duration_hours: duration,
       player_count: players,
-      total_price: calculatedTotal,
+      total_price: finalTotal,
       notes: body.notes || "",
       payment_type: body.payment_type || 'cash', 
+      payment_status: body.payment_status || 'paid_instore',
+      status: body.status || 'confirmed',
       booking_source: 'walk_in',
       user_type: 'walk_in',
       // Persist the specific prices typed by the manager
@@ -69,22 +80,27 @@ export async function POST(req: Request) {
       addon_coaching: Boolean(body.addon_coaching)
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("bookings")
-      .insert([finalPayload])
-      .select().single()
+    // 🛡️ ATOMIC INSERT with 23P01 Collision Recovery
+    let data: any = null;
+    try {
+      const { data: insertData, error } = await supabaseAdmin
+        .from("bookings")
+        .insert([finalPayload])
+        .select().single()
 
-    if (error) {
+      if (error) throw error;
+      data = insertData;
+    } catch (insertError: any) {
       // 23P01 = EXCLUSION_VIOLATION — Mulligan Protocol: purge → wait 200ms → retry → 409
-      if (error.code === '23P01' || error.message?.includes('exclusion constraint')) {
-        console.warn(`[23P01] Admin-create race on Bay ${body.simulator_id}. Purging ghosts...`);
+      if (insertError.code === '23P01' || insertError.message?.includes('exclusion constraint')) {
+        console.warn(`[23P01] Admin-create race on Bay ${simulatorId}. Purging ghosts...`);
 
         // Step 1: Purge non-confirmed rows for this bay on this date
         await supabaseAdmin
           .from("bookings")
           .delete()
           .eq("booking_date", body.booking_date)
-          .eq("simulator_id", Number(body.simulator_id))
+          .eq("simulator_id", simulatorId)
           .neq("status", "confirmed")
 
         // Step 2: Wait 200ms
@@ -97,19 +113,36 @@ export async function POST(req: Request) {
           .select().single()
 
         if (retryData && !retryError) {
-          console.log(`[23P01] Admin retry SUCCESS for Bay ${body.simulator_id}`);
-          return new Response(JSON.stringify({ success: true, booking: retryData }), {
-            status: 201, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+          console.log(`[23P01] Admin retry SUCCESS for Bay ${simulatorId}`);
+          data = retryData;
+        } else {
+          // Step 4: Final failure — clean 409
+          return new Response(JSON.stringify({
+            error: "409 Conflict: This Bay is already booked for this specific time slot.",
+            error_code: "SLOT_RACE_CONDITION"
+          }), {
+            status: 409, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
           })
         }
-
-        // Step 4: Final failure
-        return new Response(JSON.stringify({ error: "Slot unavailable after retry.", error_code: "SLOT_RACE_CONDITION" }), {
-          status: 409, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-        })
+      } else {
+        throw insertError;
       }
+    }
 
-      throw error;
+    // 🎯 n8n WEBHOOK FOR CONFIRMED WALK-INS
+    if (data && data.status === 'confirmed' && process.env.N8N_WEBHOOK_URL) {
+      try {
+        await fetch(process.env.N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: data.id,
+            secret: process.env.N8N_WEBHOOK_SECRET || process.env.ADMIN_PIN
+          })
+        });
+      } catch (err) {
+        console.error("n8n Trigger Failed:", err);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, booking: data }), {

@@ -3,11 +3,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getSASTDate } from '@/lib/utils';
 import { ManagerModal } from './manager-modal';
-import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon, Banknote, Users, Target } from 'lucide-react';
+import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon, Banknote, Users, Target, XCircle, AlertTriangle } from 'lucide-react';
 
-// 🏗️ PHYSICAL BAY MAPPING
-const BAY_NAMES: Record<number, string> = { 1: 'LOUNGE BAY', 2: 'MIDDLE BAY', 3: 'WINDOW BAY' };
-const getBayName = (id: number) => BAY_NAMES[id] || `BAY ${id}`;
+// 🏗️ PHYSICAL BAY MAPPING (with Colors)
+const BAY_CONFIG: Record<number, { name: string; text: string; glow: string; border: string }> = {
+  1: { name: 'LOUNGE BAY', text: 'text-indigo-400', glow: 'bg-indigo-500', border: 'border-indigo-500/30' },
+  2: { name: 'MIDDLE BAY', text: 'text-amber-400', glow: 'bg-amber-500', border: 'border-amber-500/30' },
+  3: { name: 'WINDOW BAY', text: 'text-emerald-400', glow: 'bg-emerald-500', border: 'border-emerald-500/30' },
+};
+const getBayConfig = (id: number) => BAY_CONFIG[id] || { name: `BAY ${id}`, text: 'text-zinc-400', glow: 'bg-zinc-500', border: 'border-zinc-500/30' };
+
 import { Button } from "@/components/ui/button";
 
 export function LiveViewTab() {
@@ -56,8 +61,21 @@ export function LiveViewTab() {
     fetchDashboardData();
   }, [selectedDate]);
 
-  // 📊 REAL-TIME DERIVED STATS (synced to selectedDate via data)
-  const totalRevenue = useMemo(() => data.reduce((s, b) => s + Number(b.total_price || 0), 0), [data]);
+  // 📊 INDUSTRIAL STATS (Gross Revenue, Outstanding, Total Players)
+  const grossRevenue = useMemo(() =>
+    data
+      .filter(b => b.payment_status === 'completed' || b.payment_status === 'paid_instore')
+      .reduce((s, b) => s + Number(b.amount_paid || b.total_price || 0), 0),
+    [data]
+  );
+
+  const outstanding = useMemo(() =>
+    data
+      .filter(b => b.payment_status === 'pending' || b.payment_status === 'deposit_paid')
+      .reduce((s, b) => s + Number(b.total_price || 0), 0),
+    [data]
+  );
+
   const totalPlayers = useMemo(() => data.reduce((s, b) => s + Number(b.player_count || 0), 0), [data]);
   const totalBookings = data.length;
 
@@ -81,27 +99,35 @@ export function LiveViewTab() {
     setIsModalOpen(true);
   };
 
-  // ⚡ THE QUICK SETTLE ACTION (Stripped payload to only required fields)
-  const handleQuickSettle = async (booking: any) => {
+  // ⚡ BIDIRECTIONAL SETTLE / UNSETTLE
+  const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle') => {
     try {
       const pin = sessionStorage.getItem('admin-pin');
+      const payload: any = {
+        id: booking.id,
+        pin
+      };
+
+      if (action === 'settle') {
+        payload.status = 'confirmed';
+        payload.payment_type = 'cash';
+        payload.payment_status = 'paid_instore';
+      } else {
+        payload.payment_status = 'pending';
+        payload.payment_type = 'pending';
+      }
+
       const res = await fetch('/api/bookings/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: booking.id,
-          status: 'confirmed',
-          payment_type: 'cash',
-          payment_status: 'paid_instore',
-          pin
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Quick Settle Failed");
+      if (!res.ok) throw new Error(`${action} Failed`);
       fetchDashboardData();
     } catch (err) {
-      console.error("Settle Error:", err);
-      alert("Could not settle record. System offline or API mismatch.");
+      console.error("Settle/Unsettle Error:", err);
+      alert(`Could not ${action} record. System offline or API mismatch.`);
     }
   };
 
@@ -117,7 +143,10 @@ export function LiveViewTab() {
         body: JSON.stringify({ ...formData, pin }),
       });
 
-      if (!res.ok) throw new Error("Save operation failed.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Save operation failed.");
+      }
       setIsModalOpen(false);
       fetchDashboardData();
     } catch (err: any) {
@@ -139,6 +168,8 @@ export function LiveViewTab() {
       alert("System could not destroy record. Ghost cleanup failed.");
     }
   };
+
+  const isPaid = (b: any) => b.payment_status === 'completed' || b.payment_status === 'paid_instore';
 
   return (
     <div className="w-full space-y-6 max-w-6xl mx-auto px-4 pb-20 mt-4">
@@ -184,10 +215,11 @@ export function LiveViewTab() {
         </div>
       </div>
 
-      {/* 📊 STATS FOR THIS CYCLE */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 📊 INDUSTRIAL STATS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: 'REVENUE', value: `R ${totalRevenue.toLocaleString()}`, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+          { label: 'GROSS REVENUE', value: `R ${grossRevenue.toLocaleString()}`, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+          { label: 'OUTSTANDING', value: `R ${outstanding.toLocaleString()}`, icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
           { label: 'TOTAL PLAYERS', value: totalPlayers, icon: Users, color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20' },
           { label: 'BOOKINGS', value: totalBookings, icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
         ].map((metric) => (
@@ -224,78 +256,91 @@ export function LiveViewTab() {
             <p className="text-xs font-black uppercase tracking-[0.5em] text-zinc-700">No Operations Recorded for this Cycle</p>
           </div>
         ) : (
-          data.map((booking) => (
-            <div
-              key={booking.id}
-              onClick={() => { setSelectedBooking(booking); setIsModalOpen(true); }}
-              className="group relative flex flex-col md:flex-row items-center justify-between p-6 bg-[#0a0a0a] border border-zinc-800/80 rounded-2xl hover:bg-zinc-800/20 hover:border-primary/50 transition-all cursor-pointer overflow-hidden shadow-lg"
-            >
-              <div className={`absolute left-0 top-0 bottom-0 w-2 ${booking.status === 'confirmed' ? 'bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+          data.map((booking) => {
+            const bay = getBayConfig(booking.simulator_id);
+            const paid = isPaid(booking);
 
-              <div className="flex items-center gap-8 w-full md:w-auto">
-                <div className="flex flex-col items-center justify-center min-w-[90px] border-r border-zinc-800/50 pr-8">
-                  <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">{booking.start_time}</span>
-                  <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-2">Cycle Start</span>
-                </div>
-                <div className="grid">
-                  <span className="text-xl font-black text-white uppercase italic tracking-tighter">{getBayName(booking.simulator_id)}</span>
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
-                    {booking.player_count} Players // {booking.duration_hours}H
-                  </span>
-                </div>
-              </div>
+            return (
+              <div
+                key={booking.id}
+                onClick={() => { setSelectedBooking(booking); setIsModalOpen(true); }}
+                className={`group relative flex flex-col md:flex-row items-center justify-between p-6 bg-[#0a0a0a] ${bay.border} border border-zinc-800/80 rounded-2xl hover:bg-zinc-800/20 hover:border-primary/50 transition-all cursor-pointer overflow-hidden shadow-lg`}
+              >
+                {/* Bay Glow Stripe */}
+                <div className={`absolute left-0 top-0 bottom-0 w-2 ${bay.glow} ${!paid ? 'animate-pulse' : ''} shadow-[0_0_15px_currentColor]`} />
 
-              <div className="flex-1 px-10 py-4 md:py-0 w-full md:border-l border-zinc-800/30 my-4 md:my-0">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-black text-zinc-100 tracking-tight">{booking.guest_name || 'WALK-IN'}</span>
-                  {booking.booking_source === 'walk_in' && (
-                    <span className="px-2 py-0.5 text-[8px] font-black uppercase bg-zinc-800 text-zinc-500 rounded border border-zinc-700">POS Entry</span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
-                  {booking.addon_water_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
-                  {booking.addon_gloves_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
-                  {booking.addon_balls_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
-                  {booking.addon_club_rental && <span className="text-[10px] font-bold text-primary/80 uppercase">Clubs Req.</span>}
-                  {booking.addon_coaching && <span className="text-[10px] font-bold text-amber-500/80 uppercase">Coaching session</span>}
-                  {booking.notes && <span className="text-[10px] font-medium text-zinc-400 italic truncate max-w-[250px]">— "{booking.notes}"</span>}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-10 w-full md:w-auto justify-between md:justify-end">
-                <div className="flex flex-col items-end">
-                  <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R {booking.total_price}</span>
-                  <div className="flex items-center gap-2 opacity-40 mt-2">
-                    <CreditCard size={12} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">{booking.payment_type || 'PENDING'}</span>
+                <div className="flex items-center gap-8 w-full md:w-auto">
+                  <div className="flex flex-col items-center justify-center min-w-[90px] border-r border-zinc-800/50 pr-8">
+                    <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">{booking.start_time}</span>
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-2">Cycle Start</span>
+                  </div>
+                  <div className="grid">
+                    <span className={`text-xl font-black uppercase italic tracking-tighter ${bay.text}`}>{bay.name}</span>
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
+                      {booking.player_count} Players // {booking.duration_hours}H
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  {booking.payment_status !== 'completed' && booking.payment_status !== 'paid_instore' ? (
-                    <Button
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase h-10 px-5 shadow-lg group-hover:scale-105 transition-transform"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickSettle(booking);
-                      }}
-                    >
-                      <CheckCircle className="w-3.5 h-3.5 mr-2" /> Settle Now
-                    </Button>
-                  ) : (
-                    <div className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-primary/10 text-primary border border-primary/20 rounded-md">
-                      PAID
+                <div className="flex-1 px-10 py-4 md:py-0 w-full md:border-l border-zinc-800/30 my-4 md:my-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-black text-zinc-100 tracking-tight">{booking.guest_name || 'WALK-IN'}</span>
+                    {booking.booking_source === 'walk_in' && (
+                      <span className="px-2 py-0.5 text-[8px] font-black uppercase bg-zinc-800 text-zinc-500 rounded border border-zinc-700">POS Entry</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+                    {booking.addon_water_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
+                    {booking.addon_gloves_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
+                    {booking.addon_balls_qty > 0 && <span className="text-[10px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
+                    {booking.addon_club_rental && <span className="text-[10px] font-bold text-primary/80 uppercase">Clubs Req.</span>}
+                    {booking.addon_coaching && <span className="text-[10px] font-bold text-amber-500/80 uppercase">Coaching session</span>}
+                    {booking.notes && <span className="text-[10px] font-medium text-zinc-400 italic truncate max-w-[250px]">— "{booking.notes}"</span>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-10 w-full md:w-auto justify-between md:justify-end">
+                  <div className="flex flex-col items-end">
+                    <span className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R {booking.total_price}</span>
+                    <div className="flex items-center gap-2 opacity-40 mt-2">
+                      <CreditCard size={12} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">{booking.payment_type || 'PENDING'}</span>
                     </div>
-                  )}
+                  </div>
 
-                  <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all">
-                    <Edit2 size={16} className="text-zinc-600 group-hover:text-primary transition-colors" />
+                  <div className="flex items-center gap-4">
+                    {paid ? (
+                      <Button
+                        size="sm"
+                        className="bg-red-600/80 hover:bg-red-500 text-white font-black text-[10px] uppercase h-10 px-5 shadow-lg group-hover:scale-105 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickSettle(booking, 'unsettle');
+                        }}
+                      >
+                        <XCircle className="w-3.5 h-3.5 mr-2" /> Unsettle
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase h-10 px-5 shadow-lg group-hover:scale-105 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickSettle(booking, 'settle');
+                        }}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-2" /> Settle Now
+                      </Button>
+                    )}
+
+                    <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all">
+                      <Edit2 size={16} className="text-zinc-600 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
