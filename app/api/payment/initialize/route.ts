@@ -506,15 +506,20 @@ export async function POST(request: Request) {
     logEvent("booking_created", { correlationId, bookingId: booking.id, simulatorId: assignedSimulatorId })
 
     if (skipYoco) {
+      // 🎯 n8n WEBHOOK FOR 100% DISCOUNT COUPONS OR MULLIGAN_ADMIN_100
       if (process.env.N8N_WEBHOOK_URL) {
-        fetch(process.env.N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: booking.id,
-            secret: process.env.N8N_WEBHOOK_SECRET || process.env.ADMIN_PIN
-          })
-        }).catch(err => console.error("n8n Trigger Failed:", err));
+        try {
+          await fetch(process.env.N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bookingId: booking.id,
+              secret: process.env.N8N_WEBHOOK_SECRET || process.env.ADMIN_PIN
+            })
+          });
+        } catch(err) {
+          console.error("n8n Trigger Failed:", err);
+        }
       }
 
       return Response.json({

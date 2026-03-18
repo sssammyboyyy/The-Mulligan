@@ -68,15 +68,20 @@ export async function POST(req: Request) {
       throw error;
     }
 
+    // 🎯 n8n WEBHOOK FOR QUICK SETTLE
     if (data.status === 'confirmed' && process.env.N8N_WEBHOOK_URL) {
-      fetch(process.env.N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: data.id,
-          secret: process.env.N8N_WEBHOOK_SECRET || process.env.ADMIN_PIN
-        })
-      }).catch(err => console.error("n8n Trigger Failed:", err));
+      try {
+        await fetch(process.env.N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: data.id,
+            secret: process.env.N8N_WEBHOOK_SECRET || process.env.ADMIN_PIN
+          })
+        });
+      } catch (err) {
+        console.error("n8n Trigger Failed:", err);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, booking: data }), {
