@@ -82,52 +82,42 @@ export async function POST(req: Request) {
 
     // 🛡️ ATOMIC INSERT with 23P01 Collision Recovery
     let data: any = null;
-    try {
-      const { data: insertData, error } = await supabaseAdmin
+    let bookingResult = await supabaseAdmin
+      .from("bookings")
+      .insert([finalPayload])
+      .select().single();
+
+    if (bookingResult.error && bookingResult.error.code === '23P01') {
+      console.warn(`[23P01] Admin-create race on Bay ${simulatorId}. Triggering Ghost Cleanup Protocol...`);
+
+      // A. Purge stale/ghost bookings via RPC
+      await supabaseAdmin.rpc('purge_ghost_bookings');
+
+      // B. Mandatory 200ms backoff
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // C. Final Retry Attempt
+      console.info('[DB_RETRY] Admin re-attempting booking insertion after cleanup...');
+      bookingResult = await supabaseAdmin
         .from("bookings")
         .insert([finalPayload])
-        .select().single()
-
-      if (error) throw error;
-      data = insertData;
-    } catch (insertError: any) {
-      // 23P01 = EXCLUSION_VIOLATION — Mulligan Protocol: purge → wait 200ms → retry → 409
-      if (insertError.code === '23P01' || insertError.message?.includes('exclusion constraint')) {
-        console.warn(`[23P01] Admin-create race on Bay ${simulatorId}. Purging ghosts...`);
-
-        // Step 1: Purge non-confirmed rows for this bay on this date
-        await supabaseAdmin
-          .from("bookings")
-          .delete()
-          .eq("booking_date", body.booking_date)
-          .eq("simulator_id", simulatorId)
-          .neq("status", "confirmed")
-
-        // Step 2: Wait 200ms
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        // Step 3: Retry once
-        const { data: retryData, error: retryError } = await supabaseAdmin
-          .from("bookings")
-          .insert([finalPayload])
-          .select().single()
-
-        if (retryData && !retryError) {
-          console.log(`[23P01] Admin retry SUCCESS for Bay ${simulatorId}`);
-          data = retryData;
-        } else {
-          // Step 4: Final failure — clean 409
-          return new Response(JSON.stringify({
-            error: "409 Conflict: This Bay is already booked for this specific time slot.",
-            error_code: "SLOT_RACE_CONDITION"
-          }), {
-            status: 409, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-          })
-        }
-      } else {
-        throw insertError;
-      }
+        .select().single();
     }
+
+    if (bookingResult.error) {
+      if (bookingResult.error.code === '23P01') {
+        return new Response(JSON.stringify({
+          error: "409 Conflict: This Bay is already booked for this specific time slot.",
+          error_code: "SLOT_RACE_CONDITION"
+        }), {
+          status: 409, headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+        });
+      }
+      throw bookingResult.error;
+    }
+
+    data = bookingResult.data;
+
 
     // 🎯 n8n WEBHOOK FOR CONFIRMED WALK-INS
     if (data && data.status === 'confirmed' && process.env.N8N_WEBHOOK_URL) {
