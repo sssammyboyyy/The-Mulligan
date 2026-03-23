@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     // 2. Soft Delete via supabaseAdmin (bypasses RLS)
     const nowSAST = new Date().toLocaleString('sv-SE', { timeZone: 'Africa/Johannesburg' }).replace(' ', 'T') + '+02:00'
     const { error } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings_test')
       .update({
         status: 'cancelled',
         cancelled_at: nowSAST,
