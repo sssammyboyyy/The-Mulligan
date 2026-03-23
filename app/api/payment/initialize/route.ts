@@ -5,6 +5,18 @@ import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/logger"
 import { getSupabaseAdmin } from "@/lib/supabase/client"
 
 import { getOperatingHours } from "@/lib/schedule-config"
+import { Resend } from "resend"
+
+// Helper: Safely parse Postgres timestamptz strings into Milliseconds
+function parsePgDate(pgDateStr: string): number {
+  if (!pgDateStr) return 0;
+  let safeStr = pgDateStr.replace(' ', 'T');
+  if (/([+-]\d{2})$/.test(safeStr)) {
+    safeStr += ':00';
+  }
+  const ms = new Date(safeStr).getTime();
+  return isNaN(ms) ? 0 : ms;
+}
 
 // Helper: Calculate text end time
 function calculateEndTimeText(start: string, duration: number): string {
@@ -236,11 +248,11 @@ export async function POST(request: Request) {
         // A CANCELLED booking is a valid historical record and is NOT a ghost.
         let isGhost = false;
         if (b.status === 'pending') {
-          const createdTime = new Date(b.created_at).getTime();
+          const createdTime = parsePgDate(b.created_at);
           const ageMs = now - createdTime;
 
           // Abandoned if pending for > 5 mins, OR pending without ever starting payment.
-          if (ageMs > 300000 || !b.yoco_payment_id) {
+          if (ageMs > 300000) {
             isGhost = true;
             ghostDeleteIds.push(b.id);
           }
@@ -263,8 +275,8 @@ export async function POST(request: Request) {
         }
 
         // This row is ACTIVE — check if it overlaps with the requested slot
-        const bStart = new Date(b.slot_start).getTime();
-        const bEnd = new Date(b.slot_end).getTime();
+        const bStart = parsePgDate(b.slot_start);
+        const bEnd = parsePgDate(b.slot_end);
 
         const isOverlapping = (bStart < reqEndMs) && (bEnd > reqStartMs);
 
@@ -506,6 +518,37 @@ export async function POST(request: Request) {
     logEvent("booking_created", { correlationId, bookingId: booking.id, simulatorId: assignedSimulatorId })
 
     if (skipYoco) {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
+        const guestName = guest_name || "Golfer";
+        const bayName = assignedSimulatorId === 1 ? "Lounge Bay" : assignedSimulatorId === 2 ? "Middle Bay" : "Window Bay";
+        const needsClubs = (addon_club_rental === true || String(addon_club_rental).toLowerCase() === 'true');
+        const needsCoaching = (addon_coaching === true || String(addon_coaching).toLowerCase() === 'true');
+        
+        let addOnsHtml = '';
+        if (needsClubs || needsCoaching) {
+            addOnsHtml = `<div style="background-color:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:24px;margin-bottom:32px;"><span style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;display:block;">✨ Selected Add-ons</span><table style="width:100%;border-collapse:collapse;">${needsClubs ? '<tr><td style="padding:8px 0;font-size:14px;color:#92400e;">Club Rental / Hire</td><td style="padding:8px 0;font-size:14px;color:#92400e;text-align:right;font-weight:600;">Included</td></tr>' : ''}${needsCoaching ? '<tr><td style="padding:8px 0;font-size:14px;color:#92400e;">Coaching Session</td><td style="padding:8px 0;font-size:14px;color:#92400e;text-align:right;font-weight:600;">Included</td></tr>' : ''}</table></div>`;
+        }
+
+        if (guest_email && !guest_email.toLowerCase().includes('walkin@venue-os.com')) {
+          await resend.emails.send({
+            from: "The Mulligan <bookings@themulligan.org>",
+            to: guest_email,
+            subject: "Booking Confirmed - The Mulligan",
+            html: `<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;line-height:1.5;"><div style="background-color:#1a472a;background-image:linear-gradient(135deg,#1a472a 0%,#0d2a19 100%);padding:60px 40px;text-align:center;border-radius:12px 12px 0 0;"><div style="display:inline-block;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:20px;">SESSION CONFIRMED</div><p style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;margin:0 0 8px;">The Mulligan</p><p style="color:#fbbf24;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px;margin:0 0 30px;opacity:0.9;">The Simulator Never Judges</p><h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;line-height:1.2;">You're Teeing Off!</h1><p style="color:#a3d9a5;font-size:16px;margin:12px 0 0;opacity:0.8;">See you on the green, ${guestName}.</p></div><div style="padding:40px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;background-color:#ffffff;"><p style="font-size:18px;color:#111827;font-weight:600;margin:0 0 16px;">Exciting news, ${guestName}!</p><p style="font-size:15px;color:#4b5563;line-height:1.6;margin:0 0 32px;">Your booking at The Mulligan is confirmed. We've reserved ${bayName} exclusively for your group.</p><div style="background-color:#f9fafb;border:1px solid #f3f4f6;border-radius:12px;padding:24px;margin-bottom:32px;"><span style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;display:block;">BOOKING DETAILS</span><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Date</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${booking_date}</td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Start Time</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${start_time}</td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Duration</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${duration_hours} Hours</td></tr><tr><td style="padding:12px 0;font-size:14px;color:#6b7280;">Players</td><td style="padding:12px 0;font-size:14px;color:#111827;font-weight:600;text-align:right;">${player_count} Players</td></tr></table></div>${addOnsHtml}<div style="background-color:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;"><span style="font-size:13px;color:#065f46;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;">PAYMENT RECEIVED</span><p style="font-size:28px;font-weight:700;color:#065f46;margin:0;">R ${dbTotalPrice.toFixed(2)}</p></div></div></div>`
+          });
+        }
+
+        await resend.emails.send({
+          from: "The Mulligan <alerts@themulligan.org>",
+          to: "mulligan.store@gmail.com",
+          subject: `BOOKING ALERT: ${guestName} (Bypass/Free)`,
+          html: `<h2>New Booking Confirmed (Bypass/Free)</h2><ul><li><strong>Name:</strong> ${guestName}</li><li><strong>Bay:</strong> ${bayName}</li><li><strong>Date:</strong> ${booking_date}</li><li><strong>Time:</strong> ${start_time} for ${duration_hours} hours</li><li><strong>Players:</strong> ${player_count}</li><li><strong>Amount Paid:</strong> R ${dbTotalPrice.toFixed(2)}</li></ul>`
+        });
+      } catch (err: any) {
+        console.error("[Free Booking Email Error]", err.message);
+      }
+
       return Response.json({
         free_booking: true,
         booking_id: booking.id,
