@@ -217,13 +217,14 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                 </div>
               )}
             </div>
-            {!isWalkIn && (
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="guest_name" className="text-[10px] font-bold opacity-70">FULL NAME</Label>
-                  <Input id="guest_name" name="guest_name" placeholder="John Doe" value={formData.guest_name || ""} onChange={(e) => update("guest_name", e.target.value)} className="h-12 min-h-[48px]" />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="guest_name" className="text-[10px] font-bold opacity-70">FULL NAME</Label>
+                <Input id="guest_name" name="guest_name" placeholder={isWalkIn ? "Walk-In / Guest Name" : "John Doe"} value={formData.guest_name || ""} onChange={(e) => update("guest_name", e.target.value)} className="h-12 min-h-[48px]" />
+              </div>
+              
+              {!isWalkIn && (
+                <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-top-1">
                   <div className="flex flex-col gap-1.5 w-full">
                     <Label htmlFor="guest_phone" className="text-[10px] font-bold opacity-70">PHONE NUMBER</Label>
                     <Input id="guest_phone" name="guest_phone" placeholder="082 123 4567" value={formData.guest_phone || ""} onChange={(e) => update("guest_phone", e.target.value)} className="h-12 min-h-[48px]" />
@@ -233,13 +234,14 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                     <Input id="guest_email" name="guest_email" placeholder="guest@example.com" value={formData.guest_email || ""} onChange={(e) => update("guest_email", e.target.value)} className="h-12 min-h-[48px]" />
                   </div>
                 </div>
-              </div>
-            )}
-            {isWalkIn && (
-              <div className="py-4 text-center border border-dashed border-zinc-700 rounded-xl bg-zinc-900/30">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">No Guest Details Required</span>
-              </div>
-            )}
+              )}
+
+              {isWalkIn && (
+                <div className="py-2 px-1 text-[10px] font-bold text-zinc-500 italic">
+                  * Contact info hidden (POS Mode). Name is optional but recommended.
+                </div>
+              )}
+            </div>
           </section>
 
           {/* CARD 2: SESSION SETUP */}

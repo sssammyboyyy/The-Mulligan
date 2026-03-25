@@ -296,7 +296,7 @@ export function LiveViewTab() {
 
                 <div className="flex flex-col px-2 md:px-10 py-2 md:py-0 w-full md:flex-1 md:border-l border-zinc-800/30 mb-4 md:mb-0">
                   <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
-                    <span className="text-xl md:text-2xl font-black text-zinc-100 tracking-tight truncate">{booking.guest_name || 'WALK-IN'}</span>
+                    <span className="text-xl md:text-2xl font-black text-zinc-100 tracking-tight truncate max-w-[150px] md:max-w-none">{booking.guest_name || 'WALK-IN'}</span>
                     <div className="flex items-center gap-2">
                         {online ? (
                           <span className="flex items-center gap-1 px-2.5 py-1 text-[8px] md:text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20"><Globe size={10} /> Online Booking</span>
@@ -320,7 +320,32 @@ export function LiveViewTab() {
                        <span className="text-[9px] font-bold text-zinc-500 uppercase md:hidden tracking-wider">Amount</span>
                        <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R {booking.total_price}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 opacity-60 mt-1 md:mt-2">
+                    {/* Quick Extend Action */}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // This uses the optimistic logic inside ManagerModal's method context
+                        // But here we'll trigger a direct extension for speed
+                        const extendHour = async () => {
+                          const pin = sessionStorage.getItem('admin-pin');
+                          const newEnd = new Date(new Date(booking.slot_end).getTime() + 60 * 60 * 1000).toISOString();
+                          await fetch('/api/bookings/admin-extend', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              id: booking.id, pin, xmin: booking.xmin,
+                              new_slot_end: newEnd, duration_hours_added: 1,
+                              player_count: booking.player_count
+                            })
+                          }).then(r => { if (r.ok) fetchDashboardData(); });
+                        };
+                        extendHour();
+                      }}
+                      className="mt-2 text-[8px] font-black uppercase text-primary/70 hover:text-primary transition-colors border border-primary/20 hover:border-primary/50 px-2 py-0.5 rounded"
+                    >
+                      +1H Extension
+                    </button>
+                    <div className="flex items-center gap-1.5 opacity-60 mt-2">
                       <CreditCard size={10} className="md:w-3 md:h-3" />
                       <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">{booking.payment_type || 'PENDING'}</span>
                     </div>

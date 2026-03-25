@@ -67,60 +67,74 @@ export async function POST(request: NextRequest) {
     // Detect walk-in mode: no guest_email or explicit walk-in marker
     const isWalkIn = !payload.guest_email || payload.guest_email === '' || payload.user_type === 'walk_in';
 
-    const finalPayload = {
+    // 2. Financial Cast & Payload Enforcement
+    const basePayload = {
       ...payload,
       ...timestamps,
-      ...financials,
-      guest_email: isWalkIn ? 'walkin@venue-os.com' : payload.guest_email,
+      total_price: Number(financials.total_price),
+      amount_due: Number(financials.amount_due),
+      amount_paid: Number(payload.amount_paid || 0),
+      guest_name: payload.guest_name || 'Walk-In',
+      guest_email: isWalkIn ? 'walkin@venue-os.com' : (payload.guest_email || 'walkin@venue-os.com'),
+      guest_phone: isWalkIn ? '0000000000' : (payload.guest_phone || '0000000000'),
       user_type: isWalkIn ? 'walk_in' : (payload.user_type || 'guest'),
       booking_source: 'walk_in',
-      payment_type: isWalkIn ? 'walk_in' : (payload.payment_type || 'walk_in'),
+      payment_type: isWalkIn ? (payload.payment_type || 'cash') : (payload.payment_type || 'walk_in'),
       payment_status: financials.amount_due === 0 ? 'paid_instore' : (payload.payment_status || 'pending'),
       status: 'confirmed',
       n8n_status: isWalkIn ? 'bypassed' : 'pending',
     };
 
-    // 2. Initial Insert Attempt
-    const { data, error } = await supabaseAdmin
-      .from('bookings')
-      .insert(finalPayload)
-      .select()
-      .single();
-
-    // 3. Self-Healing Concurrency Guard (Synchronous Retry — No setTimeout)
-    if (error && error.code === '23P01') {
-      console.warn(`[Concurrency] 23P01 Conflict on Bay ${payload.simulator_id}. Triggering Synchronous Purge...`);
-      
-      // Synchronous RPC call — no backoff needed since purge is atomic
-      await supabaseAdmin.rpc('purge_ghost_bookings');
-
-      // Immediate synchronous retry
-      const { data: retryData, error: retryError } = await supabaseAdmin
+    // 3. Database Execution with Strict Error Capture
+    const performInsert = async (p: any) => {
+      const { data, error } = await supabaseAdmin
         .from('bookings')
-        .insert(finalPayload)
+        .insert(p)
         .select()
         .single();
-
-      if (retryError && retryError.code === '23P01') {
-        return NextResponse.json({ 
-          error: "Conflict", 
-          message: "Slot Unavailable: This bay is already booked at this time." 
-        }, { status: 409 });
-      } else if (retryError) {
-        throw retryError;
+      
+      if (error) {
+        console.error('[ADMIN CREATE DATABASE REJECTION]', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          payload: p
+        });
+        throw error;
       }
-      return NextResponse.json({ status: 'success', data: retryData });
-    } else if (error) {
+      return data;
+    };
+
+    try {
+      const data = await performInsert(basePayload);
+      return NextResponse.json({ status: 'success', data });
+    } catch (error: any) {
+      // 4. Self-Healing Concurrency Guard (Synchronous Retry)
+      if (error.code === '23P01') {
+        console.warn(`[Concurrency] 23P01 Conflict on Bay ${payload.simulator_id}. Triggering Synchronous Purge...`);
+        await supabaseAdmin.rpc('purge_ghost_bookings');
+        
+        try {
+          const retryData = await performInsert(basePayload);
+          return NextResponse.json({ status: 'success', data: retryData });
+        } catch (retryError: any) {
+          if (retryError.code === '23P01') {
+            return NextResponse.json({ 
+              error: "Conflict", 
+              message: "Slot Unavailable: This bay is already booked at this time." 
+            }, { status: 409 });
+          }
+          throw retryError;
+        }
+      }
       throw error;
     }
 
-    return NextResponse.json({ status: 'success', data });
-
   } catch (error: any) {
-    console.error("Admin Create API Error:", error);
+    console.error("[ADMIN CREATE FATAL]", error);
     return NextResponse.json({ 
       error: "Server Error", 
-      message: error.message 
+      message: error.message || "Internal Ledger Failure"
     }, { status: 500 });
   }
 }
