@@ -7,7 +7,7 @@ import { ManagerModal } from './manager-modal';
 import { toast } from 'sonner';
 import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon, Banknote, Users, Target, XCircle, AlertTriangle, Globe, Smartphone, Clock } from 'lucide-react';
 
-/** POS Tiered Pricing — mirrors GEMINI.md */
+/** POS Tiered Pricing — mirrors GEMINI.md §POS */
 const GET_BASE_HOURLY_RATE = (players: number): number => {
   if (players >= 4) return 600;
   if (players === 3) return 480;
@@ -83,6 +83,9 @@ export function LiveViewTab() {
     };
   }, [fetchDashboardData]);
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📊 AGGREGATIONS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const grossRevenue = useMemo(() =>
     data
       .filter(b => b.payment_status === 'completed' || b.payment_status === 'paid_instore')
@@ -101,31 +104,36 @@ export function LiveViewTab() {
   const totalBookings = data.length;
 
   const shiftDate = (days: number) => {
-    const d = new Date(selectedDate);
+    const d = new Date(selectedDate + 'T00:00:00+02:00');
     d.setDate(d.getDate() + days);
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  /** Human-readable date label: "Tue, 25 Mar" */
+  /** Human-readable date: "Tuesday, 25 Mar" */
   const formattedDateLabel = useMemo(() => {
     try {
       const d = new Date(selectedDate + 'T00:00:00+02:00');
-      return new Intl.DateTimeFormat('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' }).format(d);
+      return new Intl.DateTimeFormat('en-ZA', { weekday: 'long', day: 'numeric', month: 'short' }).format(d);
     } catch { return selectedDate; }
   }, [selectedDate]);
 
-  /** Context-aware modal open — pre-fills bay + time from the clicked slot */
-  const handleOpenCreate = (prefillBayId: number = 1, prefillTime?: string) => {
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🎯 HANDLERS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /** Open modal with auto-bay pre-fill */
+  const handleOpenCreate = (prefillBayId: number = 1) => {
     const now = new Date();
-    const defaultTime = prefillTime || now.toLocaleTimeString('en-ZA', {
+    const defaultTime = now.toLocaleTimeString('en-ZA', {
       hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg', hour12: false
     });
 
     setSelectedBooking({
-      guest_name: '', guest_email: '', guest_phone: '',
+      guest_name: '', guest_email: 'walkin@venue-os.com', guest_phone: '',
       simulator_id: prefillBayId, player_count: 1, duration_hours: 1,
       start_time: defaultTime, booking_date: selectedDate,
       status: 'confirmed', payment_type: 'pending', payment_status: 'pending',
+      user_type: 'walk_in',
       addon_water_qty: 0, addon_gloves_qty: 0, addon_balls_qty: 0,
       addon_club_rental: false, addon_coaching: false,
       addon_water_price: 20, addon_gloves_price: 220, addon_balls_price: 50,
@@ -134,13 +142,12 @@ export function LiveViewTab() {
     setIsModalOpen(true);
   };
 
-  /** TRUE OPTIMISTIC Quick Extend (+1h) with rollback on 409 */
+  /** TRUE OPTIMISTIC Quick Extend (+1h) — local state first, server second */
   const handleQuickExtend = (booking: any) => {
-    // 1. Snapshot current state for rollback
     const snapshot = [...data];
     const hourlyRate = GET_BASE_HOURLY_RATE(Number(booking.player_count || 1));
 
-    // 2. Optimistically update local state IMMEDIATELY
+    // Immediate local update
     setData(prev => prev.map(b => {
       if (b.id !== booking.id) return b;
       return {
@@ -152,7 +159,7 @@ export function LiveViewTab() {
     }));
     toast.success(`+1H Extended — R${hourlyRate} added`, { duration: 2000 });
 
-    // 3. Fire background API call AFTER state update
+    // Background server call
     const pin = sessionStorage.getItem('admin-pin');
     const newEnd = new Date(new Date(booking.slot_end).getTime() + 60 * 60 * 1000).toISOString();
 
@@ -166,29 +173,24 @@ export function LiveViewTab() {
       })
     }).then(async (res) => {
       if (!res.ok) {
-        // 4. ROLLBACK on failure
         setData(snapshot);
         if (res.status === 409) {
           toast.error('Bay occupied! Cannot extend. Refreshing...', { duration: 3000 });
         } else {
-          toast.error('Extension failed. State rolled back.', { duration: 3000 });
+          toast.error('Extension failed. Rolled back.', { duration: 3000 });
         }
         fetchDashboardData();
       }
-      // On success: Realtime subscription will sync the authoritative state
     }).catch(() => {
       setData(snapshot);
-      toast.error('Network error. Extension rolled back.', { duration: 3000 });
+      toast.error('Network error. Rolled back.', { duration: 3000 });
     });
   };
 
   const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle') => {
     try {
       const pin = sessionStorage.getItem('admin-pin');
-      const payload: any = {
-        id: booking.id,
-        pin
-      };
+      const payload: any = { id: booking.id, pin };
 
       if (action === 'settle') {
         payload.status = 'confirmed';
@@ -209,7 +211,7 @@ export function LiveViewTab() {
       fetchDashboardData();
     } catch (err) {
       console.error("Settle/Unsettle Error:", err);
-      toast.error(`Could not ${action} record. System offline.`);
+      toast.error(`Could not ${action} record.`);
     }
   };
 
@@ -227,7 +229,7 @@ export function LiveViewTab() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || "Save operation failed.");
+        throw new Error(errData.message || errData.error || "Save failed.");
       }
       setIsModalOpen(false);
       toast.success(isEdit ? 'Booking updated.' : 'Walk-in created.');
@@ -249,50 +251,57 @@ export function LiveViewTab() {
       toast.success('Record destroyed.');
       fetchDashboardData();
     } catch (err) {
-      toast.error("System could not destroy record. Ghost cleanup failed.");
+      toast.error("Ghost cleanup failed.");
     }
   };
 
   const isPaid = (b: any) => b.payment_status === 'completed' || b.payment_status === 'paid_instore';
   const isOnline = (b: any) => !!b.yoco_payment_id || b.booking_source === 'online' || b.user_type === 'member';
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🖼️ RENDER
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <div className="w-full space-y-6 max-w-6xl mx-auto px-4 pb-20 mt-4">
 
+      {/* ━━ HEADER ━━ */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-8 border-b-2 border-zinc-800 gap-6">
-        <div className="flex flex-col space-y-2 w-full">
+        <div className="flex flex-col space-y-1 w-full">
           <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em]">
             <Activity size={14} className="animate-pulse" /> Live Activity Portal
           </div>
-          <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-white">The Ledger</h2>
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{formattedDateLabel}</span>
+          <h2 className="text-2xl font-black tracking-tighter uppercase text-white">{formattedDateLabel}</h2>
         </div>
 
         <div className="flex flex-col items-stretch gap-4 w-full md:w-auto">
-          {/* Bay-specific Walk-In Buttons */}
-          <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-            <Button
-              onClick={() => handleOpenCreate(1)}
-              className="flex-1 md:flex-none bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500 hover:text-white font-black uppercase text-xs h-12 border border-indigo-500/30 transition-all"
-            >
-              <Plus className="mr-1 h-3 w-3" /> Lounge
-            </Button>
-            <Button
-              onClick={() => handleOpenCreate(2)}
-              className="flex-1 md:flex-none bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white font-black uppercase text-xs h-12 border border-amber-500/30 transition-all"
-            >
-              <Plus className="mr-1 h-3 w-3" /> Middle
-            </Button>
-            <Button
-              onClick={() => handleOpenCreate(3)}
-              className="flex-1 md:flex-none bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white font-black uppercase text-xs h-12 border border-emerald-500/30 transition-all"
-            >
-              <Plus className="mr-1 h-3 w-3" /> Window
-            </Button>
+          {/* Primary Walk-In CTA */}
+          <Button
+            onClick={() => handleOpenCreate(1)}
+            className="bg-white text-black hover:bg-primary hover:text-white font-black uppercase text-xs h-14 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all w-full md:w-auto"
+          >
+            <Plus className="mr-2 h-4 w-4" /> ADD WALK-IN
+          </Button>
+
+          {/* Bay Quick-Select Row */}
+          <div className="flex gap-2">
+            {[
+              { id: 1, label: 'Lounge', bg: 'bg-indigo-500/20', text: 'text-indigo-300', hover: 'hover:bg-indigo-500', border: 'border-indigo-500/30' },
+              { id: 2, label: 'Middle', bg: 'bg-amber-500/20', text: 'text-amber-300', hover: 'hover:bg-amber-500', border: 'border-amber-500/30' },
+              { id: 3, label: 'Window', bg: 'bg-emerald-500/20', text: 'text-emerald-300', hover: 'hover:bg-emerald-500', border: 'border-emerald-500/30' },
+            ].map((bay) => (
+              <button
+                key={bay.id}
+                onClick={() => handleOpenCreate(bay.id)}
+                className={`flex-1 min-h-[44px] rounded-xl text-[10px] font-black uppercase ${bay.bg} ${bay.text} ${bay.hover} hover:text-white border ${bay.border} transition-all`}
+              >
+                {bay.label}
+              </button>
+            ))}
           </div>
 
+          {/* Date Navigation */}
           <div className="flex items-center justify-between md:justify-start bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl h-14 md:h-auto">
-            <button onClick={() => shiftDate(-1)} className="p-4 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-r border-zinc-800">
+            <button onClick={() => shiftDate(-1)} className="p-4 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-r border-zinc-800 min-w-[44px] min-h-[44px] flex items-center justify-center">
               <ChevronLeft size={20} />
             </button>
             <div className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-2 bg-black/40">
@@ -304,22 +313,23 @@ export function LiveViewTab() {
                 className="bg-transparent text-sm md:text-md font-black text-white outline-none cursor-pointer uppercase tracking-tighter"
               />
             </div>
-            <button onClick={() => shiftDate(1)} className="p-4 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-l border-zinc-800">
+            <button onClick={() => shiftDate(1)} className="p-4 hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white border-l border-zinc-800 min-w-[44px] min-h-[44px] flex items-center justify-center">
               <ChevronRight size={20} />
             </button>
-            <button onClick={() => setSelectedDate(getSASTDate())} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all border-l border-zinc-800 h-full hidden md:flex items-center">
+            <button onClick={() => setSelectedDate(getSASTDate())} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all border-l border-zinc-800 h-full hidden md:flex items-center min-h-[44px]">
               TODAY
             </button>
           </div>
         </div>
       </div>
 
+      {/* ━━ METRICS ━━ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: 'GROSS', value: `R ${grossRevenue.toLocaleString()}`, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-          { label: 'OUTSTANDING', value: `R ${outstanding.toLocaleString()}`, icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
-          { label: 'PLAYERS', value: totalPlayers, icon: Users, color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20' },
-          { label: 'ROUNDS', value: totalBookings, icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+          { label: 'GROSS', value: `R ${grossRevenue.toLocaleString()}`, icon: Banknote, color: 'text-emerald-400', border: 'border-emerald-500/20' },
+          { label: 'OUTSTANDING', value: `R ${outstanding.toLocaleString()}`, icon: AlertTriangle, color: 'text-red-400', border: 'border-red-500/20' },
+          { label: 'PLAYERS', value: totalPlayers, icon: Users, color: 'text-sky-400', border: 'border-sky-500/20' },
+          { label: 'ROUNDS', value: totalBookings, icon: Target, color: 'text-amber-400', border: 'border-amber-500/20' },
         ].map((metric) => (
           <div key={metric.label} className={`relative overflow-hidden bg-[#0a0a0a] ${metric.border} border border-zinc-800 rounded-2xl p-4 transition-all hover:scale-[1.02]`}>
             <div className="absolute top-[-8px] right-[-8px] opacity-[0.07] pointer-events-none">
@@ -334,12 +344,14 @@ export function LiveViewTab() {
         ))}
       </div>
 
+      {/* ━━ ERROR BANNER ━━ */}
       {error && (
         <div className="p-4 bg-red-500/10 border-l-4 border-red-500 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] animate-in fade-in slide-in-from-top-1">
           SYSTEM FAULT: {error}
         </div>
       )}
 
+      {/* ━━ BOOKING CARDS ━━ */}
       <div className="flex flex-col space-y-4 min-h-[450px]">
         {isLoading ? (
           <div className="py-20 md:py-32 text-center animate-pulse">
@@ -351,7 +363,7 @@ export function LiveViewTab() {
         ) : data.length === 0 ? (
           <div className="py-20 md:py-32 border border-dashed border-zinc-800 bg-zinc-900/10 rounded-3xl text-center px-4">
             <Layers size={48} className="mx-auto text-zinc-800 mb-6" />
-            <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-zinc-700">No Operations Recorded for this Cycle</p>
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-zinc-700">No Operations Recorded</p>
           </div>
         ) : (
           data.map((booking) => {
@@ -368,6 +380,7 @@ export function LiveViewTab() {
                 {/* Bay Glow Stripe */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 md:w-2 ${bay.glow} ${!paid ? 'animate-pulse' : ''} shadow-[0_0_15px_currentColor]`} />
 
+                {/* Time + Bay Info */}
                 <div className="flex flex-row items-center gap-4 md:gap-8 w-full md:w-auto pl-2 mb-4 md:mb-0">
                   <div className="flex flex-col items-center justify-center min-w-[70px] md:min-w-[90px] border-r border-zinc-800/50 pr-4 md:pr-8">
                     <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">{booking.start_time}</span>
@@ -376,80 +389,73 @@ export function LiveViewTab() {
                   <div className="flex flex-col">
                     <span className={`text-lg md:text-xl font-black uppercase italic tracking-tighter ${bay.text}`}>{bay.name}</span>
                     <span className="text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
-                      {booking.player_count} Players // {booking.duration_hours}H
+                      {booking.player_count}P // {booking.duration_hours}H
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col px-2 md:px-10 py-2 md:py-0 w-full md:flex-1 md:border-l border-zinc-800/30 mb-4 md:mb-0">
-                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
-                    <span className="text-xl md:text-2xl font-black text-zinc-100 tracking-tight truncate max-w-[120px] md:max-w-[220px]">{booking.guest_name || 'WALK-IN'}</span>
-                    <div className="flex items-center gap-2">
-                        {online ? (
-                          <span className="flex items-center gap-1 px-2.5 py-1 text-[8px] md:text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20"><Globe size={10} /> Online</span>
-                        ) : (
-                          <span className="flex items-center gap-1 px-2.5 py-1 text-[8px] md:text-[9px] font-black uppercase bg-purple-500/10 text-purple-400 rounded-lg border border-purple-500/20"><Smartphone size={10} /> POS</span>
-                        )}
+                {/* Guest Info — grid layout for overflow control */}
+                <div className="flex flex-col px-2 md:px-10 py-2 md:py-0 w-full md:flex-1 md:border-l border-zinc-800/30 mb-4 md:mb-0 min-w-0">
+                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 min-w-0">
+                    <span className="text-xl md:text-2xl font-black text-zinc-100 tracking-tight truncate max-w-[140px] md:max-w-[200px]">{booking.guest_name || 'WALK-IN'}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {online ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 text-[8px] md:text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20"><Globe size={10} /> Online</span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 text-[8px] md:text-[9px] font-black uppercase bg-purple-500/10 text-purple-400 rounded-lg border border-purple-500/20"><Smartphone size={10} /> POS</span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                    {booking.addon_water_qty > 0 && <span className="text-[9px] md:text-[10px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
-                    {booking.addon_gloves_qty > 0 && <span className="text-[9px] md:text-[10px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
-                    {booking.addon_balls_qty > 0 && <span className="text-[9px] md:text-[10px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
-                    {booking.addon_club_rental && <span className="text-[9px] md:text-[10px] font-bold text-primary/80 uppercase">Clubs Req.</span>}
-                    {booking.addon_coaching && <span className="text-[9px] md:text-[10px] font-bold text-amber-500/80 uppercase">Coaching</span>}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                    {booking.addon_water_qty > 0 && <span className="text-[9px] font-bold text-zinc-500">Water(x{booking.addon_water_qty})</span>}
+                    {booking.addon_gloves_qty > 0 && <span className="text-[9px] font-bold text-zinc-500">Gloves(x{booking.addon_gloves_qty})</span>}
+                    {booking.addon_balls_qty > 0 && <span className="text-[9px] font-bold text-zinc-500">Balls(x{booking.addon_balls_qty})</span>}
+                    {booking.addon_club_rental && <span className="text-[9px] font-bold text-primary/80 uppercase">Clubs</span>}
+                    {booking.addon_coaching && <span className="text-[9px] font-bold text-amber-500/80 uppercase">Coach</span>}
                   </div>
                 </div>
 
-                <div className="flex flex-row items-center gap-4 md:gap-10 w-full md:w-auto justify-between md:justify-end px-2 md:px-0">
-                  <div className="flex flex-col items-start md:items-end flex-1 md:flex-initial">
+                {/* Amount + Actions — pushed right */}
+                <div className="flex flex-row items-center gap-4 md:gap-6 w-full md:w-auto justify-between md:justify-end px-2 md:px-0 flex-shrink-0">
+                  <div className="flex flex-col items-start md:items-end">
                     <div className="flex items-center gap-2 md:gap-0 md:flex-col md:items-end">
-                       <span className="text-[9px] font-bold text-zinc-500 uppercase md:hidden tracking-wider">Amount</span>
-                       <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R {booking.total_price}</span>
+                      <span className="text-[9px] font-bold text-zinc-500 uppercase md:hidden">Total</span>
+                      <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R{booking.total_price}</span>
                     </div>
-                    {/* Quick Extend — TRUE OPTIMISTIC */}
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickExtend(booking);
-                      }}
-                      className="mt-2 flex items-center gap-1 text-[8px] font-black uppercase text-primary/70 hover:text-primary transition-colors border border-primary/20 hover:border-primary/50 px-2 py-1 rounded"
+                    {/* Quick Extend — Optimistic */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleQuickExtend(booking); }}
+                      className="mt-1.5 flex items-center gap-1 text-[8px] font-black uppercase text-primary/70 hover:text-primary transition-colors border border-primary/20 hover:border-primary/50 px-2 py-1 rounded min-h-[28px]"
                     >
                       <Clock size={10} /> +1H
                     </button>
                     <div className="flex items-center gap-1.5 opacity-60 mt-1">
-                      <CreditCard size={10} className="md:w-3 md:h-3" />
+                      <CreditCard size={10} />
                       <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">{booking.payment_type || 'PENDING'}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 md:gap-4">
+                  <div className="flex items-center gap-2 md:gap-3">
                     {paid ? (
                       <Button
                         size="sm"
-                        className="bg-emerald-600/80 hover:bg-emerald-500 text-white font-black text-[9px] md:text-[10px] uppercase h-10 md:h-12 px-3 md:px-5 shadow-lg group-hover:scale-105 transition-transform"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuickSettle(booking, 'unsettle');
-                        }}
+                        className="bg-emerald-600/80 hover:bg-emerald-500 text-white font-black text-[9px] uppercase h-10 md:h-12 px-3 md:px-5 shadow-lg group-hover:scale-105 transition-transform min-w-[44px]"
+                        onClick={(e) => { e.stopPropagation(); handleQuickSettle(booking, 'unsettle'); }}
                       >
-                        <CheckCircle className="w-3 h-3 md:w-3.5 md:h-3.5 md:mr-2" /> <span className="hidden md:inline">Paid</span><span className="md:hidden ml-1">Paid</span>
+                        <CheckCircle className="w-3 h-3 md:mr-1.5" /> <span className="hidden md:inline">Paid</span>
                       </Button>
                     ) : (
                       <Button
                         size="sm"
-                        className="bg-red-600 hover:bg-red-500 text-white font-black text-[9px] md:text-[10px] uppercase h-10 md:h-12 px-4 md:px-5 shadow-lg group-hover:scale-105 transition-transform"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuickSettle(booking, 'settle');
-                        }}
+                        className="bg-red-600 hover:bg-red-500 text-white font-black text-[9px] uppercase h-10 md:h-12 px-3 md:px-5 shadow-lg group-hover:scale-105 transition-transform min-w-[44px]"
+                        onClick={(e) => { e.stopPropagation(); handleQuickSettle(booking, 'settle'); }}
                       >
-                        <XCircle className="w-3 h-3 md:w-3.5 md:h-3.5 md:mr-2" /> <span className="hidden md:inline">Settle Now</span><span className="md:hidden ml-1">Settle</span>
+                        <XCircle className="w-3 h-3 md:mr-1.5" /> <span className="hidden md:inline">Settle</span>
                       </Button>
                     )}
 
-                    <div className="p-2.5 md:p-3 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all flex items-center justify-center">
-                      <Edit2 size={14} className="md:w-4 md:h-4 text-zinc-500 group-hover:text-primary transition-colors" />
+                    <div className="p-2.5 md:p-3 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all flex items-center justify-center min-w-[44px] min-h-[44px]">
+                      <Edit2 size={14} className="text-zinc-500 group-hover:text-primary transition-colors" />
                     </div>
                   </div>
                 </div>
