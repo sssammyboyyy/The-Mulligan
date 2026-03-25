@@ -5,6 +5,7 @@ import { getCorrelationId, logEvent, validateEnvVars } from "@/lib/logger"
 import { getSupabaseAdmin } from "@/lib/supabase/client"
 import { getOperatingHours } from "@/lib/schedule-config"
 import { Resend } from "resend"
+import { NextResponse } from "next/server"
 
 // Helper: Calculate text end time
 function calculateEndTimeText(start: string, duration: number): string {
@@ -47,6 +48,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+
+    // --- WALK-IN BYPASS ---
+    // Gate walk-ins to prevent Yoco/Resend initialization or env validation failures
+    if (body.guest_email?.toLowerCase().includes('walkin@venue-os.com') || body.user_type === 'walk_in') {
+      logEvent("walkin_bypass_triggered", { correlationId })
+      return NextResponse.json({ 
+        success: true, 
+        bypassed: true, 
+        message: 'Walk-in bypass - skipping payment initialization' 
+      })
+    }
 
     // --- MAPPING VARIABLES ---
     const booking_date = body.booking_date || body.date
