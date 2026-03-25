@@ -510,12 +510,12 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                   <CreditCard size={120} />
                 </div>
 
+                <Separator className="my-4 bg-primary-foreground/20" />
+
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-80">
                   <span>Session: R{totals.base}</span>
                   <span>Extras: R{totals.extras}</span>
                 </div>
-
-                <Separator className="bg-primary-foreground/20" />
 
                 {/* Manual Override Toggle */}
                 <div className="flex items-center justify-between">
@@ -550,7 +550,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                         update("amount_due", Number(e.target.value));
                         setIsManualPrice(true);
                       }}
-                      className="text-3xl font-black tabular-nums bg-transparent border-none text-primary-foreground p-0 h-12 focus-visible:ring-0 w-[140px] text-base md:text-sm"
+                      className="text-white text-3xl font-black tabular-nums bg-transparent border-none p-0 h-12 focus-visible:ring-0 w-[140px] text-base md:text-sm"
                     />
                   ) : (
                     <span className="text-3xl font-black tabular-nums">{formData.amount_due ?? currentTotal}</span>

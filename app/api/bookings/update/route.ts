@@ -38,26 +38,23 @@ const GET_BASE_HOURLY_RATE = (players: number): number => {
  * Recomputes totals based on POS add-ons and ensures state persistence.
  */
 const calculateFinancials = (payload: any, updates: any) => {
-  const players = Number(payload.player_count || 1);
-  const duration = Number(payload.duration_hours || 1);
+  const players = Number(payload.player_count) || 1;
+  const duration = Number(payload.duration_hours) || 1;
   const baseRate = GET_BASE_HOURLY_RATE(players);
   
   const calculatedBase = baseRate * duration;
-  const water = Number(payload.addon_water_qty || 0) * Number(payload.addon_water_price ?? 20);
-  const gloves = Number(payload.addon_gloves_qty || 0) * Number(payload.addon_gloves_price ?? 220);
-  const balls = Number(payload.addon_balls_qty || 0) * Number(payload.addon_balls_price ?? 50);
+  const water = (Number(payload.addon_water_qty) || 0) * (Number(payload.addon_water_price) || 20);
+  const gloves = (Number(payload.addon_gloves_qty) || 0) * (Number(payload.addon_gloves_price) || 220);
+  const balls = (Number(payload.addon_balls_qty) || 0) * (Number(payload.addon_balls_price) || 50);
   const clubs = payload.addon_club_rental ? (100 * duration) : 0;
   const coaching = payload.addon_coaching ? 250 : 0;
   
   const systemTotal = calculatedBase + water + gloves + balls + clubs + coaching;
 
-  // Preserve manual price overrides if provided explicitly in the top-level updates.
-  // This ensures that if a manager changes an inventory quantity or duration (without typing a custom price),
-  // the `systemTotal` correctly updates. If they DO type a price, that override takes precedence.
-  const isManualOverride = updates.total_price !== undefined;
-  const total_price = isManualOverride ? Number(updates.total_price) : systemTotal;
+  const isManualTotal = updates.total_price !== undefined;
+  const total_price = isManualTotal ? Number(updates.total_price) : systemTotal;
   
-  const amount_paid = Number(payload.amount_paid || 0);
+  const amount_paid = Number(payload.amount_paid) || 0;
 
   const isManualDue = updates.amount_due !== undefined;
   const amount_due = isManualDue ? Number(updates.amount_due) : Math.max(0, total_price - amount_paid);
