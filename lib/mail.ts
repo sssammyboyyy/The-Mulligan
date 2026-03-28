@@ -1,10 +1,11 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
+const resend = new Resend(process.env.RESEND_API_KEY || 're_jqTkRdoM_2Ju5NCYaRwCu31AqkbuZqpTr');
 
 export interface ConfirmationEmailProps {
   guest_email: string;
   guest_name: string;
+  guest_phone?: string;
   booking_date: string;
   start_time: string;
   duration_hours: number;
@@ -14,17 +15,22 @@ export interface ConfirmationEmailProps {
   amount_paid: number;
   addon_club_rental?: boolean;
   addon_coaching?: boolean;
+  addon_water_qty?: number;
+  addon_gloves_qty?: number;
+  addon_balls_qty?: number;
+  yoco_payment_id?: string;
 }
 
 /**
  * THE MULLIGAN: Standardized Email Dispatcher
- * Ensures 100% trigger reliability for administrative and bypass bookings.
+ * Ensures 100% trigger reliability with a premium, heavy dark-mode receipt aesthetic.
  */
 export async function sendConfirmationEmail(props: ConfirmationEmailProps) {
-  const { 
-    guest_email, guest_name, booking_date, start_time, 
-    duration_hours, player_count, simulator_id, 
-    total_price, amount_paid, addon_club_rental, addon_coaching 
+  const {
+    guest_email, guest_name, guest_phone, booking_date, start_time,
+    duration_hours, player_count, simulator_id,
+    total_price, amount_paid, addon_club_rental, addon_coaching,
+    addon_water_qty, addon_gloves_qty, addon_balls_qty, yoco_payment_id
   } = props;
 
   // 1. Skip if bypass email
@@ -38,54 +44,91 @@ export async function sendConfirmationEmail(props: ConfirmationEmailProps) {
 
   try {
     const paidText = Number(amount_paid || 0).toFixed(2);
-    const dueText = (Number(total_price || 0) - Number(amount_paid || 0)).toFixed(2);
-    const bayName = simulator_id === 1 ? "Lounge Bay" : simulator_id === 2 ? "Middle Bay" : simulator_id === 3 ? "Window Bay" : "your simulator";
+    const totalText = Number(total_price || 0).toFixed(2);
 
-    const needsClubs = !!addon_club_rental;
-    const needsCoaching = !!addon_coaching;
+    // Calculate balance due securely
+    const dueAmount = Math.max(0, Number(total_price || 0) - Number(amount_paid || 0));
+    const dueText = dueAmount.toFixed(2);
+    const balanceColor = dueAmount > 0 ? "#ef4444" : "#10b981"; // Red if debt, Green if paid
 
-    let addOnsHtml = '';
-    if (needsClubs || needsCoaching) {
-      addOnsHtml = `
-      <div style="background-color:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:24px;margin-bottom:32px;">
-        <span style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px;margin-bottom:15px;display:block;">✨ Selected Add-ons</span>
-        <table style="width:100%;border-collapse:collapse;">
-          ${needsClubs ? '<tr><td style="padding:8px 0;font-size:14px;color:#92400e;">Club Rental / Hire</td><td style="padding:8px 0;font-size:14px;color:#92400e;text-align:right;font-weight:600;">Included</td></tr>' : ''}
-          ${needsCoaching ? '<tr><td style="padding:8px 0;font-size:14px;color:#92400e;">Coaching Session</td><td style="padding:8px 0;font-size:14px;color:#92400e;text-align:right;font-weight:600;">Included</td></tr>' : ''}
+    // Dynamic Bay Styling
+    let bayName = "SIMULATOR";
+    let bayColor = "#ffffff";
+    if (simulator_id === 1) {
+      bayName = "LOUNGE BAY";
+      bayColor = "#818cf8"; // Indigo
+    } else if (simulator_id === 2) {
+      bayName = "MIDDLE BAY";
+      bayColor = "#fbbf24"; // Amber
+    } else if (simulator_id === 3) {
+      bayName = "WINDOW BAY";
+      bayColor = "#34d399"; // Emerald
+    }
+
+    // Conditionally build Services & Inventory Table
+    let inventoryHtml = '';
+    const hasInventory = addon_club_rental || addon_coaching || (addon_water_qty && addon_water_qty > 0) || (addon_gloves_qty && addon_gloves_qty > 0) || (addon_balls_qty && addon_balls_qty > 0);
+
+    if (hasInventory) {
+      inventoryHtml = `
+      <div style="margin-bottom: 32px;">
+        <h2 style="font-size: 11px; font-weight: 900; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; border-bottom: 1px solid #27272a; padding-bottom: 8px;">SERVICES & INVENTORY</h2>
+        <table style="width: 100%; border-collapse: collapse; color: #ffffff; font-size: 14px;">
+          ${addon_club_rental ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #27272a; color: #a1a1aa;">Club Rentals</td><td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #27272a; font-weight: 800;">INCLUDED</td></tr>` : ''}
+          ${addon_coaching ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #27272a; color: #a1a1aa;">Coaching Session</td><td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #27272a; font-weight: 800;">INCLUDED</td></tr>` : ''}
+          ${(addon_water_qty && addon_water_qty > 0) ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #27272a; color: #a1a1aa;">Water</td><td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #27272a; font-weight: 800;">x${addon_water_qty}</td></tr>` : ''}
+          ${(addon_gloves_qty && addon_gloves_qty > 0) ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #27272a; color: #a1a1aa;">Gloves</td><td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #27272a; font-weight: 800;">x${addon_gloves_qty}</td></tr>` : ''}
+          ${(addon_balls_qty && addon_balls_qty > 0) ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #27272a; color: #a1a1aa;">Balls</td><td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #27272a; font-weight: 800;">x${addon_balls_qty}</td></tr>` : ''}
         </table>
       </div>`;
     }
 
     const html = `
-      <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;line-height:1.5;">
-        <div style="background-color:#1a472a;background-image:linear-gradient(135deg,#1a472a 0%,#0d2a19 100%);padding:60px 40px;text-align:center;border-radius:12px 12px 0 0;">
-          <div style="display:inline-block;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;margin-bottom:20px;">SESSION CONFIRMED</div>
-          <p style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;margin:0 0 8px;">The Mulligan</p>
-          <p style="color:#fbbf24;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px;margin:0 0 30px;opacity:0.9;">The Simulator Never Judges</p>
-          <h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;line-height:1.2;">You're Teeing Off!</h1>
-          <p style="color:#a3d9a5;font-size:16px;margin:12px 0 0;opacity:0.8;">See you on the green, ${guest_name}.</p>
-        </div>
-        <div style="padding:40px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;background-color:#ffffff;">
-          <p style="font-size:18px;color:#111827;font-weight:600;margin:0 0 16px;">Exciting news, ${guest_name}!</p>
-          <p style="font-size:15px;color:#4b5563;line-height:1.6;margin:0 0 32px;">Your booking at The Mulligan is confirmed. We've reserved ${bayName} exclusively for your group.</p>
-          <div style="background-color:#f9fafb;border:1px solid #f3f4f6;border-radius:12px;padding:24px;margin-bottom:32px;">
-            <span style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;display:block;">BOOKING DETAILS</span>
-            <table style="width:100%;border-collapse:collapse;">
-              <tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Date</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${booking_date}</td></tr>
-              <tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Start Time</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${start_time}</td></tr>
-              <tr><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">Duration</td><td style="padding:12px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;font-weight:600;text-align:right;">${duration_hours} Hours</td></tr>
-              <tr><td style="padding:12px 0;font-size:14px;color:#6b7280;">Players</td><td style="padding:12px 0;font-size:14px;color:#111827;font-weight:600;text-align:right;">${player_count} Players</td></tr>
-            </table>
+      <div style="background-color: #0a0a0a; padding: 40px 20px; font-family: 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #121212; border: 1px solid #27272a; border-radius: 16px; overflow: hidden;">
+          
+          <div style="padding: 40px 40px 30px 40px; text-align: center; border-bottom: 1px solid #27272a; background-color: #121212;">
+            <div style="font-size: 10px; font-weight: 900; color: #a1a1aa; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 16px;">VENUE OS // THE MULLIGAN</div>
+            <h1 style="font-size: 28px; font-weight: 900; color: #ffffff; margin: 0; text-transform: uppercase; letter-spacing: 1px;">SESSION CONFIRMED</h1>
+            <div style="margin-top: 16px; font-size: 16px; font-weight: 900; color: ${bayColor}; text-transform: uppercase; letter-spacing: 2px;">${bayName}</div>
           </div>
-          ${addOnsHtml}
-          <div style="background-color:#ecfdf5;border:1px solid #d1fae5;border-radius:12px;padding:24px;margin-bottom:32px;text-align:center;">
-            <span style="font-size:13px;color:#065f46;opacity:0.7;margin-bottom:12px;display:block;font-weight:500;">PAYMENT CONFIRMED</span>
-            <p style="font-size:28px;font-weight:700;color:#065f46;margin:0;">R ${paidText}</p>
-            <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(6,95,70,0.1);">
-              <span style="font-size:14px;color:#065f46;font-weight:500;">Balance Due at Venue: </span>
-              <span style="font-size:18px;font-weight:700;color:#92400e;">R ${dueText}</span>
+
+          <div style="padding: 40px; background-color: #121212;">
+            
+            <div style="margin-bottom: 32px;">
+              <h2 style="font-size: 11px; font-weight: 900; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; border-bottom: 1px solid #27272a; padding-bottom: 8px;">SESSION DETAILS</h2>
+              <table style="width: 100%; border-collapse: collapse; color: #ffffff; font-size: 14px;">
+                <tr><td style="padding: 10px 0; color: #a1a1aa;">Date</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${booking_date}</td></tr>
+                <tr><td style="padding: 10px 0; color: #a1a1aa;">Start Time</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${start_time}</td></tr>
+                <tr><td style="padding: 10px 0; color: #a1a1aa;">Duration</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${duration_hours}H</td></tr>
+                <tr><td style="padding: 10px 0; color: #a1a1aa;">Players</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${player_count}P</td></tr>
+                <tr><td style="padding: 10px 0; color: #a1a1aa;">Guest Name</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${guest_name}</td></tr>
+                ${guest_phone ? `<tr><td style="padding: 10px 0; color: #a1a1aa;">Contact Number</td><td style="padding: 10px 0; text-align: right; font-weight: 800;">${guest_phone}</td></tr>` : ''}
+              </table>
             </div>
+
+            ${inventoryHtml}
+
+            <div style="background-color: #0a0a0a; border: 1px solid #27272a; border-radius: 12px; padding: 24px;">
+              <h2 style="font-size: 11px; font-weight: 900; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; border-bottom: 1px solid #27272a; padding-bottom: 8px;">FINANCIALS</h2>
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr><td style="padding: 8px 0; color: #a1a1aa;">Total Session Value</td><td style="padding: 8px 0; text-align: right; color: #ffffff; font-weight: 800;">R ${totalText}</td></tr>
+                <tr><td style="padding: 8px 0; color: #a1a1aa;">Amount Paid</td><td style="padding: 8px 0; text-align: right; color: #ffffff; font-weight: 800;">R ${paidText}</td></tr>
+                <tr><td colspan="2" style="padding: 16px 0 0 0;"><div style="border-top: 1px dashed #27272a; margin-bottom: 16px;"></div></td></tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #ffffff; font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">AMOUNT DUE</td>
+                  <td style="padding: 8px 0; text-align: right; color: ${balanceColor}; font-size: 20px; font-weight: 900;">R ${dueText}</td>
+                </tr>
+              </table>
+            </div>
+            
           </div>
+
+          ${yoco_payment_id ? `
+          <div style="padding: 24px 40px; background-color: #0a0a0a; border-top: 1px solid #27272a; text-align: center;">
+            <div style="font-size: 10px; font-weight: 900; color: #a1a1aa; letter-spacing: 2px; text-transform: uppercase;">RECEIPT ID: ${yoco_payment_id}</div>
+          </div>` : ''}
+          
         </div>
       </div>
     `;
@@ -98,16 +141,6 @@ export async function sendConfirmationEmail(props: ConfirmationEmailProps) {
     });
 
     console.log('[RESEND RESPONSE]', { data, error });
-
-    // Store Alert Dispatch (Optional, but good for parity)
-    if (!error) {
-      await resend.emails.send({
-        from: "The Mulligan <alerts@themulligan.org>",
-        to: "mulligan.store@gmail.com",
-        subject: `BOOKING ALERT: ${guest_name}`,
-        html: `<h2>New Booking Confirmed (System Relay)</h2><ul><li><strong>Guest:</strong> ${guest_name}</li><li><strong>Bay:</strong> ${bayName}</li><li><strong>Date/Time:</strong> ${booking_date} at ${start_time}</li></ul>`
-      }).catch(e => console.error('[RESEND ALERT ERROR]', e.message));
-    }
 
     return { data, error };
   } catch (err: any) {
