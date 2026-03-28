@@ -29,6 +29,16 @@ const GET_BASE_HOURLY_RATE = (players: number): number => {
   return 250;
 };
 
+const BOOKING_TABLE_COLUMNS = [
+  'simulator_id', 'guest_name', 'guest_email', 'guest_phone', 
+  'booking_date', 'start_time', 'end_time', 'duration_hours', 
+  'player_count', 'total_price', 'amount_paid', 'amount_due', 
+  'status', 'payment_status', 'payment_type', 'user_type', 
+  'booking_source', 'notes', 'addon_water_qty', 'addon_gloves_qty', 
+  'addon_balls_qty', 'addon_club_rental', 'addon_coaching', 
+  'n8n_status', 'slot_start', 'slot_end', 'yoco_payment_id'
+];
+
 /**
  * Standardized Financial Engine
  * Recalculates totals and due amounts live on the backend.
@@ -103,11 +113,19 @@ export async function POST(request: NextRequest) {
       n8n_status: isWalkIn ? 'bypassed' : 'pending',
     };
 
-    // 3. Database Execution with Strict Error Capture
+    // 3. Database Execution with Iron Gate Whitelist
     const performInsert = async (p: any) => {
+      // Apply strict whitelist to ensure only real database columns are sent
+      const sanitizedInsertPayload = Object.keys(p)
+        .filter(key => BOOKING_TABLE_COLUMNS.includes(key))
+        .reduce((obj, key) => {
+          obj[key] = p[key];
+          return obj;
+        }, {} as any);
+
       const { data, error } = await supabaseAdmin
         .from('bookings')
-        .insert(p)
+        .insert(sanitizedInsertPayload)
         .select()
         .single();
       

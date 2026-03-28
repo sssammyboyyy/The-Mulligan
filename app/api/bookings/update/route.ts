@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
     // do not reset player counts or retail quantities to 0.
     let finalUpdates = { ...existingRecord, ...updates };
 
+    // Explicitly strip sensitive or ghost columns before transit
+    delete finalUpdates.id;
+    delete finalUpdates.balance_due;
+    delete finalUpdates.xmin;
+
     // 4. Dynamic Math Engines
     // Rebuild timestamps anchored to SAST if any scheduling parameters are modified
     if (finalUpdates.booking_date && finalUpdates.start_time && finalUpdates.duration_hours) {

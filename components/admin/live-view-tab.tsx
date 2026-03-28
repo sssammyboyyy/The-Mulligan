@@ -169,14 +169,20 @@ export function LiveViewTab() {
     const pin = sessionStorage.getItem('admin-pin');
     const newEnd = new Date(new Date(booking.slot_end).getTime() + hours * 60 * 60 * 1000).toISOString();
 
+    const payload = {
+      id: booking.id, pin, xmin: booking.xmin,
+      new_slot_end: newEnd, duration_hours_added: hours,
+      player_count: booking.player_count
+    };
+    
+    // Aggressive stripping of view-only or ghost columns
+    delete (payload as any).balance_due;
+    delete (payload as any).xmin;
+
     fetch('/api/bookings/admin-extend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: booking.id, pin, xmin: booking.xmin,
-        new_slot_end: newEnd, duration_hours_added: hours,
-        player_count: booking.player_count
-      })
+      body: JSON.stringify(payload)
     }).then(async (res) => {
       if (!res.ok) {
         setData(snapshot);
@@ -207,6 +213,10 @@ export function LiveViewTab() {
         payload.payment_type = 'pending';
       }
 
+      // Aggressive stripping of view-only or ghost columns
+      delete payload.balance_due;
+      delete payload.xmin;
+
       const res = await fetch('/api/bookings/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,10 +237,16 @@ export function LiveViewTab() {
 
     try {
       const pin = sessionStorage.getItem('admin-pin');
+      const payload = { ...formData, pin };
+
+      // Aggressive stripping of view-only or ghost columns
+      delete payload.balance_due;
+      delete payload.xmin;
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, pin }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {

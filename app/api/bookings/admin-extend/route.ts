@@ -11,6 +11,16 @@ const GET_BASE_HOURLY_RATE = (players: number): number => {
   return 250;
 };
 
+const BOOKING_TABLE_COLUMNS = [
+  'simulator_id', 'guest_name', 'guest_email', 'guest_phone', 
+  'booking_date', 'start_time', 'end_time', 'duration_hours', 
+  'player_count', 'total_price', 'amount_paid', 'amount_due', 
+  'status', 'payment_status', 'payment_type', 'user_type', 
+  'booking_source', 'notes', 'addon_water_qty', 'addon_gloves_qty', 
+  'addon_balls_qty', 'addon_club_rental', 'addon_coaching', 
+  'n8n_status', 'slot_start', 'slot_end', 'yoco_payment_id'
+];
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -87,10 +97,18 @@ export async function POST(request: NextRequest) {
       payment_type: 'pending'
     };
 
-    // 4. Execute Update
+    // 4. THE IRON GATE: Sanitize payload against physical database columns
+    const sanitizedUpdatePayload = Object.keys(updatePayload)
+      .filter(key => BOOKING_TABLE_COLUMNS.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = (updatePayload as any)[key];
+        return obj;
+      }, {} as any);
+
+    // 5. Execute Update
     const { data: finalData, error: finalError } = await supabaseAdmin
       .from('bookings')
-      .update(updatePayload)
+      .update(sanitizedUpdatePayload)
       .eq('id', id)
       .select()
       .single();
