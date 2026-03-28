@@ -5,7 +5,7 @@ import { getSASTDate } from '@/lib/utils';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ManagerModal } from './manager-modal';
 import { toast } from 'sonner';
-import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon, Banknote, Users, Target, XCircle, AlertTriangle, Globe, Smartphone, Clock, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle, CreditCard, ChevronRight, Activity, Layers, Edit2, ChevronLeft, Calendar as CalendarIcon, Banknote, Users, Target, XCircle, AlertTriangle, Globe, Smartphone, Clock, Trash2, RotateCcw } from 'lucide-react';
 
 /** POS Tiered Pricing — mirrors GEMINI.md §POS */
 const GET_BASE_HOURLY_RATE = (players: number): number => {
@@ -277,6 +277,22 @@ export function LiveViewTab() {
     }
   };
 
+  const handleForceRecalculate = async (id: string) => {
+    try {
+      const pin = sessionStorage.getItem('admin-pin');
+      const res = await fetch('/api/bookings/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, pin }),
+      });
+      if (!res.ok) throw new Error("Recalculation failed");
+      toast.success('Financials Recalculated');
+      fetchDashboardData();
+    } catch (err) {
+      toast.error("R0 Fixer failed.");
+    }
+  };
+
   const isPaid = (b: any) => b.payment_status === 'completed' || b.payment_status === 'paid_instore';
   const isOnline = (b: any) => !!b.yoco_payment_id || b.booking_source === 'online' || b.user_type === 'member';
 
@@ -495,6 +511,14 @@ export function LiveViewTab() {
                       className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl"
                     >
                       <Trash2 size={14} />
+                    </button>
+
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleForceRecalculate(booking.id); }}
+                      className="p-2.5 md:p-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-amber-500/50 text-zinc-500 hover:text-amber-500 transition-all flex items-center justify-center min-w-[44px] min-h-[44px]"
+                      title="Force Recalculate Financials"
+                    >
+                      <RotateCcw size={14} />
                     </button>
 
                     <div className="p-2.5 md:p-3 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-primary/10 group-hover:border-primary/40 transition-all flex items-center justify-center min-w-[44px] min-h-[44px]">

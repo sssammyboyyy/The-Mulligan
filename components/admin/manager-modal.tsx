@@ -601,8 +601,8 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
           </section>
         </div>
 
-        {/* ━━ FOOTER ━━ */}
-        <DialogFooter className="bg-background border-t p-4 sm:p-6 flex flex-col gap-4 relative z-20">
+        {/* ━━ STICKY FOOTER ━━ */}
+        <DialogFooter className="sticky bottom-0 z-50 bg-background/95 backdrop-blur-md border-t p-4 sm:p-6 flex flex-col gap-4 mt-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
           {isDeleting ? (
             <div className="flex flex-col items-stretch gap-3 bg-destructive/10 p-4 rounded-xl border border-destructive/20 w-full animate-in slide-in-from-bottom-2">
               <div className="flex items-center gap-2 flex-col sm:flex-row flex-1 text-center sm:text-left">
