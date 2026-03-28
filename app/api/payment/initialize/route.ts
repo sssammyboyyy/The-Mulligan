@@ -243,12 +243,12 @@ export async function POST(request: Request) {
         sendGuestConfirmationEmail(emailProps)
       ]);
 
-      return NextResponse.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId });
+      return Response.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
     }
 
     // --- YOCO CHECKOUT ---
     const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.themulligan.org"
-    const yocoResponse = await fetch("https://payments.yoco.com/api/checkouts", {
+    const yocoResponse = await fetch("https://online.yoco.com/v1/checkouts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.YOCO_SECRET_KEY}`,
@@ -260,18 +260,35 @@ export async function POST(request: Request) {
         cancelUrl: `${appUrl}/booking?cancelled=true&reference=${booking.id}`,
         successUrl: `${appUrl}/booking/success?bookingId=${booking.id}`,
         failureUrl: `${appUrl}/booking?error=payment_failed&reference=${booking.id}`,
-        metadata: { bookingId: booking.id },
+        metadata: { booking_id: booking.id },
       }),
     })
 
-    if (!yocoResponse.ok) throw new Error("Yoco checkout API failure.");
-
-    const yocoData = await yocoResponse.json();
-    if (yocoData.id) {
-      await supabaseAdmin.from("bookings").update({ yoco_payment_id: yocoData.id }).eq("id", booking.id);
+    if (!yocoResponse.ok) {
+      const rawYocoError = await yocoResponse.text();
+      console.error("[YOCO API RAW ERROR]:", rawYocoError);
+      // Ghost Cleanup: Delete the booking we just created so we don't have stagnant pending records
+      await supabaseAdmin.from('bookings').delete().eq('id', booking.id);
+      
+      return Response.json({ 
+        error: 'Yoco checkout API failure', 
+        details: rawYocoError 
+      }, { status: 500 });
     }
 
-    return NextResponse.json({ redirectUrl: yocoData.redirectUrl, booking_id: booking.id });
+    const yocoData = await yocoResponse.json();
+    
+    // Capture Yoco ID and update DB before redirect
+    await supabaseAdmin
+      .from('bookings')
+      .update({ yoco_payment_id: yocoData.id })
+      .eq('id', booking.id);
+
+    return Response.json({ 
+      checkoutUrl: yocoData.redirectUrl, 
+      yocoId: yocoData.id,
+      booking_id: booking.id 
+    });
 
   } catch (error: any) {
     logEvent("initialize_error", { error: error.message }, "error")
