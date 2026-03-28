@@ -248,8 +248,10 @@ export async function POST(request: Request) {
 
     // --- YOCO MOCK GATEWAY FALLBACK ---
     const yocoSecret = process.env.YOCO_SECRET_KEY;
-    if (!yocoSecret || yocoSecret.trim() === '') {
-      console.log("[YOCO MOCK GATEWAY] No secret key found. Simulating checkout.");
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'https://bestmulligan.golf-sim.pages.dev';
+
+    if (!yocoSecret || yocoSecret.trim().length < 10 || yocoSecret.includes('insert_your_key')) {
+      console.log("[YOCO MOCK GATEWAY] No valid secret key found. Simulating checkout.");
       
       const mockYocoId = `mock_chk_${Math.random().toString(36).substring(2, 10)}`;
       
@@ -274,7 +276,7 @@ export async function POST(request: Request) {
       ]);
 
       return Response.json({ 
-        checkoutUrl: `/booking/success?bookingId=${booking.id}&mock=true`, 
+        checkoutUrl: `${origin}/booking/success?bookingId=${booking.id}&mock=true`, 
         yocoId: mockYocoId 
       });
     }
@@ -305,10 +307,7 @@ export async function POST(request: Request) {
       throw new Error(`Invalid Yoco Key Format: Must start with sk_live_ or sk_test_`);
     }
 
-    // 3. Absolute URL Requirement
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://bestmulligan.golf-sim.pages.dev";
-    
-    // 4. Fire Checkout
+    // 3. Fire Checkout (origin already resolved above)
     const yocoResponse = await fetch("https://online.yoco.com/v1/checkouts", {
       method: "POST",
       headers: {
@@ -318,25 +317,25 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         amount: amountInCents,
         currency: "ZAR",
-        cancelUrl: `${appUrl}/booking?cancelled=true&reference=${booking.id}`,
-        successUrl: `${appUrl}/booking/success?bookingId=${booking.id}`,
-        failureUrl: `${appUrl}/booking?error=payment_failed&reference=${booking.id}`,
+        cancelUrl: `${origin}/booking?cancelled=true&reference=${booking.id}`,
+        successUrl: `${origin}/booking/success?bookingId=${booking.id}`,
+        failureUrl: `${origin}/booking?error=payment_failed&reference=${booking.id}`,
         metadata: { booking_id: booking.id },
       }),
     })
 
-    // 5. Raw Error Exposure & Ghost Cleanup
+    // 4. Raw Error Exposure & Ghost Cleanup
     if (!yocoResponse.ok) {
-      const rawYocoError = await yocoResponse.text();
-      console.error("[YOCO API RAW ERROR]:", yocoResponse.status, rawYocoError);
+      const errorBody = await yocoResponse.text();
+      console.error("[YOCO_CRITICAL_FAILURE]", { status: yocoResponse.status, body: errorBody });
       
-      // Clean up the ghost booking since payment initialization failed
+      // Ghost Cleanup: nuke the pending record so it doesn't pollute the dashboard
       await supabaseAdmin.from('bookings').delete().eq('id', booking.id);
       
       return Response.json({ 
         error: 'Yoco checkout API failure', 
         status: yocoResponse.status,
-        details: rawYocoError 
+        details: errorBody 
       }, { status: 500 });
     }
 
