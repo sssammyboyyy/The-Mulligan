@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase/client"
 import { getOperatingHours, isClosedDay } from "@/lib/schedule-config"
 import { createSASTTimestamp, addHoursToSAST } from "@/lib/utils"
+import { sendConfirmationEmail } from "@/lib/mail"
 
 // addHoursToTimestamp replaced by addHoursToSAST from @/lib/utils
 
@@ -185,6 +186,20 @@ export async function POST(request: NextRequest) {
 
         if (retryBooking && !retryError) {
           console.log(`[23P01] Retry SUCCESS for Bay ${assignedSimulatorId}`);
+          
+          // Async trigger confirmation email
+          await sendConfirmationEmail({
+            guest_email,
+            guest_name: guest_name || "Walk-In Guest",
+            booking_date,
+            start_time,
+            duration_hours,
+            player_count: bookingData.players || 1,
+            simulator_id: assignedSimulatorId,
+            total_price,
+            amount_paid: 0,
+          });
+
           return NextResponse.json({ success: true, booking_id: retryBooking.id, assigned_bay: assignedSimulatorId })
         }
 
@@ -201,6 +216,19 @@ export async function POST(request: NextRequest) {
         details: insertError.message || insertError
       }, { status: 500 })
     }
+
+    // Async trigger confirmation email
+    await sendConfirmationEmail({
+      guest_email,
+      guest_name: guest_name || "Walk-In Guest",
+      booking_date,
+      start_time,
+      duration_hours,
+      player_count: bookingData.players || 1,
+      simulator_id: assignedSimulatorId,
+      total_price,
+      amount_paid: 0,
+    });
 
     return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
 
