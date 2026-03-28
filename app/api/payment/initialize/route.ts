@@ -20,9 +20,7 @@ function calculateEndTimeText(start: string, duration: number): string {
 function parsePgDate(pgDateStr: string): number {
   if (!pgDateStr) return 0;
   let safeStr = pgDateStr.replace(' ', 'T');
-  if (/([+-]\d{2})$/.test(safeStr)) {
-    safeStr += ':00';
-  }
+  if (/([+-]\d{2})$/.test(safeStr)) safeStr += ':00';
   const ms = new Date(safeStr).getTime();
   return isNaN(ms) ? 0 : ms;
 }
@@ -38,40 +36,50 @@ export async function POST(request: Request) {
       "NEXT_PUBLIC_SUPABASE_URL",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
       "YOCO_SECRET_KEY"
-    ])
+    ]);
+
     if (envCheck) {
       logEvent("env_validation_failed", { correlationId, missing: envCheck.missing }, "error")
-      return Response.json(
+      return NextResponse.json(
         { error: "Server configuration error", error_code: "MISSING_ENV", correlation_id: correlationId },
         { status: 500 }
-      )
+      );
     }
 
     const body = await request.json()
     const supabaseAdmin = getSupabaseAdmin()
 
-    // ---------------------------------------------------------
-    // 1. UNIVERSAL BAY AUTO-ALLOCATION (Universal Resource Guard)
-    // ---------------------------------------------------------
+    // 1. DATA EXTRACTION & VALIDATION
     const booking_date = body.booking_date || body.date
     const start_time = body.start_time || body.timeSlot
     const duration_hours = body.duration_hours || body.duration
 
+    if (!booking_date || !start_time || !duration_hours) {
+      return NextResponse.json({ error: "Missing required session data (date, time, or duration)." }, { status: 400 });
+    }
+
+    // 2. SANITY CHECK DATE STRINGS
     const cleanTime = (start_time || "").length === 5 ? `${start_time}:00` : start_time;
     const sastStartIso = `${booking_date}T${cleanTime}+02:00`;
     const durationNum = Number(duration_hours);
     const startDate = new Date(sastStartIso);
-    const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
     
+    if (isNaN(startDate.getTime())) {
+      return NextResponse.json({ error: "Invalid booking time or date format." }, { status: 400 });
+    }
+
+    const endDate = new Date(startDate.getTime() + (durationNum * 60 * 60 * 1000));
     const reqStartMs = startDate.getTime()
     const reqEndMs = endDate.getTime()
 
-    // Query overlaps strictly
-    const { data: overlaps } = await supabaseAdmin
+    // 3. UNIVERSAL BAY AUTO-ALLOCATION (The Resource Guard)
+    const { data: overlaps, error: overlapError } = await supabaseAdmin
       .from("bookings")
       .select("simulator_id, slot_start, slot_end")
       .eq("booking_date", booking_date)
       .neq("status", "cancelled")
+
+    if (overlapError) throw overlapError;
 
     const occupiedBays = new Set<number>();
     if (overlaps) {
@@ -87,13 +95,13 @@ export async function POST(request: Request) {
     const assignedSimulatorId = [1, 2, 3].find(id => !occupiedBays.has(id));
 
     if (!assignedSimulatorId) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Fully booked! No bays available for this time slot.", error_code: "SLOT_UNAVAILABLE", correlation_id: correlationId },
         { status: 409 }
-      )
+      );
     }
 
-    // --- WALK-IN BYPASS ---
+    // 4. WALK-IN BYPASS
     if (body.guest_email?.toLowerCase().includes('walkin@venue-os.com') || body.user_type === 'walk_in') {
       logEvent("walkin_bypass_triggered", { correlationId })
       
@@ -109,18 +117,16 @@ export async function POST(request: Request) {
         amount_paid: 0, 
       };
 
-      // Dual dispatch (async)
+      // Dual concurrent dispatch
       await Promise.allSettled([
         sendStoreReceiptEmail(emailProps),
         sendGuestConfirmationEmail(emailProps)
       ]);
 
-      return NextResponse.json({ success: true, bypassed: true, assigned_bay: assignedSimulatorId })
+      return NextResponse.json({ success: true, bypassed: true, assigned_bay: assignedSimulatorId });
     }
 
-    // ---------------------------------------------------------
-    // 2. CONTINUE ONLINE FLOW
-    // ---------------------------------------------------------
+    // 5. CONTINUE ONLINE FLOW (Yoco Path)
     const player_count = body.player_count || body.players
     const session_type = body.session_type || body.sessionType
     const famous_course_option = body.famous_course_option || body.sessionType
@@ -173,7 +179,7 @@ export async function POST(request: Request) {
     if (operatingHours) {
       const closeIso = `${booking_date}T${operatingHours.close.toString().padStart(2, '0')}:00:00+02:00`;
       if (reqEndMs > new Date(closeIso).getTime()) {
-        return Response.json({ error: `Venue closes at ${operatingHours.close}:00.`, error_code: "PAST_CLOSING_TIME" }, { status: 400 });
+        return NextResponse.json({ error: `Venue closes at ${operatingHours.close}:00.`, error_code: "PAST_CLOSING_TIME" }, { status: 400 });
       }
     }
 
@@ -237,7 +243,7 @@ export async function POST(request: Request) {
         sendGuestConfirmationEmail(emailProps)
       ]);
 
-      return Response.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
+      return NextResponse.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId });
     }
 
     // --- YOCO CHECKOUT ---
@@ -258,15 +264,17 @@ export async function POST(request: Request) {
       }),
     })
 
-    const yocoData = await yocoResponse.json()
+    if (!yocoResponse.ok) throw new Error("Yoco checkout API failure.");
+
+    const yocoData = await yocoResponse.json();
     if (yocoData.id) {
-      await supabaseAdmin.from("bookings").update({ yoco_payment_id: yocoData.id }).eq("id", booking.id)
+      await supabaseAdmin.from("bookings").update({ yoco_payment_id: yocoData.id }).eq("id", booking.id);
     }
 
-    return Response.json({ redirectUrl: yocoData.redirectUrl, booking_id: booking.id })
+    return NextResponse.json({ redirectUrl: yocoData.redirectUrl, booking_id: booking.id });
 
   } catch (error: any) {
     logEvent("initialize_error", { error: error.message }, "error")
-    return Response.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }

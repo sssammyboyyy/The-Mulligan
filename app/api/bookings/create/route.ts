@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
       booking_source
     } = bookingData
 
-    // 1. VALIDATE SCHEDULE
+    // 1. VALIDATE INPUTS
+    if (!booking_date || !start_time || !duration_hours) {
+      return NextResponse.json({ error: "Missing required booking fields." }, { status: 400 })
+    }
+
     if (isClosedDay(booking_date)) {
       return NextResponse.json({ error: "Venue closed on this date." }, { status: 400 })
     }
@@ -50,18 +54,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Venue closed on this date." }, { status: 400 })
     }
 
+    // 2. SANITY CHECK DATE STRINGS
     const slotStartISO = createSASTTimestamp(booking_date, start_time)
     const slotEndISO = addHoursToSAST(slotStartISO, duration_hours)
     
+    if (!slotStartISO || !slotEndISO || isNaN(new Date(slotStartISO).getTime())) {
+      return NextResponse.json({ error: "Invalid date or time calculation." }, { status: 400 })
+    }
+
     const reqStartMs = new Date(slotStartISO).getTime()
     const reqEndMs = new Date(slotEndISO).getTime()
 
-    // 2. UNIVERSAL BAY AUTO-ALLOCATION (The Resource Guard)
-    const { data: overlaps } = await supabase
+    // 3. UNIVERSAL BAY AUTO-ALLOCATION (The Resource Guard)
+    const { data: overlaps, error: overlapError } = await supabase
       .from("bookings")
       .select("simulator_id, slot_start, slot_end")
       .eq("booking_date", booking_date)
       .neq("status", "cancelled")
+
+    if (overlapError) throw overlapError;
 
     const occupiedBays = new Set<number>()
     if (overlaps) {
@@ -83,7 +94,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. INSERT BOOKING
+    // 4. INSERT BOOKING
     const status = booking_source === "walk_in" ? "confirmed" : (payment_status === "completed" ? "confirmed" : "pending")
     const payStatus = payment_status === "completed" ? "paid_instore" : "pending"
 
@@ -121,7 +132,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create booking", details: insertError.message }, { status: 500 })
     }
 
-    // 4. DUAL EMAIL DISPATCH
+    // 5. DUAL EMAIL DISPATCH (Concurrent)
     const emailProps = {
       guest_email,
       guest_name: guest_name || "Golfer",
@@ -139,6 +150,7 @@ export async function POST(request: NextRequest) {
       addon_balls_qty: bookingData.addon_balls_qty,
     };
 
+    // Firing concurrent to avoid sequential network bottleneck
     await Promise.allSettled([
       sendStoreReceiptEmail(emailProps),
       sendGuestConfirmationEmail(emailProps)
@@ -147,7 +159,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
 
   } catch (error: any) {
-    console.error("Server Error:", error)
+    console.error("Booking Engine Server Error:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
