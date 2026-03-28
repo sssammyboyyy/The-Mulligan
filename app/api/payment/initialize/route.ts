@@ -280,7 +280,35 @@ export async function POST(request: Request) {
     }
 
     // --- ACTUAL YOCO CHECKOUT ---
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.themulligan.org"
+    
+    // 1. Minimum Amount Rule: Yoco rejects any transaction < R2.00 (200 cents).
+    const amountInCents = Math.round(amountToCharge * 100);
+    if (amountInCents < 200) {
+      console.log(`[YOCO SKIPPED] Amount R${amountToCharge} is below Yoco's R2.00 minimum. Converting to walk-in/deposit.`);
+      
+      const emailProps = {
+        guest_email, guest_name: guest_name || "Golfer", booking_date, start_time,
+        duration_hours: durationNum, player_count, simulator_id: assignedSimulatorId,
+        total_price: dbTotalPrice, amount_paid: 0, addon_club_rental, addon_coaching
+      };
+
+      await Promise.allSettled([
+        sendStoreReceiptEmail(emailProps),
+        sendGuestConfirmationEmail(emailProps)
+      ]);
+
+      return Response.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId, bypass_reason: "below_minimum" });
+    }
+
+    // 2. Secret Key Format Validation
+    if (!yocoSecret.startsWith('sk_live_') && !yocoSecret.startsWith('sk_test_')) {
+      throw new Error(`Invalid Yoco Key Format: Must start with sk_live_ or sk_test_`);
+    }
+
+    // 3. Absolute URL Requirement
+    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://bestmulligan.golf-sim.pages.dev";
+    
+    // 4. Fire Checkout
     const yocoResponse = await fetch("https://online.yoco.com/v1/checkouts", {
       method: "POST",
       headers: {
@@ -288,7 +316,7 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: Math.round(amountToCharge * 100),
+        amount: amountInCents,
         currency: "ZAR",
         cancelUrl: `${appUrl}/booking?cancelled=true&reference=${booking.id}`,
         successUrl: `${appUrl}/booking/success?bookingId=${booking.id}`,
@@ -297,18 +325,22 @@ export async function POST(request: Request) {
       }),
     })
 
+    // 5. Raw Error Exposure & Ghost Cleanup
     if (!yocoResponse.ok) {
       const rawYocoError = await yocoResponse.text();
-      console.error("[YOCO API RAW ERROR]:", rawYocoError);
-      // Ghost Cleanup: Delete the booking we just created so we don't have stagnant pending records
+      console.error("[YOCO API RAW ERROR]:", yocoResponse.status, rawYocoError);
+      
+      // Clean up the ghost booking since payment initialization failed
       await supabaseAdmin.from('bookings').delete().eq('id', booking.id);
       
       return Response.json({ 
         error: 'Yoco checkout API failure', 
+        status: yocoResponse.status,
         details: rawYocoError 
       }, { status: 500 });
     }
 
+    // 6. Checkout ID Capture
     const yocoData = await yocoResponse.json();
     
     // Capture Yoco ID and update DB before redirect
