@@ -1,6 +1,16 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+const BOOKING_TABLE_COLUMNS = [
+  'simulator_id', 'guest_name', 'guest_email', 'guest_phone', 
+  'booking_date', 'start_time', 'end_time', 'duration_hours', 
+  'player_count', 'total_price', 'amount_paid', 'amount_due', 
+  'status', 'payment_status', 'payment_type', 'user_type', 
+  'booking_source', 'notes', 'addon_water_qty', 'addon_gloves_qty', 
+  'addon_balls_qty', 'addon_club_rental', 'addon_coaching', 
+  'n8n_status', 'slot_start', 'slot_end', 'yoco_payment_id'
+];
+
 /**
  * Standardized SAST Math Engine
  * Rebuilds timestamps with +02:00 offsets.
@@ -37,9 +47,9 @@ const GET_BASE_HOURLY_RATE = (players: number): number => {
  * Standardized Financial Engine
  * Recomputes totals based on POS add-ons and ensures state persistence.
  */
-const calculateFinancials = (payload: any, updates: any) => {
-  const players = Number(payload.player_count) || 1;
-  const duration = Number(payload.duration_hours) || 1;
+const calculateFinancials = (payload: any, existingRecord: any, updates: any) => {
+  const players = Number(payload.player_count !== undefined ? payload.player_count : existingRecord.player_count) || 1;
+  const duration = Number(payload.duration_hours !== undefined ? payload.duration_hours : existingRecord.duration_hours) || 1;
   const baseRate = GET_BASE_HOURLY_RATE(players);
   
   const calculatedBase = baseRate * duration;
@@ -49,15 +59,15 @@ const calculateFinancials = (payload: any, updates: any) => {
   const clubs = payload.addon_club_rental ? (100 * duration) : 0;
   const coaching = payload.addon_coaching ? 250 : 0;
   
-  const systemTotal = calculatedBase + water + gloves + balls + clubs + coaching;
+  const systemTotal = Math.max(0, calculatedBase + water + gloves + balls + clubs + coaching);
 
   const isManualTotal = updates.total_price !== undefined;
-  const total_price = isManualTotal ? Number(updates.total_price) : systemTotal;
+  const total_price = isManualTotal ? Math.max(0, Number(updates.total_price)) : systemTotal;
   
   const amount_paid = Number(payload.amount_paid) || 0;
 
   const isManualDue = updates.amount_due !== undefined;
-  const amount_due = isManualDue ? Number(updates.amount_due) : Math.max(0, total_price - amount_paid);
+  const amount_due = isManualDue ? Math.max(0, Number(updates.amount_due)) : Math.max(0, total_price - amount_paid);
   
   return { total_price, amount_due };
 };
@@ -109,22 +119,26 @@ export async function POST(request: NextRequest) {
     }
 
     // ALWAYS recalculate financials to ensure state consistency across merged payload
-    const financials = calculateFinancials(finalUpdates, updates);
+    const financials = calculateFinancials(finalUpdates, existingRecord, updates);
     finalUpdates = { ...finalUpdates, ...financials };
 
-    // Strip protected/non-writable columns before calling update
-    const columnsToStrip = ['id', 'created_at', 'updated_at', 'xmin'];
-    columnsToStrip.forEach(col => delete finalUpdates[col]);
+    // 5. THE IRON GATE: Sanitize payload against physical database columns
+    const sanitizedPayload = Object.keys(finalUpdates)
+      .filter(key => BOOKING_TABLE_COLUMNS.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = finalUpdates[key];
+        return obj;
+      }, {} as any);
 
-    // 5. Update Database
+    // 6. Update Database using sanitized payload
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .update(finalUpdates)
+      .update(sanitizedPayload)
       .eq('id', id)
       .select()
       .single();
 
-    // 6. Concurrency Guard
+    // 7. Concurrency Guard
     if (error && error.code === '23P01') {
       return NextResponse.json({ 
         error: "Conflict", 

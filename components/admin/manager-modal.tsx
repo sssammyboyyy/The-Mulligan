@@ -577,7 +577,11 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                   </div>
                 )}
 
-                <Button variant="secondary" size="lg" className="w-full font-black text-[12px] uppercase shadow-lg h-14 min-h-[56px] mt-2" onClick={() => onSave(formData)}>
+                <Button variant="secondary" size="lg" className="w-full font-black text-[12px] uppercase shadow-lg h-14 min-h-[56px] mt-2" onClick={() => {
+                  const submitData = { ...formData };
+                  delete (submitData as any).balance_due;
+                  onSave(submitData);
+                }}>
                   Charge R{formData.amount_due ?? currentTotal}
                 </Button>
               </div>
