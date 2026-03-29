@@ -84,24 +84,29 @@ export function LiveViewTab() {
   }, [fetchDashboardData]);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 📊 AGGREGATIONS
+  // 📊 AGGREGATIONS (SSOT Ledger Logic)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const grossRevenue = useMemo(() =>
-    data
-      .filter(b => b.payment_status === 'completed' || b.payment_status === 'paid_instore')
-      .reduce((s, b) => s + Number(b.amount_paid || b.total_price || 0), 0),
+  const activeBookings = useMemo(() => 
+    data.filter(b => b.status !== 'cancelled' && b.status !== 'rejected'),
     [data]
+  );
+
+  const grossRevenue = useMemo(() =>
+    activeBookings.reduce((sum, b) => sum + (Number(b.amount_paid) || 0), 0),
+    [activeBookings]
   );
 
   const outstanding = useMemo(() =>
-    data
-      .filter(b => b.payment_status === 'pending' || b.payment_status === 'deposit_paid')
-      .reduce((s, b) => s + Number(b.total_price || 0), 0),
-    [data]
+    activeBookings.reduce((sum, b) => sum + (Number(b.amount_due) || 0), 0),
+    [activeBookings]
   );
 
-  const totalPlayers = useMemo(() => data.reduce((s, b) => s + Number(b.player_count || 0), 0), [data]);
-  const totalBookings = data.length;
+  const totalPlayers = useMemo(() => 
+    activeBookings.reduce((sum, b) => sum + (Number(b.player_count) || 1), 0), 
+    [activeBookings]
+  );
+
+  const totalBookings = activeBookings.length;
 
   const shiftDate = (days: number) => {
     const d = new Date(selectedDate + 'T12:00:00+02:00'); // Use mid-day to avoid timezone boundary issues
