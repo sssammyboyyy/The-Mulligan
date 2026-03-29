@@ -211,34 +211,6 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     }
   };
 
-  const handleManualReconcile = async () => {
-    setIsVerifying(true);
-    try {
-      const pin = sessionStorage.getItem("admin-pin");
-      
-      const res = await fetch('/api/bookings/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: formData.id,
-          pin,
-          payment_status: 'paid_online',
-          status: 'confirmed'
-        })
-      });
-
-      if (!res.ok) throw new Error("Reconciliation failed");
-      
-      toast.success("Online Payment Confirmed Manually");
-      onSave({ ...formData, payment_status: 'paid_online', status: 'confirmed' });
-      onClose();
-    } catch (e: any) {
-      toast.error("Reconciliation failed: " + e.message);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
   const handleFinalSave = () => {
     const submitData = { ...formData };
     
@@ -250,6 +222,16 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     if (!isManualPrice) {
       delete submitData.total_price;
       delete submitData.amount_due;
+    }
+
+    // CONTEXT-AWARE SETTLEMENT FLOW
+    if (submitData.payment_status === 'pending') {
+      const isOnline = submitData.booking_source === 'online' || submitData.yoco_payment_id === null;
+      if (isOnline && submitData.guest_email !== 'walkin@venue-os.com') {
+        submitData.payment_status = 'paid_online';
+        submitData.status = 'confirmed';
+        submitData.reconciled_manually = true;
+      }
     }
     
     onSave(submitData);
@@ -398,20 +380,50 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
 
             {/* Time + Bay */}
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-2 w-full">
-              <div className="flex flex-col space-y-1.5 w-full">
-                <Label htmlFor="start_time" className="text-[10px] font-bold flex items-center gap-1.5">
-                  <Clock size={12} className="text-primary" /> START TIME
-                </Label>
-                <Input
-                  id="start_time"
-                  type="time"
-                  value={formData.start_time || '12:00'}
-                  onChange={(e) => update("start_time", e.target.value)}
-                  className="font-mono font-bold text-lg tracking-tight h-12 min-h-[48px] text-base md:text-sm"
-                />
+              <div className="flex items-center gap-4 w-full">
+                <div className="flex flex-col space-y-1.5 w-full">
+                  <Label htmlFor="start_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
+                    <Clock size={12} className="text-primary" /> START TIME
+                  </Label>
+                  <Input
+                    id="start_time"
+                    type="time"
+                    value={formData.start_time || '12:00'}
+                    onChange={(e) => update("start_time", e.target.value)}
+                    className="font-mono font-bold text-lg tracking-tight h-12 min-h-[48px] text-base md:text-sm bg-zinc-900 border-zinc-700 w-full"
+                  />
+                </div>
+                {formData.end_time && (
+                  <div className="flex flex-col space-y-1.5 w-full">
+                    <Label htmlFor="end_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
+                      <Clock size={12} className="text-primary" /> END TIME
+                    </Label>
+                    <Input
+                      id="end_time"
+                      type="time"
+                      value={formData.end_time}
+                      onChange={(e) => {
+                         // Parse values to calculate new duration
+                         const startMs = new Date(`1970-01-01T${formData.start_time}:00`).getTime();
+                         const endMs = new Date(`1970-01-01T${e.target.value}:00`).getTime();
+                         const diffHrs = (endMs - startMs) / (1000 * 60 * 60);
+                         
+                         const validHrs = diffHrs > 0 ? diffHrs : 0.5; // Avoid negative/zero
+                         
+                         setFormData((prev: any) => ({
+                           ...prev,
+                           end_time: e.target.value,
+                           duration_hours: validHrs,
+                           payment_status: "pending"
+                         }));
+                      }}
+                      className="font-mono font-bold text-lg tracking-tight h-12 min-h-[48px] text-base md:text-sm bg-zinc-900 border-zinc-700 w-full"
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex flex-col space-y-1.5 w-full">
-                <Label className="text-[10px] font-bold flex items-center gap-1.5">
+                <Label className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
                   <MapPin size={12} className="text-primary" /> BAY
                 </Label>
                 {/* Bay — Segmented Pills with color */}
@@ -532,12 +544,18 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                   <CreditCard size={120} />
                 </div>
 
-                <Separator className="my-4 bg-primary-foreground/20" />
-
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-80">
-                  <span>Session: R{totals.base}</span>
-                  <span>Extras: R{totals.extras}</span>
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">
+                  <span>Base: R{totals.base}</span>
+                  <span>Retail: R{totals.extras}</span>
                 </div>
+                
+                {/* Dynamic Balance Indicator */}
+                <div className="flex justify-between px-3 py-2 bg-black/20 rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10 shadow-inner">
+                  <span className="opacity-90">Original Total: R{formData.total_price || 0}</span>
+                  <span className="text-yellow-400">Total Now: R{totals.total}</span>
+                </div>
+
+                <Separator className="my-4 bg-primary-foreground/20" />
 
                 {/* Manual Override Toggle */}
                 <div className="flex items-center justify-between">
@@ -599,8 +617,8 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                   </div>
                 )}
 
-                <Button variant="secondary" size="lg" className="w-full font-black text-[12px] uppercase shadow-lg h-14 min-h-[56px] mt-2" onClick={handleFinalSave}>
-                  Charge R{formData.amount_due ?? currentTotal}
+                <Button variant="secondary" size="lg" className="w-full font-black text-[12px] uppercase shadow-lg h-14 min-h-[56px] mt-2 group hover:bg-white transition-all" onClick={handleFinalSave}>
+                  Settle Balance: R{formData.amount_due ?? currentTotal}
                 </Button>
               </div>
             </div>

@@ -199,7 +199,7 @@ export function LiveViewTab() {
     });
   };
 
-  const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle' | 'reconcile_online') => {
+  const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle') => {
     try {
       const pin = sessionStorage.getItem('admin-pin');
       const payload: any = { id: booking.id, pin };
@@ -208,9 +208,6 @@ export function LiveViewTab() {
         payload.status = 'confirmed';
         payload.payment_type = 'cash';
         payload.payment_status = 'paid_instore';
-      } else if (action === 'reconcile_online') {
-        payload.status = 'confirmed';
-        payload.payment_status = 'paid_online';
       } else {
         payload.payment_status = 'pending';
         payload.payment_type = 'pending';
@@ -227,7 +224,7 @@ export function LiveViewTab() {
       });
 
       if (!res.ok) throw new Error(`${action} Failed`);
-      toast.success(action === 'reconcile_online' ? 'Online Payment Reconciled' : `${action} Successful`);
+      toast.success(`${action} Successful`);
       fetchDashboardData();
     } catch (err) {
       console.error("Settle/Unsettle Error:", err);
@@ -465,7 +462,14 @@ export function LiveViewTab() {
                   <div className="flex flex-col items-start md:items-end">
                     <div className="flex items-center gap-2 md:gap-0 md:flex-col md:items-end">
                       <span className="text-[9px] font-bold text-zinc-500 uppercase md:hidden">DUE</span>
-                      <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R{booking.amount_due ?? 0}</span>
+                      <div className="flex items-center gap-2">
+                        {booking.amount_due > 0 && paid && (
+                          <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-[10px] font-black uppercase tracking-widest rounded shadow-sm border border-yellow-500/30">
+                            +R{booking.amount_due} DUE
+                          </span>
+                        )}
+                        <span className="text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter leading-none">R{booking.amount_due ?? 0}</span>
+                      </div>
                     </div>
                     {/* Quick Extend — Optimistic */}
                     <div className="flex items-center gap-1 mt-1.5">
@@ -489,17 +493,6 @@ export function LiveViewTab() {
                   </div>
 
                   <div className="flex items-center gap-2 md:gap-3">
-                    {!paid && online && (
-                       <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-500 border-emerald-500/20 font-black text-[9px] uppercase h-12 min-h-[44px] px-3 shadow-lg transition-all min-w-[44px]"
-                        onClick={(e) => { e.stopPropagation(); handleQuickSettle(booking, 'reconcile_online'); }}
-                        title="Manual Yoco Reconcile"
-                      >
-                        <CreditCard className="w-4 h-4" />
-                      </Button>
-                    )}
 
                     {paid ? (
                       <Button
