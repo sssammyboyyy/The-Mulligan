@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendStoreReceiptEmail, sendGuestConfirmationEmail } from '@/lib/mail';
 
 const BOOKING_TABLE_COLUMNS = [
   'simulator_id', 'guest_name', 'guest_email', 'guest_phone', 
@@ -151,6 +152,28 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     } else if (error) {
       throw error;
+    }
+
+    // 8. Dispatch Confirmation Emails on Manual Reconciliation
+    if (updates.payment_status === 'paid_online' && updates.status === 'confirmed') {
+      const emailProps = {
+        guest_email: data.guest_email,
+        guest_name: data.guest_name || "Golfer",
+        booking_date: data.booking_date,
+        start_time: data.start_time,
+        duration_hours: Number(data.duration_hours),
+        player_count: Number(data.player_count),
+        simulator_id: data.simulator_id,
+        total_price: Number(data.total_price),
+        amount_paid: Number(data.amount_paid) || 0,
+        addon_club_rental: data.addon_club_rental || false,
+        addon_coaching: data.addon_coaching || false
+      };
+
+      await Promise.allSettled([
+        sendStoreReceiptEmail(emailProps),
+        sendGuestConfirmationEmail(emailProps)
+      ]);
     }
 
     return NextResponse.json({ status: 'success', data });

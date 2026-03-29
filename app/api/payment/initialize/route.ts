@@ -273,10 +273,12 @@ export async function POST(request: Request) {
       addon_coaching
     };
 
-    await Promise.allSettled([
-      sendStoreReceiptEmail(emailProps),
-      sendGuestConfirmationEmail(emailProps)
-    ]);
+    if (dbTotalPrice === 0) {
+      await Promise.allSettled([
+        sendStoreReceiptEmail(emailProps),
+        sendGuestConfirmationEmail(emailProps)
+      ]);
+    }
 
     return Response.json({ 
       checkoutUrl: paymentUrl.toString(), 
