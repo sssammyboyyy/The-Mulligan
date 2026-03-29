@@ -199,7 +199,7 @@ export function LiveViewTab() {
     });
   };
 
-  const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle') => {
+  const handleQuickSettle = async (booking: any, action: 'settle' | 'unsettle' | 'reconcile_online') => {
     try {
       const pin = sessionStorage.getItem('admin-pin');
       const payload: any = { id: booking.id, pin };
@@ -208,6 +208,9 @@ export function LiveViewTab() {
         payload.status = 'confirmed';
         payload.payment_type = 'cash';
         payload.payment_status = 'paid_instore';
+      } else if (action === 'reconcile_online') {
+        payload.status = 'confirmed';
+        payload.payment_status = 'paid_online';
       } else {
         payload.payment_status = 'pending';
         payload.payment_type = 'pending';
@@ -224,10 +227,11 @@ export function LiveViewTab() {
       });
 
       if (!res.ok) throw new Error(`${action} Failed`);
+      toast.success(action === 'reconcile_online' ? 'Online Payment Reconciled' : `${action} Successful`);
       fetchDashboardData();
     } catch (err) {
       console.error("Settle/Unsettle Error:", err);
-      toast.error(`Could not ${action} record.`);
+      toast.error(`Operation failed.`);
     }
   };
 
@@ -485,6 +489,18 @@ export function LiveViewTab() {
                   </div>
 
                   <div className="flex items-center gap-2 md:gap-3">
+                    {!paid && online && (
+                       <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-500 border-emerald-500/20 font-black text-[9px] uppercase h-12 min-h-[44px] px-3 shadow-lg transition-all min-w-[44px]"
+                        onClick={(e) => { e.stopPropagation(); handleQuickSettle(booking, 'reconcile_online'); }}
+                        title="Manual Yoco Reconcile"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                      </Button>
+                    )}
+
                     {paid ? (
                       <Button
                         size="sm"

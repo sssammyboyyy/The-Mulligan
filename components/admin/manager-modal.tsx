@@ -211,29 +211,29 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     }
   };
 
-  const verifyYocoPayment = async () => {
-    if (!formData.yoco_payment_id) return toast.error("No Yoco ID found on this record.");
+  const handleManualReconcile = async () => {
     setIsVerifying(true);
     try {
-      const res = await fetch('/api/admin/check-payment', {
+      const pin = sessionStorage.getItem("admin-pin");
+      
+      const res = await fetch('/api/bookings/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pin: sessionStorage.getItem("admin-pin"),
-          yoco_payment_id: formData.yoco_payment_id
+          id: formData.id,
+          pin,
+          payment_status: 'paid_online',
+          status: 'confirmed'
         })
       });
-      const data = await res.json();
-      if (data.isPaid) {
-        update("payment_status", "paid_instore");
-        update("payment_type", "yoco");
-        toast.success("Yoco Verification Successful!");
-        onSave({ ...formData, payment_status: 'paid_instore', payment_type: 'yoco' });
-      } else {
-        toast.warning(`Yoco status: ${data.status}`);
-      }
+
+      if (!res.ok) throw new Error("Reconciliation failed");
+      
+      toast.success("Online Payment Confirmed Manually");
+      onSave({ ...formData, payment_status: 'paid_online', status: 'confirmed' });
+      onClose();
     } catch (e: any) {
-      toast.error("Verification failed: " + e.message);
+      toast.error("Reconciliation failed: " + e.message);
     } finally {
       setIsVerifying(false);
     }
@@ -514,9 +514,15 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                 </Select>
               </div>
 
-              {formData.payment_type === 'yoco' && formData.yoco_payment_id && !isPaidOut && (
-                <Button variant="outline" className="h-12 min-h-[48px] border-primary/40 bg-primary/20 hover:bg-primary/30 font-bold uppercase gap-2" onClick={verifyYocoPayment} disabled={isVerifying}>
-                  {isVerifying ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Verify Yoco
+              {formData.payment_status === 'pending' && (formData.booking_source === 'online' || formData.guest_email !== 'walkin@venue-os.com') && !isPaidOut && (
+                <Button 
+                  variant="outline" 
+                  className="h-12 min-h-[48px] border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold uppercase gap-2" 
+                  onClick={handleManualReconcile} 
+                  disabled={isVerifying}
+                >
+                  {isVerifying ? <RotateCcw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} 
+                  Confirm Yoco Payment (Manual)
                 </Button>
               )}
 
