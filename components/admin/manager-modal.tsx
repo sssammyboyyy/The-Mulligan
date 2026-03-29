@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Trash2, User, Flag, ShoppingBag, CreditCard, Calendar, Info, RotateCcw, Clock, MapPin, Search, Minus, Plus, Zap } from "lucide-react"
+import { Trash2, User, Flag, ShoppingBag, CreditCard, Calendar, Info, RotateCcw, Clock, MapPin, Search, Minus, Plus, Zap, CheckCircle } from "lucide-react"
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🛡️ BUSINESS RULES (mirrors GEMINI.md §POS)
@@ -246,11 +246,14 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
   const isPaidOut = formData.payment_status === 'completed' || formData.payment_status === 'paid_instore';
   const currentTotal = formData.total_price ?? totals.total;
 
+  const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
+  const outstandingBalance = totals.total - amountAlreadyPaid;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] sm:max-w-[650px] max-h-[95vh] overflow-y-auto border-t-8 border-t-primary p-0">
+      <DialogContent className="w-[95vw] sm:max-w-[650px] max-h-[95vh] flex flex-col p-0 border-t-8 border-t-primary overflow-hidden">
         {/* ━━ STICKY HEADER ━━ */}
-        <div className="sticky top-0 bg-background/95 backdrop-blur-md z-10 px-4 py-3 sm:px-6 sm:py-4 border-b">
+        <div className="bg-background/95 backdrop-blur-md z-10 px-4 py-3 sm:px-6 sm:py-4 border-b">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between text-xl sm:text-2xl font-black">
               <span className="flex items-center gap-2">
@@ -261,7 +264,8 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
           </DialogHeader>
         </div>
 
-        <div className="flex flex-col space-y-4 p-4 sm:p-6 sm:space-y-6">
+        {/* ━━ SCROLLABLE CONTENT ━━ */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 sm:space-y-6 scrollbar-hide">
 
           {/* ━━ CARD 1: GUEST IDENTITY ━━ */}
           <section className="bg-muted/30 p-4 sm:p-6 rounded-2xl border space-y-4 flex flex-col">
@@ -532,139 +536,110 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                 </Select>
               </div>
 
-
-
-              {/* ━━ PRICE CARD ━━ */}
-              <div className="p-4 sm:p-6 bg-primary text-primary-foreground rounded-2xl shadow-xl space-y-3 relative overflow-hidden">
-                <div className="absolute top-[-10px] right-[-10px] opacity-10 pointer-events-none">
-                  <CreditCard size={120} />
+              {/* ━━ PRICE CARD (Settlement UX Refined) ━━ */}
+              <div className="bg-[#143b29] text-white p-6 rounded-2xl shadow-xl space-y-4 relative overflow-hidden transition-all duration-300">
+                <div className="absolute top-[-20px] right-[-20px] opacity-10 pointer-events-none">
+                  <CreditCard size={140} />
                 </div>
 
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">
-                  <span>Base: R{totals.base}</span>
-                  <span>Retail: R{totals.extras}</span>
-                </div>
-                {/* Dynamic Balance Indicator */}
-                {(() => {
-                  const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
-                  const newTotalPrice = totals.total;
-                  const outstandingBalance = newTotalPrice - amountAlreadyPaid;
-
-                  return (
-                    <div className="flex flex-col gap-1.5 px-3 py-3 bg-black/30 rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10 shadow-inner">
-                      <div className="flex justify-between w-full opacity-70">
-                        <span>Original Paid:</span>
-                        <span>R{amountAlreadyPaid}</span>
+                {outstandingBalance > 0 ? (
+                  <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex justify-between items-center bg-black/20 p-4 rounded-xl border border-white/10">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Balance Due</span>
+                        <div className="flex flex-col text-[10px] font-bold opacity-40 mt-1">
+                          <span>Original Paid: R{amountAlreadyPaid}</span>
+                          <span>New Total: R{totals.total}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between w-full opacity-70">
-                        <span>New Total:</span>
-                        <span>R{newTotalPrice}</span>
-                      </div>
-                      <div className="flex justify-between w-full pt-1.5 mt-1 border-t border-white/10">
-                        <span className="text-yellow-400">Balance Due Now:</span>
-                        <span className="text-yellow-400">R{outstandingBalance}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xl font-bold opacity-60">R</span>
+                        <span className="text-4xl font-black tabular-nums tracking-tighter">
+                          {isManualPrice ? (
+                            <input 
+                              type="number" 
+                              value={formData.amount_due} 
+                              onChange={(e) => update("amount_due", Number(e.target.value))}
+                              className="bg-transparent border-none p-0 w-[100px] focus:ring-0 text-white"
+                            />
+                          ) : outstandingBalance}
+                        </span>
                       </div>
                     </div>
-                  );
-                })()}
 
-                <Separator className="my-4 bg-primary-foreground/20" />
-
-                {/* Manual Override Toggle */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold opacity-70 flex items-center gap-2">
-                    AMOUNT DUE
-                    {isManualPrice && (
-                      <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
-                        UNLOCKED
-                      </span>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="manual-override" className="text-[9px] font-bold opacity-60 cursor-pointer">PRICE UNLOCK </Label>
-                    <Switch
-                      id="manual-override"
-                      checked={isManualPrice}
-                      onCheckedChange={(v) => {
-                        if (!v) handleResetPrice();
-                        else setIsManualPrice(true);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black">R</span>
-                  {isManualPrice ? (
-                    <Input
-                      type="number"
-                      value={formData.amount_due ?? 0}
-                      onChange={(e) => {
-                        update("amount_due", Number(e.target.value));
-                        setIsManualPrice(true);
-                      }}
-                      className="text-white text-3xl font-black tabular-nums bg-transparent border-none p-0 h-12 focus-visible:ring-0 w-[140px] text-base md:text-sm"
-                    />
-                  ) : (
-                    <span className="text-3xl font-black tabular-nums">{formData.amount_due ?? currentTotal}</span>
-                  )}
-                  {isManualPrice && (
-                    <Button variant="ghost" size="sm" className="h-[44px] min-w-[44px] px-3 text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={handleResetPrice}>
-                      <RotateCcw size={16} />
+                    <Button 
+                      onClick={handleFinalSave} 
+                      className="w-full bg-[#b88642] hover:bg-[#a07436] text-white font-black h-16 text-sm uppercase shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      CHARGE R{formData.amount_due ?? outstandingBalance}
                     </Button>
-                  )}
-                </div>
 
-                {/* Quick Override Actions */}
-                {isManualPrice && (
-                  <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-2">
-                    <button type="button" onClick={() => handleManualPriceChange(0)} className="flex-1 min-h-[44px] rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 text-[10px] font-black uppercase border border-primary-foreground/20 transition-all active:scale-95">
-                      <Zap size={12} className="inline mr-1" />COMP (R0)
-                    </button>
-                    <button type="button" onClick={() => handleManualPriceChange(Math.max(0, (formData.amount_due ?? currentTotal) - 50))} className="flex-1 min-h-[44px] rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 text-[10px] font-black uppercase border border-primary-foreground/20 transition-all active:scale-95">
-                      -R50
-                    </button>
-                    <button type="button" onClick={() => handleManualPriceChange(Math.max(0, (formData.amount_due ?? currentTotal) - 100))} className="flex-1 min-h-[44px] rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 text-[10px] font-black uppercase border border-primary-foreground/20 transition-all active:scale-95">
-                      -R100
-                    </button>
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[9px] font-bold opacity-60 flex items-center gap-1.5">
+                        <RotateCcw size={10} /> MANUAL OVERRIDE
+                      </span>
+                      <Switch
+                        checked={isManualPrice}
+                        onCheckedChange={(v) => {
+                          if (!v) handleResetPrice();
+                          else setIsManualPrice(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 justify-center py-6 text-emerald-400 animate-in zoom-in-95 duration-500">
+                    <div className="p-4 bg-emerald-500/20 rounded-full border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                      <CheckCircle className="w-10 h-10" />
+                    </div>
+                    <span className="font-black text-xl uppercase tracking-widest">Fully Settled</span>
+                    <span className="text-[10px] opacity-60 font-bold uppercase tracking-tight">Ledger Balance: R0</span>
                   </div>
                 )}
-
-                <Button variant="secondary" size="lg" className="w-full font-black text-[12px] uppercase shadow-lg h-14 min-h-[56px] mt-2 group hover:bg-white transition-all" onClick={handleFinalSave}>
-                  Settle Balance: R{formData.amount_due ?? currentTotal}
-                </Button>
               </div>
             </div>
           </section>
         </div>
 
-        {/* ━━ STICKY FOOTER ━━ */}
-        <DialogFooter className="sticky bottom-0 z-50 bg-background/95 backdrop-blur-md border-t p-4 sm:p-6 flex flex-col gap-4 mt-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-          {isDeleting ? (
-            <div className="flex flex-col items-stretch gap-3 bg-destructive/10 p-4 rounded-xl border border-destructive/20 w-full animate-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-2 flex-col sm:flex-row flex-1 text-center sm:text-left">
-                <Info size={16} className="text-destructive font-bold mx-auto sm:mx-0" />
-                <span className="text-xs font-black text-destructive uppercase">Destroy entry natively?</span>
-              </div>
-              <div className="flex flex-col gap-2 w-full">
-                <Button variant="destructive" className="h-12 min-h-[48px] w-full text-[10px] font-black uppercase" onClick={() => onDelete(formData.id)}>Yes, Execute</Button>
-                <Button variant="ghost" className="h-12 min-h-[48px] w-full text-[10px] font-bold" onClick={() => setIsDeleting(false)}>Cancel</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 w-full">
-              {formData.id && (
-                <Button variant="ghost" className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 font-bold text-[10px] uppercase h-12 min-h-[48px] w-full" onClick={() => setIsDeleting(true)}>
-                  <Trash2 size={14} className="mr-2" /> Delete Record
-                </Button>
-              )}
-              <div className="flex flex-col gap-3 w-full">
-                <Button variant="outline" className="font-bold text-xs uppercase h-12 min-h-[48px] w-full" onClick={onClose}>Discard</Button>
-                <Button className="font-black text-xs uppercase shadow-md hover:shadow-xl transition-all h-14 min-h-[56px] w-full" onClick={handleFinalSave}>Persist Changes</Button>
-              </div>
-            </div>
-          )}
-        </DialogFooter>
+        {/* ━━ STICKY FOOTER (Horizontal Layout) ━━ */}
+        <div className="bg-background/95 backdrop-blur-md border-t p-4 sm:p-6 flex items-center justify-between z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+          {formData.id ? (
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsDeleting(!isDeleting)}
+              className={`${isDeleting ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'text-zinc-500 hover:text-destructive hover:bg-destructive/10'} text-[10px] font-black uppercase h-12 px-4 transition-all duration-300`}
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> 
+              {isDeleting ? 'Confirm Delete?' : 'Delete Record'}
+            </Button>
+          ) : <div />}
+
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              className="text-zinc-500 border-zinc-800 hover:bg-zinc-900 uppercase text-[10px] font-black h-12 px-6"
+            >
+              Discard
+            </Button>
+            {isDeleting ? (
+              <Button 
+                variant="destructive"
+                onClick={() => onDelete(formData.id)}
+                className="uppercase text-[10px] font-black h-12 px-8 animate-in slide-in-from-right-2"
+              >
+                Destroy Natively
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleFinalSave}
+                className="bg-primary hover:bg-primary/90 text-white uppercase text-[10px] font-black h-12 px-8 shadow-lg shadow-primary/20"
+              >
+                Apply Changes
+              </Button>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
