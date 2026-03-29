@@ -87,8 +87,12 @@ export default function BookingConfirmation() {
 
       if (!response.ok) throw new Error(data.error || "Payment initialization failed")
 
-      if (data.redirectUrl) {
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      } else if (data.redirectUrl) {
         window.location.href = data.redirectUrl
+        return
       } else if (data.free_booking) {
         router.push(`/booking/success?reference=${data.booking_id}`)
       }
