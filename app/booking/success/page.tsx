@@ -25,14 +25,16 @@ function BookingSuccessContent() {
           <div className="mx-auto w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mb-6">
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A]">Booking Confirmed!</h1>
+          <h1 className="text-2xl font-bold text-[#1A1A1A]">Booking Received!</h1>
           <p className="text-[#4A4A4A] leading-relaxed">
-            Your payment was successful and your bay is reserved. We&apos;ve emailed you the confirmation.
+            Your booking details have been received and your bay is reserved. We&apos;ve emailed you the initial confirmation.
           </p>
           
-          <p className="text-sm text-gray-500 italic mt-4">
-            Please note: Your booking is pending final settlement. Our staff will confirm your bay shortly.
-          </p>
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+             <p className="text-sm text-blue-700 font-medium">
+               Please note: Your booking is currently pending final bank settlement. Our staff will confirm your bay shortly.
+             </p>
+          </div>
 
           <div className="mt-8 pt-8 border-t border-gray-100 flex flex-col gap-3">
             <Link

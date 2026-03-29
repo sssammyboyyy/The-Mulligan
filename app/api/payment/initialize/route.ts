@@ -246,20 +246,19 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // YOCO PUBLIC LINK BYPASS (API BLOCKED)
+    // YOCO PUBLIC LINK BYPASS
     // ==========================================
-    // NOTE: Replace 'the-mulligan' with the venue's actual Yoco public slug if different.
-    const yocoPublicSlug = "the-mulligan"; 
+    const yocoPublicSlug = "mgan"; // The verified active slug
     
     const paymentUrl = new URL(`https://pay.yoco.com/${yocoPublicSlug}`);
     // Public links take Rands (dbTotalPrice), not cents.
     paymentUrl.searchParams.append('amount', amountToCharge.toString());
     paymentUrl.searchParams.append('reference', booking.id);
 
-    // We do NOT update the yoco_payment_id in the database because we don't have one.
+    // We do NOT update the yoco_payment_id because this bypass doesn't generate one.
     // The booking remains 'pending'. Staff will manually reconcile via the Admin HUD.
 
-    // Fire emails
+    // Fire confirmation emails
     const emailProps = {
       guest_email,
       guest_name: guest_name || "Golfer",
