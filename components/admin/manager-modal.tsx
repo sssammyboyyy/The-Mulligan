@@ -33,16 +33,17 @@ const BAY_OPTIONS = [
 /**
  * 🎛️ SEGMENTED PILL COMPONENT
  */
-function SegmentedPill({ options, value, onChange, label }: {
+function SegmentedPill({ options, value, onChange, label, className }: {
   options: { label: string; value: number }[];
   value: number;
   onChange: (v: number) => void;
   label: string;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${className}`}>
       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</Label>
-      <div className="flex flex-row gap-1.5">
+      <div className="flex flex-row flex-wrap gap-1.5">
         {options.map((opt) => (
           <button
             key={opt.value}
@@ -63,8 +64,7 @@ function SegmentedPill({ options, value, onChange, label }: {
 }
 
 /**
- * ➕➖ STEPPER COMPONENT (44px touch targets)
- * Refined Contrast: bg-zinc-800/80 + border-zinc-600
+ * ➕➖ STEPPER COMPONENT
  */
 function QuantityStepper({ value, onChange, label, unitPrice }: {
   value: number;
@@ -106,7 +106,6 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
   const [formData, setFormData] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isManualPrice, setIsManualPrice] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
 
@@ -120,7 +119,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     }
   }, [booking]);
 
-  // REACTIVE POS LEDGER — calculates the "system" total
+  // REACTIVE POS LEDGER
   const totals = useMemo(() => {
     if (!formData) return { base: 0, extras: 0, total: 0 };
 
@@ -139,7 +138,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     };
   }, [formData]);
 
-  // SYNC TOTAL — only when manual override is OFF
+  // SYNC TOTAL
   useEffect(() => {
     if (formData && !isManualPrice) {
       const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
@@ -161,86 +160,38 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  const handleManualPriceChange = (value: number) => {
-    setIsManualPrice(true);
-    update("amount_due", value);
-    update("payment_status", "pending");
-  };
-
   const handleResetPrice = () => {
     setIsManualPrice(false);
     setFormData((prev: any) => ({ ...prev, amount_due: totals.total - Number(prev.amount_paid || 0), total_price: totals.total }));
   };
 
-  const extendTime = async (hours: number) => {
-    if (formData.id && formData.slot_end) {
-      setIsExtending(true);
-      try {
-        const currentEnd = new Date(formData.slot_end);
-        const newEnd = new Date(currentEnd.getTime() + hours * 60 * 60 * 1000);
-        const pin = sessionStorage.getItem('admin-pin');
-
-        const res = await fetch('/api/bookings/admin-extend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: formData.id,
-            pin,
-            xmin: String(formData.xmin || ''),
-            new_slot_end: newEnd.toISOString(),
-            duration_hours_added: hours,
-            player_count: formData.player_count
-            // NO financial data sent; backend handles SSOT ledger
-          })
-        });
-
-        if (res.status === 409) {
-          toast.error('Conflict: Bay occupied or state changed. Refresh the ledger.');
-          return;
-        }
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || 'Extension failed');
-        }
-
-        const result = await res.json();
-        if (result.data) {
-          setFormData((prev: any) => ({ ...prev, ...result.data }));
-        }
-        toast.success(`Extended by ${hours}h`);
-        onClose();
-      } catch (err: any) {
-        toast.error(err.message || 'Extension failed');
-      } finally {
-        setIsExtending(false);
-      }
-    } else {
-      update("duration_hours", formData.duration_hours + hours);
-      update("payment_status", "pending");
-      update("payment_type", "pending");
-    }
+  const extendDuration = (hours: number) => {
+    const startMs = new Date(`1970-01-01T${formData.start_time}:00`).getTime();
+    const newEndMs = startMs + hours * 60 * 60 * 1000;
+    const newEndTime = new Date(newEndMs).toISOString().substring(11, 16);
+    
+    setFormData((prev: any) => ({
+      ...prev,
+      duration_hours: hours,
+      end_time: newEndTime,
+      payment_status: "pending"
+    }));
   };
 
   const handleFinalSave = () => {
     const submitData = { ...formData };
-    
-    // Aggressive stripping of view-only, ghost, or calculated columns
-    // We force the backend to derive these from SSOT
     delete submitData.balance_due;
     delete submitData.xmin;
     
-    // Only send amount_paid/due if it was a manual price override
     if (!isManualPrice) {
       delete submitData.amount_due;
       delete submitData.total_price;
     }
 
-    // Settlement Intent
     if (submitData.payment_status === 'paid_instore') {
       submitData.action = 'settle';
     }
 
-    // CONTEXT-AWARE SETTLEMENT FLOW
     if (submitData.payment_status === 'pending') {
       const isOnline = submitData.booking_source === 'online' || submitData.yoco_payment_id === null;
       if (isOnline && submitData.guest_email !== 'walkin@venue-os.com') {
@@ -254,8 +205,6 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
   };
 
   const isPaidOut = formData.payment_status === 'completed' || formData.payment_status === 'paid_instore';
-  const currentTotal = formData.total_price ?? totals.total;
-
   const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
   const outstandingBalance = totals.total - amountAlreadyPaid;
 
@@ -307,13 +256,11 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
               )}
             </div>
 
-            {/* Name — 16px font on mobile */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="guest_name" className="text-[10px] font-bold opacity-70">FULL NAME</Label>
               <Input id="guest_name" placeholder={isWalkIn ? "Walk-In / Guest Name" : "John Doe"} value={formData.guest_name || ""} onChange={(e) => update("guest_name", e.target.value)} className="h-12 min-h-[48px] text-base md:text-sm" />
             </div>
 
-            {/* Contact — hidden for walk-ins */}
             {!isWalkIn && (
               <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-top-1">
                 <div className="flex flex-col gap-1.5 w-full">
@@ -333,136 +280,112 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             )}
           </section>
 
-          {/* ━━ CARD 2: SESSION SETUP (Segmented Pills) ━━ */}
+          {/* ━━ CARD 2: SESSION SETUP ━━ */}
           <section className="bg-muted/30 p-4 sm:p-6 rounded-2xl border flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-primary">
-                <Calendar size={14} /> Session Setup
-              </div>
-              {formData.id && (
-                <div className="flex gap-2">
-                  <Button size="sm" className="h-[44px] min-w-[44px] text-[10px] font-black uppercase bg-primary text-white hover:bg-primary/80" onClick={() => extendTime(0.5)} disabled={isExtending}>
-                    {isExtending ? '...' : '+30m'}
-                  </Button>
-                  <Button size="sm" className="h-[44px] min-w-[44px] text-[10px] font-black uppercase bg-primary text-white hover:bg-primary/80" onClick={() => extendTime(1)} disabled={isExtending}>
-                    {isExtending ? '...' : '+1h'}
-                  </Button>
-                </div>
-              )}
+            <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-primary">
+              <Calendar size={14} /> Session Setup
             </div>
 
-            {/* Player Count — Segmented Pills */}
+            {/* Expans Player Capacity (1-6) */}
             <SegmentedPill
               label="Players"
               options={[
                 { label: '1', value: 1 },
                 { label: '2', value: 2 },
                 { label: '3', value: 3 },
-                { label: '4+', value: 4 },
+                { label: '4', value: 4 },
+                { label: '5', value: 5 },
+                { label: '6', value: 6 },
               ]}
               value={formData.player_count}
               onChange={(v) => update("player_count", v)}
             />
             <p className="text-[10px] text-muted-foreground font-medium -mt-2">Rate: R{GET_BASE_HOURLY_RATE(formData.player_count)}/hr</p>
 
-            {/* Duration — Segmented Pills */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Duration</Label>
-              <div className="flex flex-row gap-1.5">
-                {[
-                  { label: '1h', value: 1 },
-                  { label: '2h', value: 2 },
-                  { label: '3h', value: 3 },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => update("duration_hours", opt.value)}
-                    className={`flex-1 min-h-[44px] min-w-[44px] rounded-xl text-sm font-black uppercase transition-all active:scale-95 border
-                      ${formData.duration_hours === opt.value
-                        ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-[1.02]'
-                        : 'bg-zinc-900/50 text-zinc-400 border-white/10 hover:border-white/20 hover:text-zinc-200'
-                      }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-                {/* +30m addative button */}
-                <button
-                  type="button"
-                  onClick={() => update("duration_hours", formData.duration_hours + 0.5)}
-                  className="flex-1 min-h-[44px] min-w-[44px] rounded-xl text-sm font-black uppercase transition-all active:scale-95 border bg-zinc-900/50 text-zinc-400 border-white/10 hover:border-white/20 hover:text-zinc-200"
-                >
-                  +30m
-                </button>
+            {/* Unified Duration Selector */}
+            <SegmentedPill
+              label="Quick Duration"
+              options={[
+                { label: '1h', value: 1 },
+                { label: '1.5h', value: 1.5 },
+                { label: '2h', value: 2 },
+                { label: '2.5h', value: 2.5 },
+                { label: '3h', value: 3 },
+                { label: '3.5h', value: 3.5 },
+                { label: '4h', value: 4 },
+                { label: '5h', value: 5 },
+                { label: '6h', value: 6 },
+              ]}
+              value={formData.duration_hours}
+              onChange={(v) => extendDuration(v)}
+            />
+
+            {/* Time Controls with High Contrast */}
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-2 w-full">
+              <div className="flex flex-col space-y-1.5 w-full">
+                <Label htmlFor="start_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
+                  <Clock size={12} className="text-primary" /> START TIME
+                </Label>
+                <input
+                  id="start_time"
+                  type="time"
+                  value={formData.start_time || '12:00'}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    const startMs = new Date(`1970-01-01T${newStart}:00`).getTime();
+                    const endMs = startMs + formData.duration_hours * 60 * 60 * 1000;
+                    const newEndTime = new Date(endMs).toISOString().substring(11, 16);
+                    setFormData((prev: any) => ({ ...prev, start_time: newStart, end_time: newEndTime }));
+                  }}
+                  className="w-full bg-white border border-zinc-200 text-zinc-900 text-lg font-bold px-3 py-2 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none h-12"
+                />
+              </div>
+              <div className="flex flex-col space-y-1.5 w-full">
+                <Label htmlFor="end_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
+                  <Clock size={12} className="text-primary" /> END TIME (DYNAMIC)
+                </Label>
+                <input
+                  id="end_time"
+                  type="time"
+                  value={formData.end_time || ""}
+                  onChange={(e) => {
+                    const newEnd = e.target.value;
+                    const startMs = new Date(`1970-01-01T${formData.start_time}:00`).getTime();
+                    const endMs = new Date(`1970-01-01T${newEnd}:00`).getTime();
+                    const diffHrs = (endMs - startMs) / (1000 * 60 * 60);
+                    const validHrs = diffHrs > 0 ? diffHrs : 0.5;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      end_time: newEnd,
+                      duration_hours: Number(validHrs.toFixed(2)),
+                      payment_status: "pending"
+                    }));
+                  }}
+                  className="w-full bg-white border border-zinc-200 text-zinc-900 text-lg font-bold px-3 py-2 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none h-12"
+                />
               </div>
             </div>
 
-            {/* Time + Bay */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-2 w-full">
-              <div className="flex items-center gap-4 w-full">
-                <div className="flex flex-col space-y-1.5 w-full">
-                  <Label htmlFor="start_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
-                    <Clock size={12} className="text-primary" /> START TIME
-                  </Label>
-                  <Input
-                    id="start_time"
-                    type="time"
-                    value={formData.start_time || '12:00'}
-                    onChange={(e) => update("start_time", e.target.value)}
-                    className="font-mono font-bold text-lg tracking-tight h-12 min-h-[48px] text-base md:text-sm bg-zinc-900 border-zinc-700 w-full"
-                  />
-                </div>
-                {formData.end_time && (
-                  <div className="flex flex-col space-y-1.5 w-full">
-                    <Label htmlFor="end_time" className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
-                      <Clock size={12} className="text-primary" /> END TIME
-                    </Label>
-                    <Input
-                      id="end_time"
-                      type="time"
-                      value={formData.end_time}
-                      onChange={(e) => {
-                         // Parse values to calculate new duration
-                         const startMs = new Date(`1970-01-01T${formData.start_time}:00`).getTime();
-                         const endMs = new Date(`1970-01-01T${e.target.value}:00`).getTime();
-                         const diffHrs = (endMs - startMs) / (1000 * 60 * 60);
-                         
-                         const validHrs = diffHrs > 0 ? diffHrs : 0.5; // Avoid negative/zero
-                         
-                         setFormData((prev: any) => ({
-                           ...prev,
-                           end_time: e.target.value,
-                           duration_hours: validHrs,
-                           payment_status: "pending"
-                         }));
-                      }}
-                      className="font-mono font-bold text-lg tracking-tight h-12 min-h-[48px] text-base md:text-sm bg-zinc-900 border-zinc-700 w-full"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col space-y-1.5 w-full">
-                <Label className="text-[10px] font-bold flex items-center gap-1.5 opacity-70">
-                  <MapPin size={12} className="text-primary" /> BAY
-                </Label>
-                {/* Bay — Segmented Pills with color */}
-                <div className="flex flex-row gap-1.5">
-                  {BAY_OPTIONS.map((bay) => (
-                    <button
-                      key={bay.id}
-                      type="button"
-                      onClick={() => update("simulator_id", Number(bay.id))}
-                      className={`flex-1 min-h-[44px] rounded-xl text-xs font-black uppercase transition-all active:scale-95 border
-                        ${String(formData.simulator_id) === bay.id
-                          ? `${bay.activeBg} text-white ${bay.border} shadow-lg scale-[1.02]`
-                          : `${bay.bg} ${bay.color} ${bay.border} hover:opacity-80`
-                        }`}
-                    >
-                      {bay.label.split(' ')[0]}
-                    </button>
-                  ))}
-                </div>
+            {/* Bay selection */}
+            <div className="flex flex-col space-y-1.5 w-full">
+              <Label className="text-[10px] font-bold flex items-center gap-1.5 opacity-70 uppercase tracking-widest">
+                <MapPin size={12} className="text-primary" /> BAY Selection
+              </Label>
+              <div className="flex flex-row gap-1.5">
+                {BAY_OPTIONS.map((bay) => (
+                  <button
+                    key={bay.id}
+                    type="button"
+                    onClick={() => update("simulator_id", Number(bay.id))}
+                    className={`flex-1 min-h-[44px] rounded-xl text-xs font-black uppercase transition-all active:scale-95 border
+                      ${String(formData.simulator_id) === bay.id
+                        ? `${bay.activeBg} text-white ${bay.border} shadow-lg scale-[1.02]`
+                        : `${bay.bg} ${bay.color} ${bay.border} hover:opacity-80`
+                      }`}
+                  >
+                    {bay.label.split(' ')[0]}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -478,39 +401,35 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             </div>
           </section>
 
-          {/* ━━ CARD 3: SERVICES & INVENTORY (Stepper Grid) ━━ */}
+          {/* ━━ CARD 3: SERVICES & INVENTORY ━━ */}
           <section className="bg-muted/30 p-4 sm:p-6 rounded-2xl border space-y-4">
             <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest text-primary">
               <ShoppingBag size={14} /> Services & Inventory
             </div>
 
-            {/* Toggle Services */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex items-center justify-between p-4 bg-zinc-800/80 border border-zinc-600 rounded-xl w-full min-h-[60px]">
+              <div className="flex items-center justify-between p-4 bg-zinc-800/80 border border-zinc-600 rounded-xl w-full">
                 <div className="flex flex-col">
-                  <Label htmlFor="addon_club_rental" className="font-bold text-sm cursor-pointer text-zinc-100">Club Rentals</Label>
+                  <Label htmlFor="addon_club_rental" className="font-bold text-sm text-zinc-100">Clubs</Label>
                   <span className="text-[10px] text-zinc-400">R{CLUB_RENTAL_HOURLY}/hr</span>
                 </div>
                 <Switch id="addon_club_rental" checked={formData.addon_club_rental} onCheckedChange={(v) => update("addon_club_rental", v)} />
               </div>
-              <div className="flex items-center justify-between p-4 bg-zinc-800/80 border border-zinc-600 rounded-xl w-full min-h-[60px]">
+              <div className="flex items-center justify-between p-4 bg-zinc-800/80 border border-zinc-600 rounded-xl w-full">
                 <div className="flex flex-col">
-                  <Label htmlFor="addon_coaching" className="font-bold text-sm cursor-pointer text-zinc-100">Coaching</Label>
-                  <span className="text-[10px] text-zinc-400">Flat R{COACHING_FLAT_FEE}</span>
+                  <Label htmlFor="addon_coaching" className="font-bold text-sm text-zinc-100">Coach</Label>
+                  <span className="text-[10px] text-zinc-400">R{COACHING_FLAT_FEE}</span>
                 </div>
                 <Switch id="addon_coaching" checked={formData.addon_coaching} onCheckedChange={(v) => update("addon_coaching", v)} />
               </div>
             </div>
 
-            {/* Inventory Steppers */}
             <div className="grid grid-cols-2 gap-3">
               <QuantityStepper label="💧 Water" value={formData.addon_water_qty || 0} onChange={(v) => update("addon_water_qty", v)} unitPrice={formData.addon_water_price ?? 20} />
               <QuantityStepper label="🧤 Gloves" value={formData.addon_gloves_qty || 0} onChange={(v) => update("addon_gloves_qty", v)} unitPrice={formData.addon_gloves_price ?? 220} />
               <QuantityStepper label="🎾 Balls" value={formData.addon_balls_qty || 0} onChange={(v) => update("addon_balls_qty", v)} unitPrice={formData.addon_balls_price ?? 50} />
-              
-              {/* Empty placeholder to complete 2x2 grid if needed */}
               <div className="flex flex-col items-center justify-center p-3 border border-dashed border-zinc-600 rounded-xl bg-zinc-800/10 opacity-50 min-h-[100px]">
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">More Soon</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 truncate">More Stock</span>
               </div>
             </div>
           </section>
@@ -527,27 +446,25 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             </div>
 
             <div className="flex flex-col gap-4">
-              {/* Payment Method */}
               <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="payment_type" className="text-[10px] font-bold">PAYMENT METHOD</Label>
+                <Label htmlFor="payment_type" className="text-[10px] font-bold opacity-70">PAYMENT METHOD</Label>
                 <Select name="payment_type" value={formData.payment_type} onValueChange={(v) => {
                   update("payment_type", v);
                   if (v === 'cash' || v === 'card' || v === 'eft') update("payment_status", "paid_instore");
                   if (v === 'pending') update("payment_status", "pending");
                 }}>
-                  <SelectTrigger id="payment_type" className="bg-background border-2 h-12 min-h-[48px] text-base md:text-sm"><SelectValue placeholder="Select Method" /></SelectTrigger>
+                  <SelectTrigger id="payment_type" className="bg-background border-2 h-12"><SelectValue placeholder="Select Method" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="cash">Physical Cash</SelectItem>
                     <SelectItem value="card">Card Machine</SelectItem>
-                    <SelectItem value="eft">EFT / Proof of Payment</SelectItem>
+                    <SelectItem value="eft">EFT / Proof</SelectItem>
                     <SelectItem value="yoco">Yoco Online</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* ━━ PRICE CARD (Settlement UX Refined) ━━ */}
-              <div className="bg-[#143b29] text-white p-6 rounded-2xl shadow-xl space-y-4 relative overflow-hidden transition-all duration-300">
+              <div className="bg-[#143b29] text-white p-6 rounded-2xl shadow-xl space-y-4 relative overflow-hidden">
                 <div className="absolute top-[-20px] right-[-20px] opacity-10 pointer-events-none">
                   <CreditCard size={140} />
                 </div>
@@ -558,8 +475,8 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                       <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Balance Due</span>
                         <div className="flex flex-col text-[10px] font-bold opacity-40 mt-1">
-                          <span>Original Paid: R{amountAlreadyPaid}</span>
-                          <span>New Total: R{totals.total}</span>
+                          <span>Paid: R{amountAlreadyPaid}</span>
+                          <span>Total: R{totals.total}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -579,31 +496,25 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
 
                     <Button 
                       onClick={handleFinalSave} 
-                      className="w-full bg-[#b88642] hover:bg-[#a07436] text-white font-black h-16 text-sm uppercase shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      className="w-full bg-[#b88642] hover:bg-[#a07436] text-white font-black h-16 text-sm uppercase shadow-xl transition-all"
                     >
                       CHARGE R{formData.amount_due ?? outstandingBalance}
                     </Button>
 
                     <div className="flex items-center justify-between px-1">
-                      <span className="text-[9px] font-bold opacity-60 flex items-center gap-1.5">
-                        <RotateCcw size={10} /> MANUAL OVERRIDE
+                      <span className="text-[9px] font-bold opacity-60 flex items-center gap-1.5 uppercase hover:text-white cursor-help">
+                        <RotateCcw size={10} /> POS OVERRIDE
                       </span>
-                      <Switch
-                        checked={isManualPrice}
-                        onCheckedChange={(v) => {
-                          if (!v) handleResetPrice();
-                          else setIsManualPrice(true);
-                        }}
-                      />
+                      <Switch checked={isManualPrice} onCheckedChange={(v) => !v ? handleResetPrice() : setIsManualPrice(true)} />
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-3 justify-center py-6 text-emerald-400 animate-in zoom-in-95 duration-500">
-                    <div className="p-4 bg-emerald-500/20 rounded-full border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                  <div className="flex flex-col items-center gap-3 justify-center py-6 text-emerald-400 animate-in zoom-in-95">
+                    <div className="p-4 bg-emerald-500/20 rounded-full border border-emerald-500/30">
                       <CheckCircle className="w-10 h-10" />
                     </div>
-                    <span className="font-black text-xl uppercase tracking-widest">Fully Settled</span>
-                    <span className="text-[10px] opacity-60 font-bold uppercase tracking-tight">Ledger Balance: R0</span>
+                    <span className="font-black text-xl uppercase tracking-[0.2em]">Settled</span>
+                    <span className="text-[10px] opacity-60 font-bold uppercase tracking-tight italic">Balance cleared</span>
                   </div>
                 )}
               </div>
@@ -611,40 +522,29 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
           </section>
         </div>
 
-        {/* ━━ STICKY FOOTER (Horizontal Layout) ━━ */}
+        {/* ━━ STICKY FOOTER ━━ */}
         <div className="bg-background/95 backdrop-blur-md border-t p-4 sm:p-6 flex items-center justify-between z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
           {formData.id ? (
             <Button 
               variant="ghost" 
               onClick={() => setIsDeleting(!isDeleting)}
-              className={`${isDeleting ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'text-zinc-500 hover:text-destructive hover:bg-destructive/10'} text-[10px] font-black uppercase h-12 px-4 transition-all duration-300`}
+              className={`${isDeleting ? 'bg-destructive text-destructive-foreground' : 'text-zinc-500 hover:text-destructive'} text-[10px] font-black uppercase h-12 px-4 transition-all duration-300`}
             >
               <Trash2 className="w-4 h-4 mr-2" /> 
-              {isDeleting ? 'Confirm Delete?' : 'Delete Record'}
+              {isDeleting ? 'Confirm?' : 'Delete'}
             </Button>
           ) : <div />}
 
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              onClick={onClose}
-              className="text-zinc-500 border-zinc-800 hover:bg-zinc-900 uppercase text-[10px] font-black h-12 px-6"
-            >
+            <Button variant="outline" onClick={onClose} className="text-zinc-500 border-zinc-800 hover:bg-zinc-900 uppercase text-[10px] font-black h-12 px-6">
               Discard
             </Button>
             {isDeleting ? (
-              <Button 
-                variant="destructive"
-                onClick={() => onDelete(formData.id)}
-                className="uppercase text-[10px] font-black h-12 px-8 animate-in slide-in-from-right-2"
-              >
-                Destroy Natively
+              <Button variant="destructive" onClick={() => onDelete(formData.id)} className="uppercase text-[10px] font-black h-12 px-8 animate-in slide-in-from-right-2">
+                DESTROY
               </Button>
             ) : (
-              <Button 
-                onClick={handleFinalSave}
-                className="bg-primary hover:bg-primary/90 text-white uppercase text-[10px] font-black h-12 px-8 shadow-lg shadow-primary/20"
-              >
+              <Button onClick={handleFinalSave} className="bg-primary hover:bg-primary/90 text-white uppercase text-[10px] font-black h-12 px-8 shadow-lg shadow-primary/20">
                 Apply Changes
               </Button>
             )}
