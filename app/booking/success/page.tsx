@@ -18,7 +18,7 @@ export default function BookingSuccessPage() {
 
 function BookingSuccessContent() {
   const searchParams = useSearchParams();
-  const bookingId = searchParams.get('bookingId') || searchParams.get('reference');
+  const bookingId = searchParams.get('bookingId') || searchParams.get('reference') || searchParams.get('booking_id');
 
   const [status, setStatus] = useState<'verifying' | 'confirmed' | 'failed' | 'not_found'>('verifying');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
@@ -29,7 +29,32 @@ function BookingSuccessContent() {
       return;
     }
 
-    // 1. Initial Check
+    const verifyPayment = async () => {
+      try {
+        const res = await fetch('/api/payment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setStatus('confirmed');
+        } else {
+          console.error("[PAYMENT_VERIFY_FAILED]", data);
+          // Don't mark as failed immediately, let realtime handle it or show "pending"
+          // In this specific UI, we fallback to failure if verify returns non-success
+          setStatus('failed');
+          setErrorDetails(data.error || 'Verification Pending');
+        }
+      } catch (err) {
+        console.error("[PAYMENT_VERIFY_EXCEPTION]", err);
+        setStatus('failed');
+      }
+    };
+
+    // 1. Initial Local Check
     const checkInitialStatus = async () => {
       const { data, error } = await supabase
         .from('bookings')
@@ -39,23 +64,22 @@ function BookingSuccessContent() {
 
       if (error) {
         console.error('Error fetching initial booking status:', error);
-        setStatus('failed');
-        setErrorDetails('Could not fetch booking details.');
+        // If not found in DB at all, wait a bit or verify with Yoco
+        verifyPayment();
         return;
       }
 
       if (data?.status === 'confirmed') {
         setStatus('confirmed');
-      } else if (data?.status === 'cancelled' || data?.status === 'refunded' || data?.status === 'expired') {
-        setStatus('failed');
-        setErrorDetails(`Booking is currently ${data.status}`);
+      } else {
+        // If pending, trigger the synchronous verification fallback
+        verifyPayment();
       }
-      // If pending, we wait for the realtime event
     };
 
     checkInitialStatus();
 
-    // 2. Realtime Subscription (The new Event-Driven way)
+    // 2. Realtime Subscription (Redundant safety net)
     const channel = supabase
       .channel(`booking_updates_${bookingId}`)
       .on(
@@ -78,11 +102,8 @@ function BookingSuccessContent() {
           }
         }
       )
-      .subscribe((subStatus: string) => {
-        console.log(`Supabase Realtime subscription status:`, subStatus);
-      });
+      .subscribe();
 
-    // Cleanup subscription on unmount
     return () => {
       supabase.removeChannel(channel);
     };
@@ -137,7 +158,8 @@ function BookingSuccessContent() {
             </div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Verification Issue</h1>
             <p className="text-[#4A4A4A]">
-              {errorDetails || "We couldn't confirm your payment. If you've been charged, please contact support."}
+              We received your booking, but are waiting for final confirmation from the bank. 
+              If the funds were deducted, your bay is secure. Our staff has been notified.
             </p>
             <div className="mt-8 pt-8 border-t border-gray-100 flex gap-4">
               <Link
