@@ -183,7 +183,11 @@ export async function POST(request: Request) {
     }
 
     const bookingRequestId = body.booking_request_id || crypto.randomUUID()
-    const amountToCharge = (session_type?.includes("famous") && !pay_full_amount) ? Math.ceil(dbTotalPrice * 0.40) : dbTotalPrice;
+
+    // Deposit Eligibility — mirrors frontend confirm page logic
+    const isDepositEligible = session_type?.includes('ball') || session_type?.includes('famous');
+    const depositAmount = isDepositEligible ? Math.ceil(dbTotalPrice * 0.40) : dbTotalPrice;
+    const amountToCharge = (pay_full_amount || !isDepositEligible) ? dbTotalPrice : depositAmount;
     const outstandingBalance = dbTotalPrice - amountToCharge;
 
     const { data: booking, error: bookingError } = await supabaseAdmin
@@ -203,7 +207,8 @@ export async function POST(request: Request) {
         famous_course_option,
         base_price,
         total_price: dbTotalPrice,
-        amount_paid: skipYoco ? dbTotalPrice : 0,
+        amount_paid: skipYoco ? dbTotalPrice : amountToCharge,
+        amount_due: skipYoco ? 0 : outstandingBalance,
         payment_type: skipYoco ? 'bypass' : (outstandingBalance > 0 ? 'deposit' : 'full'),
         status: dbStatus,
         payment_status: dbPaymentStatus,
@@ -249,11 +254,16 @@ export async function POST(request: Request) {
     // YOCO PUBLIC LINK BYPASS
     // ==========================================
     const yocoPublicSlug = "mgan"; // The verified active slug
+
+    // Human-readable reference: "Tiger-a1b2c3" so manager can ID payment on Yoco app
+    const safeName = guest_name ? guest_name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '') : 'Guest';
+    const shortId = booking.id.substring(0, 6);
+    const yocoReference = `${safeName}-${shortId}`;
     
     const paymentUrl = new URL(`https://pay.yoco.com/${yocoPublicSlug}`);
-    // Public links take Rands (dbTotalPrice), not cents.
+    // Public links take Rands, not cents.
     paymentUrl.searchParams.append('amount', amountToCharge.toString());
-    paymentUrl.searchParams.append('reference', booking.id);
+    paymentUrl.searchParams.append('reference', yocoReference);
 
     // We do NOT update the yoco_payment_id because this bypass doesn't generate one.
     // The booking remains 'pending'. Staff will manually reconcile via the Admin HUD.
