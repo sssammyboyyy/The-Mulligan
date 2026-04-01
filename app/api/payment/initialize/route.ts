@@ -229,14 +229,35 @@ export async function POST(request: Request) {
 
     if (bookingError) throw bookingError;
 
-    // --- BYPASS EMAIL DISPATCH (100% Coupon) ---
-    if (skipYoco) {
-      Promise.allSettled([
-        sendStoreReceiptEmail(booking),
-        sendGuestConfirmationEmail(booking)
-      ]);
+    // --- SURGICAL BYPASS GUARD (100% Coupon) ---
+    if (booking.amount_due <= 0) {
+      // 1. Explicitly ensure DB state matches confirmation intent
+      const { data: bypassBooking, error: bypassError } = await supabaseAdmin
+        .from('bookings')
+        .update({ 
+          status: 'confirmed', 
+          payment_status: 'paid_online', 
+          amount_paid: dbTotalPrice, 
+          amount_due: 0 
+        })
+        .eq('id', booking.id)
+        .select()
+        .single();
 
-      return Response.json({ free_booking: true, booking_id: booking.id, assigned_bay: assignedSimulatorId })
+      if (bypassError) {
+        logEvent("bypass_update_failed", { correlationId, error: bypassError.message }, "error");
+      }
+
+      // 2. Fire confirmation emails (Non-blocking)
+      if (bypassBooking) {
+        Promise.allSettled([
+          sendGuestConfirmationEmail(bypassBooking),
+          sendStoreReceiptEmail(bypassBooking)
+        ]);
+      }
+
+      // 3. Early return to prevent Yoco API URL generation
+      return NextResponse.json({ redirectUrl: `/success?booking_id=${booking.id}` }); 
     }
 
     // 2. ENRICHED YOCO URL
