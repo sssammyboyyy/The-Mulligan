@@ -125,7 +125,7 @@ export async function sendStoreReceiptEmail(booking: any) {
 
     await resend.emails.send({
       from: 'The Mulligan Admin <admin@venue-os.com>',
-      to: 'mulligan.store@gmail.com',
+      to: 'themulligan.store@gmail.com',
       subject: `🚨 New Booking: ${bayName} @ ${booking.start_time}`,
       html: html,
     });
