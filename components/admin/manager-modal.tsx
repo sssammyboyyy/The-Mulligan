@@ -82,22 +82,20 @@ function CompactQuantityStepper({ value, onChange, label, unitPrice }: any) {
 export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any) {
   const [formData, setFormData] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isWalkIn, setIsWalkIn] = useState(false);
-  const [isManualPrice, setIsManualPrice] = useState(false);
+  const [isManualPrice, setIsManualPrice] = useState(true);
 
   useEffect(() => {
     if (booking) {
-      setFormData({ ...booking });
+      setFormData({ ...booking, amount_paid: booking.amount_paid || 0 });
       setIsDeleting(false);
-      setIsManualPrice(false); // Reset on load
-      const walkInStatus = !booking.id || booking.user_type === 'walk_in' || booking.guest_email === 'walkin@venue-os.com';
-      setIsWalkIn(walkInStatus);
+      setIsManualPrice(true);
 
-      if (walkInStatus && !booking.id && (!booking.start_time || booking.start_time === '12:00')) {
+      if (!booking.id && (!booking.start_time || booking.start_time === '12:00')) {
         const now = new Date();
         const currentStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         const defaultDuration = booking.duration_hours || 1;
-        setFormData((prev: any) => ({ ...prev, start_time: currentStr, end_time: addHoursToTime(currentStr, defaultDuration), duration_hours: defaultDuration }));
+        const initialTotal = GET_BASE_HOURLY_RATE(1) * defaultDuration;
+        setFormData((prev: any) => ({ ...prev, start_time: currentStr, end_time: addHoursToTime(currentStr, defaultDuration), duration_hours: defaultDuration, total_price: initialTotal }));
       }
     }
   }, [booking]);
@@ -113,22 +111,11 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     return { total: baseTotal + clubs + coaching + water + gloves + balls };
   }, [formData]);
 
-  // AUTO-CALC EFFECT (Suspended if isManualPrice is true)
   useEffect(() => {
     if (formData && !isManualPrice) {
-      const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
-      const outstandingBalance = Math.max(0, totals.total - amountAlreadyPaid);
-      if (formData.total_price !== totals.total || formData.amount_due !== outstandingBalance) {
-        setFormData((prev: any) => ({ ...prev, total_price: totals.total, amount_due: outstandingBalance }));
-      }
+      setFormData((prev: any) => ({ ...prev, total_price: totals.total }));
     }
-  }, [totals.total, booking?.amount_paid, isManualPrice]);
-
-  const handleResetPrice = () => {
-    setIsManualPrice(false);
-    const amountAlreadyPaid = Number(booking?.amount_paid) || 0;
-    setFormData((prev: any) => ({ ...prev, total_price: totals.total, amount_due: Math.max(0, totals.total - amountAlreadyPaid) }));
-  };
+  }, [totals.total, isManualPrice]);
 
   if (!formData) return null;
 
@@ -153,6 +140,8 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
 
   const handleFinalSave = () => {
     const submitData = { ...formData };
+    submitData.amount_due = Math.max(0, Number(submitData.total_price || 0) - Number(submitData.amount_paid || 0));
+    
     if (submitData.payment_type === 'cash' || submitData.payment_type === 'card') {
       submitData.action = 'settle';
       submitData.payment_status = 'paid_instore';
@@ -166,8 +155,7 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
     onSave(submitData);
   };
 
-  // The button displays either the manual amount_due or the calculated outstanding balance
-  const displayAmountDue = isManualPrice ? formData.amount_due : Math.max(0, totals.total - (Number(booking?.amount_paid) || 0));
+  const displayAmountDue = Math.max(0, Number(formData.total_price || 0) - Number(formData.amount_paid || 0));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -176,34 +164,21 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
         {/* HEADER */}
         <div className="bg-zinc-950 px-4 py-3 flex items-center justify-between border-b border-zinc-800">
           <DialogTitle className="flex items-center gap-2 text-lg font-black text-white uppercase tracking-wider">
-            <Flag className="text-primary w-4 h-4" /> {isWalkIn ? "WALK-IN" : formData.guest_name}
+            <Flag className="text-primary w-4 h-4" /> {formData.guest_name || "WALK-IN"}
           </DialogTitle>
-          {!formData.id && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor="walkin-toggle" className="text-[10px] font-bold text-zinc-500 uppercase">Walk-In Mode</Label>
-              <Switch id="walkin-toggle" checked={isWalkIn} onCheckedChange={(v) => {
-                setIsWalkIn(v);
-                if (v) { update('guest_email', 'walkin@venue-os.com'); update('user_type', 'walk_in'); } 
-                else { update('guest_email', ''); update('user_type', 'guest'); }
-              }} />
-            </div>
-          )}
         </div>
 
         {/* BODY */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
           
-          {/* Identity */}
-          {!isWalkIn && (
-            <div className="grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95">
-              <Input placeholder="Name" value={formData.guest_name || ""} onChange={(e) => update("guest_name", e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" />
-              <Input placeholder="Email" value={formData.guest_email || ""} onChange={(e) => update("guest_email", e.target.value)} className="bg-zinc-900 border-zinc-800 text-white" />
-            </div>
-          )}
+          {/* Identity - Always Visible */}
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="Name" value={formData.guest_name || ""} onChange={(e) => update("guest_name", e.target.value)} className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500" />
+            <Input placeholder="Phone Number" value={formData.guest_phone || ""} onChange={(e) => update("guest_phone", e.target.value)} className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500" />
+          </div>
 
           {/* Session Setup Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Left Col */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-row gap-1.5 h-[42px]">
                 {BAY_OPTIONS.map((bay) => (
@@ -226,7 +201,6 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
                 </div>
               </div>
             </div>
-            {/* Right Col */}
             <div className="flex flex-col gap-3">
                <CustomSlider min={1} max={6} value={formData.player_count} onChange={(v: number) => update("player_count", v)} label="Players" format={(v: number) => `${v}P`} />
                <CustomSlider min={0.5} max={6} step={0.5} value={formData.duration_hours} onChange={handleDurationChange} label="Duration" format={(v: number) => `${v}H`} />
@@ -251,37 +225,36 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
             </div>
           </div>
 
-          {/* MANUAL OVERRIDE COMPONENT */}
+          {/* FINANCIAL LEDGER OVERRIDE */}
           <div className="flex flex-col gap-2 bg-zinc-900/30 border border-zinc-800/80 rounded-xl p-3">
             <div className="flex items-center justify-between">
-              <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Manual Price Override</Label>
-              <Switch checked={isManualPrice} onCheckedChange={(v) => !v ? handleResetPrice() : setIsManualPrice(true)} />
+              <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Financial Ledger Override</Label>
+              <Switch checked={isManualPrice} onCheckedChange={(v) => setIsManualPrice(v)} />
             </div>
             {isManualPrice && (
               <div className="flex gap-3 animate-in fade-in slide-in-from-top-2">
                 <div className="flex-1">
-                  <Label className="text-[9px] font-bold text-zinc-500 uppercase">Total Value</Label>
+                  <Label className="text-[9px] font-bold text-zinc-500 uppercase">Total</Label>
                   <div className="relative mt-1">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 font-black">R</span>
-                    <input type="number" value={formData.total_price} onChange={(e) => update("total_price", Number(e.target.value))} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-6 pr-2 py-2 text-sm font-black text-white outline-none focus:border-primary transition-all" />
+                    <input type="number" value={formData.total_price || 0} onChange={(e) => update("total_price", Number(e.target.value))} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-6 pr-2 py-2 text-sm font-black text-white outline-none focus:border-primary transition-all" />
                   </div>
                 </div>
                 <div className="flex-1">
-                  <Label className="text-[9px] font-bold text-amber-500/80 uppercase">Amount Due</Label>
+                  <Label className="text-[9px] font-bold text-emerald-500/80 uppercase">Paid</Label>
                   <div className="relative mt-1">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500/50 font-black">R</span>
-                    <input type="number" value={formData.amount_due} onChange={(e) => update("amount_due", Number(e.target.value))} className="w-full bg-zinc-950 border border-amber-500/40 rounded-lg pl-6 pr-2 py-2 text-sm font-black text-amber-400 outline-none focus:border-amber-500 transition-all shadow-[0_0_10px_rgba(245,158,11,0.1)]" />
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-500/50 font-black">R</span>
+                    <input type="number" value={formData.amount_paid || 0} onChange={(e) => update("amount_paid", Number(e.target.value))} className="w-full bg-zinc-950 border border-emerald-500/40 rounded-lg pl-6 pr-2 py-2 text-sm font-black text-emerald-400 outline-none focus:border-emerald-500 transition-all shadow-[0_0_10px_rgba(16,185,129,0.1)]" />
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Notes & Method */}
-          <div className="grid grid-cols-2 gap-3">
-             <input placeholder="Kitchen notes..." value={formData.notes || ""} onChange={(e) => update("notes", e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-sm text-zinc-300 outline-none" />
+          {/* Payment Method */}
+          <div className="flex w-full">
              <Select value={formData.payment_type} onValueChange={(v) => update("payment_type", v)}>
-               <SelectTrigger className="bg-zinc-900 border-zinc-800 h-10 rounded-lg text-xs font-bold text-white"><SelectValue placeholder="Method" /></SelectTrigger>
+               <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 h-10 rounded-lg text-xs font-bold text-white"><SelectValue placeholder="Payment Method" /></SelectTrigger>
                <SelectContent>
                  <SelectItem value="pending">Pending</SelectItem>
                  <SelectItem value="cash">In-Store (Cash/Card)</SelectItem>
