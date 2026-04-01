@@ -1,13 +1,16 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    // Lazy load the client - will throw here if env vars are missing
-    const supabaseAdmin = getSupabaseAdmin();
+    // ELEVATED PRIVILEGES: Explicitly use Service Role Key for RLS Bypass
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const now = new Date();
     const startOfDay = new Date(now).setHours(0,0,0,0);
