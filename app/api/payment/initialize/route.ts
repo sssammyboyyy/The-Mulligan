@@ -156,15 +156,15 @@ export async function POST(request: Request) {
 
       if (couponData) {
         couponApplied = cleanCouponCode
-        if (couponData.discount_percent === 100) {
+        if (couponData.discount_percentage === 100) {
           // 100% Discount: Due becomes 0. Treat it as fully "paid" via coupon to balance the ledger.
           dbAmountDue = 0
           dbAmountPaid = dbTotalPrice 
           dbPaymentStatus = "completed"
           dbStatus = "confirmed"
           skipYoco = true
-        } else if (couponData.discount_percent > 0) {
-          const discountAmount = (Number(base_price || dbTotalPrice) * (couponData.discount_percent / 100))
+        } else if (couponData.discount_percentage > 0) {
+          const discountAmount = (Number(base_price || dbTotalPrice) * (couponData.discount_percentage / 100))
           dbAmountDue = Math.max(0, dbTotalPrice - discountAmount)
         }
       }
