@@ -40,6 +40,7 @@ export default function BookingFlow() {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
   const [serverPrice, setServerPrice] = useState<number>(0)
   const [isCalculatingPrice, setIsCalculatingPrice] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState(false)
 
   const finalPrice = Math.max(0, serverPrice - discountApplied);
 
@@ -179,13 +180,18 @@ export default function BookingFlow() {
     if (!date) return
     const fetchAvailability = async () => {
       setIsCheckingAvailability(true)
+      setAvailabilityError(false) // Reset error state on new date
+      setBookedSlots([]) // Clear stale data instantly
+
       try {
         const dateStr = format(date, "yyyy-MM-dd")
         const response = await fetch(`/api/bookings/availability?date=${dateStr}`)
+        if (!response.ok) throw new Error("API configuration or network error")
         const data = await response.json()
         setBookedSlots(data.bookedSlots || [])
       } catch (e) {
-        console.error(e)
+        console.error("Availability Error:", e)
+        setAvailabilityError(true) // Trigger lockdown
       } finally {
         setIsCheckingAvailability(false)
       }
@@ -463,6 +469,10 @@ export default function BookingFlow() {
                         {isCheckingAvailability ? (
                           <div className="h-40 flex items-center justify-center">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                          </div>
+                        ) : availabilityError ? (
+                          <div className="p-4 text-center text-red-600 bg-red-50 rounded-md animate-in fade-in">
+                            Unable to load live availability. Please refresh the page or try again in a moment.
                           </div>
                         ) : (
                           <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
