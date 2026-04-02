@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       }
 
       // 3. Early return to prevent Yoco API URL generation
-      return NextResponse.json({ redirectUrl: `/success?booking_id=${booking.id}` }); 
+      return NextResponse.json({ redirectUrl: `/booking/success?booking_id=${booking.id}` }); 
     }
 
     // 2. ENRICHED YOCO URL
