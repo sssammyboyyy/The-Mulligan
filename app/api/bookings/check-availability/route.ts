@@ -4,11 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { isClosedDay, getOperatingHours } from "@/lib/schedule-config"
 
-// Helper to match the rest of your app's logic
-function createSASTTimestamp(dateStr: string, timeStr: string): string {
-  const cleanTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
-  return `${dateStr}T${cleanTime}+02:00`;
-}
+import { createSASTTimestamp } from "@/lib/utils"
 
 function addHoursToTimestamp(timestamp: string, hours: number): string {
   const date = new Date(timestamp);

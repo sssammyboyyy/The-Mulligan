@@ -154,12 +154,14 @@ export function ManagerModal({ isOpen, onClose, booking, onSave, onDelete }: any
       setIsUpdating(true);
       const res = await fetch("/api/bookings/admin-override", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-pin": adminPin
+        },
         body: JSON.stringify({
           booking_id: formData.id,
           total_price: Number(formData.total_price),
-          amount_paid: Number(formData.amount_paid),
-          admin_pin: adminPin
+          amount_paid: Number(formData.amount_paid)
         })
       });
       if (res.ok) {

@@ -135,14 +135,22 @@ export function LiveViewTab() {
 
     // ━━ FINANCIAL OVERRIDE ROUTING ━━
     if (isEdit && formData.isManualOverride) {
-      endpoint = '/api/bookings/admin-update';
-      method = 'PATCH';
+      endpoint = '/api/bookings/admin-override';
+      method = 'POST';
     }
 
     try {
       const pin = sessionStorage.getItem('admin-pin');
-      const payload = { ...formData, pin };
-      const res = await fetch(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const payload = { ...formData };
+      
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (endpoint.includes('admin-override')) {
+        headers['x-admin-pin'] = pin;
+      } else {
+        (payload as any).pin = pin;
+      }
+
+      const res = await fetch(endpoint, { method, headers, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error("Save failed.");
       setIsModalOpen(false);
       toast.success(isEdit ? 'Booking updated.' : 'Walk-in created.');

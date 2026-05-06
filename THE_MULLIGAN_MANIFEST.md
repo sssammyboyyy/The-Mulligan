@@ -101,6 +101,10 @@ Executed at the start of every `/api/payment/initialize` call:
 | **`YOCO_500`** | Checkout | Yoco API Disturbance | Log correlation ID; trigger manual reconcile fallback. |
 | **`UTC_DRIFT`** | Logic | Time relative to UTC, not SAST | Force `+02:00` offset in [createSASTTimestamp](file:///c:/Users/samue/OneDrive/Documents/projects/TheMulligan/app/api/bookings/check-availability/route.ts#7-12) helper. |
 
+### 🛡️ Operational Guardrails
+- **Ghost Cleanup**: All 23P01 conflicts MUST trigger the `purge_ghost_bookings` RPC.
+- **PIN Enforcement**: PIN enforcement is mandatory for all Ledger mutations. Default fallback is 8821 if env is missing.
+
 > **Logic Implementation for 23P01**: When the database returns a 23P01 conflict, the API must:
 > 1. Call `purge_ghost_bookings()` via RPC.
 > 2. Wait 200ms.
@@ -139,6 +143,16 @@ export function createSASTTimestamp(date: string, time: string): string {
   return `${date}T${cleanTime}+02:00`;
 }
 ```
+
+---
+## 🚀 [ARCHITECTURAL PIVOT - 2026-05-06]: Migration from n8n to Code-Native Email
+- **Context**: The dependency on external n8n workflows for critical booking confirmations has been deprecated.
+- **Solution**: Implemented a "Code-Native Email API" using the [Resend SDK](file:///c:/Users/samue/OneDrive/Documents/projects/TheMulligan/lib/mail.ts) directly within the Next.js Edge-compatible logic.
+- **Benefits**:
+  - **Lower Latency**: Eliminated external webhook round-trips.
+  - **Atomic Reliability**: Email dispatch is now part of the [Atomic Email Guard](file:///c:/Users/samue/OneDrive/Documents/projects/TheMulligan/lib/email/dispatcher.ts) transaction pattern.
+  - **Observability**: Dispatch successes and failures are now logged directly to the `bookings` table (`email_sent` and `email_dispatch_error`).
+- **Legacy**: `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are preserved in `.env` for backward compatibility during transition but are no longer active in the primary production flow.
 
 ---
 **Definition of Done**: A feature is "operational" only if it survives a build simulation with asset hoisting and passes an idempotency test using a duplicate `booking_request_id`.
