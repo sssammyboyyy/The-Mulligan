@@ -101,6 +101,10 @@ Executed at the start of every `/api/payment/initialize` call:
 | **`YOCO_500`** | Checkout | Yoco API Disturbance | Log correlation ID; trigger manual reconcile fallback. |
 | **`UTC_DRIFT`** | Logic | Time relative to UTC, not SAST | Force `+02:00` offset in [createSASTTimestamp](file:///c:/Users/samue/OneDrive/Documents/projects/TheMulligan/app/api/bookings/check-availability/route.ts#7-12) helper. |
 
+### 🛡️ Operational Guardrails
+- **Ghost Cleanup**: All 23P01 conflicts MUST trigger the `purge_ghost_bookings` RPC.
+- **PIN Enforcement**: PIN enforcement is mandatory for all Ledger mutations. Default fallback is 8821 if env is missing.
+
 > **Logic Implementation for 23P01**: When the database returns a 23P01 conflict, the API must:
 > 1. Call `purge_ghost_bookings()` via RPC.
 > 2. Wait 200ms.

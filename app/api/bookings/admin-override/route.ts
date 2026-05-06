@@ -10,10 +10,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const pin = req.headers.get('x-admin-pin');
+    const adminPin = req.headers.get('x-admin-pin');
+    const VALID_PIN = process.env.ADMIN_PIN || '8821';
 
-    if (pin !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!adminPin || adminPin !== VALID_PIN) {
+      return NextResponse.json({ error: 'Forbidden: Valid Admin PIN required' }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
