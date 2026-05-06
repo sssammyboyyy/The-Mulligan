@@ -79,21 +79,9 @@ export async function POST(req: Request) {
     if (error) {
       // 23P01 is the PostgreSQL exclusion constraint (EXCLUDE USING gist) violation code
       if (error.code === '23P01' || error.message.includes('overlapping') || error.message.includes('conflicting key value')) {
-        console.error(`CRITICAL [23P01]: Payment collected for ${bookingId} but slot constraint failed. Marking as requires_refund.`);
-        
-        // Failover: Save the transaction asynchronously so it does not ghost
-        await supabase
-          .from('bookings')
-          .update({
-            status: 'requires_refund',
-            payment_status: 'completed',
-            amount_paid: amountPaid
-          })
-          .eq('id', bookingId);
-          
-        // NOTE: Optional admin alert hook could be triggered here via after()
-        // Webhook shouldn't fail for Yoco to keep retrying if we correctly logged it.
-        return NextResponse.json({ message: 'Payment successful but slot was taken. Marked for refund.', booking_id: bookingId }, { status: 200 });
+        console.error(`CRITICAL [23P01]: Conflict on Bay, executing Ghost Cleanup...`);
+        await supabase.rpc('purge_ghost_bookings');
+        return NextResponse.json({ error: 'Slot conflict resolved, await sync' }, { status: 409 });
       }
 
       console.error('Supabase update error:', error);

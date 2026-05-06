@@ -2,13 +2,14 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createSASTTimestamp } from '@/lib/utils';
 
 /**
  * Standardized SAST Math Engine
  * Guarantees +02:00 offsets and consistent timestamp derivation.
  */
 const calculateSASTTimestamps = (date: string, time: string, duration: number) => {
-  const slotStartStr = `${date}T${time}:00+02:00`;
+  const slotStartStr = createSASTTimestamp(date, time);
   const slotStart = new Date(slotStartStr);
   const slotEnd = new Date(slotStart.getTime() + duration * 60 * 60 * 1000);
   

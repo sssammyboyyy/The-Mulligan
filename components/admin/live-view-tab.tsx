@@ -135,8 +135,8 @@ export function LiveViewTab() {
 
     // ━━ FINANCIAL OVERRIDE ROUTING ━━
     if (isEdit && formData.isManualOverride) {
-      endpoint = '/api/bookings/admin-update';
-      method = 'PATCH';
+      endpoint = '/api/bookings/admin-override';
+      method = 'POST';
     }
 
     try {

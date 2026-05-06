@@ -4,14 +4,16 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { booking_id, total_price, amount_paid, admin_pin } = body;
+    const { booking_id, total_price, amount_paid } = body;
 
-    if (!booking_id || total_price === undefined || amount_paid === undefined || !admin_pin) {
+    if (!booking_id || total_price === undefined || amount_paid === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (admin_pin !== process.env.ADMIN_PIN) {
-      return NextResponse.json({ error: 'Invalid admin PIN' }, { status: 401 });
+    const pin = req.headers.get('x-admin-pin');
+
+    if (pin !== process.env.ADMIN_PIN) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
