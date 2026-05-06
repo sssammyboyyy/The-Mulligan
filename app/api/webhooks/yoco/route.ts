@@ -1,108 +1,153 @@
-import { NextResponse, after } from 'next/server';
-import crypto from 'crypto';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { dispatchBookingConfirmations } from '@/lib/email/dispatcher';
+
+// Enforce Edge runtime for Cloudflare compatibility
+export const runtime = 'edge';
+
+// Initialize Supabase admin client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
+
+/**
+ * Validates the Yoco webhook signature using the Web Crypto API.
+ */
+async function verifySignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const dataToSign = encoder.encode(rawBody);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    const signatureBytes = new Uint8Array(
+      signature.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
+    );
+
+    return await crypto.subtle.verify('HMAC', cryptoKey, signatureBytes, dataToSign);
+  } catch (error) {
+    console.error('Signature verification failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Native email dispatch using standard Edge-compatible fetch
+ */
+async function sendConfirmationEmail(customerEmail: string, bookingRef: string) {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'The Mulligan <bookings@themulligan.co.za>',
+        to: customerEmail,
+        subject: `Booking Confirmed - ${bookingRef}`,
+        html: `<p>Your payment was successful. Your booking reference is <strong>${bookingRef}</strong>. See you on the tee!</p>`
+      })
+    });
+
+    if (!res.ok) {
+      console.error('Failed to dispatch email:', await res.text());
+    }
+  } catch (error) {
+    console.error('Email dispatch error:', error);
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    // Extract the raw body for signature verification
-    const rawBody = await req.text();
-    const signatureHeader = req.headers.get('Webhook-Signature');
+    // 1. Extract headers & validate presence
+    const signatureHeader = req.headers.get('webhook-signature') || req.headers.get('yoco-signature');
     const webhookSecret = process.env.YOCO_WEBHOOK_SECRET;
 
-    if (!signatureHeader) {
-      return NextResponse.json({ error: 'Missing Webhook-Signature header' }, { status: 401 });
+    if (!signatureHeader || !webhookSecret) {
+      return NextResponse.json({ error: 'Unauthorized: Missing credentials' }, { status: 401 });
     }
 
-    if (!webhookSecret) {
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+    // 2. Read raw body text for cryptographic validation
+    const rawBody = await req.text();
+
+    // 3. Cryptographic Integrity Check
+    const isValid = await verifySignature(rawBody, signatureHeader, webhookSecret);
+    if (!isValid) {
+      return NextResponse.json({ error: 'Forbidden: Invalid Signature' }, { status: 403 });
     }
 
-    // Verify the HMAC-SHA256 signature
-    // Note: Adjust the digest format ('base64' or 'hex') if Yoco specifies differently in their documentation.
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawBody)
-      .digest('base64'); 
+    const payload = JSON.parse(rawBody);
+    const eventType = payload.type;
 
-    if (crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expectedSignature)) === false) {
-       // Optional fallback to check hex if base64 isn't what they send
-       const expectedSignatureHex = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-       if (signatureHeader !== expectedSignatureHex) {
-           return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-       }
+    if (eventType !== 'payment.succeeded' && eventType !== 'payment.created') {
+      return NextResponse.json({ received: true, status: 'ignored_event' }, { status: 200 });
     }
 
-    // Parse the known safe JSON payload
-    let payload;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch (e) {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    const paymentData = payload.payload;
+    const yocoPaymentId = paymentData.id;
+    const metadata = paymentData.metadata || {};
+    const bookingRequestId = metadata.booking_request_id || metadata.checkoutId;
+    const customerEmail = metadata.customer_email || 'client@example.com'; 
+
+    if (!bookingRequestId) {
+      console.error('Missing booking reference in metadata');
+      return NextResponse.json({ error: 'Bad Request: Missing metadata' }, { status: 400 });
     }
 
-    // Ensure this is the correct event type
-    if (payload.type !== 'payment.succeeded') {
-      // Yoco sends other events, we can just ignore them and return 200 to acknowledge receipt
-      return NextResponse.json({ message: 'Event ignored' }, { status: 200 });
+    // 4. The Idempotency Gate
+    const { data: existingRecord, error: fetchError } = await supabase
+      .from('bookings') // Adjust to your specific table (transactions/bookings)
+      .select('payment_status')
+      .eq('id', bookingRequestId)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Database query error:', fetchError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    const bookingId = payload.payload?.metadata?.booking_id || payload.metadata?.booking_id;
-    const amountPaid = payload.payload?.amount || payload.amount || 0;
-
-    if (!bookingId) {
-      return NextResponse.json({ error: 'Missing metadata.booking_id in payload' }, { status: 400 });
+    if (existingRecord?.payment_status === 'completed') {
+      console.log(`Idempotency hit: Booking ${bookingRequestId} already completed. Dropping request.`);
+      return NextResponse.json({ received: true, message: 'Already processed' }, { status: 200 });
     }
 
-    // Initialize Supabase admin client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Supabase credentials not configured' }, { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Perform an idempotent update
-    const { data, error } = await supabase
+    // 5. Atomic State Mutation
+    const { error: updateError } = await supabase
       .from('bookings')
-      .update({
-        status: 'confirmed',
+      .update({ 
         payment_status: 'completed',
-        amount_paid: amountPaid,
+        yoco_payment_id: yocoPaymentId,
+        amount_paid: paymentData.amount,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', bookingId)
-      .eq('payment_status', 'pending')
-      .select();
+      .eq('id', bookingRequestId);
 
-    if (error) {
-      // 23P01 is the PostgreSQL exclusion constraint (EXCLUDE USING gist) violation code
-      if (error.code === '23P01' || error.message.includes('overlapping') || error.message.includes('conflicting key value')) {
-        console.error(`CRITICAL [23P01]: Conflict on Bay, executing Ghost Cleanup...`);
-        await supabase.rpc('purge_ghost_bookings');
-        return NextResponse.json({ error: 'Slot conflict resolved, await sync' }, { status: 409 });
-      }
-
-      console.error('Supabase update error:', error);
-      return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+    if (updateError) {
+      console.error('Atomic mutation failed:', updateError);
+      return NextResponse.json({ error: 'Failed to update ledger' }, { status: 500 });
     }
 
-    if (data && data.length === 0) {
-      // It's possible the booking was already completed or genuinely deleted
-      return NextResponse.json({ message: 'Booking not found or not in pending payment state' }, { status: 200 });
-    }
+    // 6. Code-Native Dispatch (Email)
+    await sendConfirmationEmail(customerEmail, bookingRequestId);
 
-    // Unleash the state-aware background dispatcher
-    after(() => dispatchBookingConfirmations(bookingId));
-
-    return NextResponse.json({ message: 'Webhook processed successfully', booking_id: bookingId }, { status: 200 });
+    // 7. Acknowledge receipt to Yoco to stop retries
+    return NextResponse.json({ received: true, status: 'success' }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
-      { status: 500 }
-    );
+    console.error('Edge Webhook Exception:', error.message);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

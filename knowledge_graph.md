@@ -41,6 +41,18 @@
 - **Action**: Severe hard-delete of the booking record.
 - **Purpose**: Defensive measure to unblock the database exclusion constraint if a session is "stuck" or needs immediate clearing.
 
+### 4. Native Email API ([dispatcher.ts](file:///c:/Users/samue/OneDrive/Documents/projects/TheMulligan/lib/email/dispatcher.ts))
+- **Type**: Backend Utility (Node/Edge)
+- **Pattern**: Atomic Dispatcher
+- **Relations**: 
+-   Triggered by `Yoco Webhook` after payment confirmation.
+-   Directly interacts with `Resend API` via `lib/mail.ts`.
+- - **Status**: [ACTIVE] Replaces n8n automation.
+
+### 5. Automation Layer (n8n) [DEPRECATED]
+- **Status**: Deprecated in favor of Native Email API.
+- **Legacy Files**: `scripts/n8n_*.json` (Preserved for historical reference).
+
 ## 🌍 Global Constraints
 - **Timezone**: SAST (+02:00) enforced via `createSASTTimestamp`.
 - **Booking Collision Recovery**: System captures `23P01` PostgreSQL conflict codes on `insert/update` and triggers an immediate RPC `purge_ghost_bookings` backoff to resolve the double-booking stale state.

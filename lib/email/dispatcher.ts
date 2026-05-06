@@ -55,7 +55,7 @@ export async function dispatchBookingConfirmations(bookingId: string) {
       await supabase
         .from('bookings')
         .update({
-          n8n_last_error: emailError.message || 'Unknown email error'
+          n8n_response: `Error: ${emailError.message || 'Unknown email error'}`
         })
         .eq('id', bookingId);
     }
